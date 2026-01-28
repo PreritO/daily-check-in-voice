@@ -1,0 +1,80 @@
+{
+  "branchName": "feature/database-schema",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create User database model",
+      "description": "Create SQLAlchemy User model in backend/src/models/user.py with fields: id (UUID primary key), email (unique string, indexed), name (string), timezone (string, default 'UTC'), created_at (datetime with timezone, default now), updated_at (datetime with timezone, auto-update).",
+      "acceptanceCriteria": [
+        "File backend/src/models/user.py exists",
+        "User class inherits from Base",
+        "All fields have proper type hints",
+        "Email field has unique=True",
+        "Model is exported from backend/src/models/__init__.py",
+        "ruff check passes"
+      ],
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "US-002",
+      "title": "Create Call database model",
+      "description": "Create SQLAlchemy Call model in backend/src/models/call.py with fields: id (UUID), user_id (FK to User), status (enum: scheduled, in_progress, completed, failed), started_at (datetime nullable), ended_at (datetime nullable), created_at (datetime).",
+      "acceptanceCriteria": [
+        "File backend/src/models/call.py exists",
+        "Call class inherits from Base",
+        "Foreign key relationship to User model",
+        "CallStatus enum defined",
+        "Model is exported from backend/src/models/__init__.py",
+        "ruff check passes"
+      ],
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "US-003",
+      "title": "Create Transcript database model",
+      "description": "Create SQLAlchemy Transcript model in backend/src/models/transcript.py with fields: id (UUID), call_id (FK to Call), speaker (enum: agent, user), content (text), timestamp_ms (integer), created_at (datetime).",
+      "acceptanceCriteria": [
+        "File backend/src/models/transcript.py exists",
+        "Transcript class inherits from Base",
+        "Foreign key relationship to Call model",
+        "Speaker enum with 'agent' and 'user' values",
+        "Model is exported from backend/src/models/__init__.py",
+        "ruff check passes"
+      ],
+      "priority": 3,
+      "passes": false
+    },
+    {
+      "id": "US-004",
+      "title": "Create Alembic migration for initial schema",
+      "description": "Generate and verify Alembic migration that creates users, calls, and transcripts tables with proper relationships and indexes.",
+      "acceptanceCriteria": [
+        "Migration file exists in backend/alembic/versions/",
+        "Migration creates users table",
+        "Migration creates calls table with FK to users",
+        "Migration creates transcripts table with FK to calls",
+        "alembic upgrade head succeeds (with test DB)",
+        "alembic downgrade -1 succeeds"
+      ],
+      "priority": 4,
+      "passes": false
+    },
+    {
+      "id": "US-005",
+      "title": "Write unit tests for database models",
+      "description": "Create pytest tests for User, Call, and Transcript models in backend/tests/test_models.py. Test model creation, relationships, and constraints.",
+      "acceptanceCriteria": [
+        "File backend/tests/test_models.py exists",
+        "Test creating a User",
+        "Test creating a Call linked to User",
+        "Test creating Transcript entries linked to Call",
+        "Test email uniqueness constraint",
+        "pytest backend/tests/test_models.py passes"
+      ],
+      "priority": 5,
+      "passes": false
+    }
+  ]
+}

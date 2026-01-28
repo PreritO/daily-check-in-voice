@@ -54,3 +54,7 @@ CLAUDE.md
 tmp/
 temp/
 *.tmp
+
+# Ralph autonomous agent
+# Note: prd.json and progress.txt are tracked (valuable state)
+archive/
