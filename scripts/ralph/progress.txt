@@ -57,3 +57,25 @@ Started: Initial setup
   - Use order_by on relationships where ordering matters (e.g., conversation transcripts)
   - Immutable records (like transcripts) don't need updated_at field
 ---
+
+## 2026-01-28 - US-004: Create Summary database model
+- **Subagents used**:
+  - architect: Not needed - patterns well-established
+  - specialist: Implemented directly following established patterns
+  - simplifier: Not needed - code is straightforward
+  - reviewer: Approved with suggestions (added updated_at field since posted_to_slack can change)
+- **What was implemented**:
+  - Created Summary model with UUID pk, call_id FK (unique for one-to-one), text fields for yesterday/today/blockers/raw_summary
+  - Added posted_to_slack (boolean) and slack_message_id (string nullable) for Slack integration
+  - Added updated_at field since summary fields can be updated (e.g., posting to Slack)
+  - Added one-to-one relationship between Call and Summary using uselist=False
+- **Files changed**:
+  - backend/src/models/summary.py (created)
+  - backend/src/models/call.py (added summary relationship with uselist=False)
+  - backend/src/models/__init__.py (added Summary export)
+- **Verification**: ruff ✓ | pytest (no tests yet) | build (backend only)
+- **Learnings for future iterations**:
+  - Use uselist=False for one-to-one relationships
+  - Use unique=True on FK for one-to-one constraint at DB level
+  - Add updated_at to models that can be modified after creation
+---
