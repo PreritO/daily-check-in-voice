@@ -177,3 +177,80 @@ Started: Initial setup
   - Use model_dump(exclude_unset=True) for PATCH partial updates
   - IntegrityError handling for unique constraint violations
 ---
+
+## 2026-01-28 - US-009: Create Calls API endpoints
+- **Subagents used**:
+  - architect: Not needed - patterns well-established from US-008
+  - specialist: Implemented directly following users.py patterns
+  - simplifier: Not needed - code is straightforward
+  - reviewer: Found issues - missing IntegrityError handling (fixed), suggested auth and status validation (deferred to future stories)
+- **What was implemented**:
+  - Created CallReadWithDetails schema with nested TranscriptRead and SummaryRead
+  - Created calls.py API router with all 5 CRUD endpoints
+  - GET /calls with optional user_id filter and pagination
+  - GET /calls/{id} with selectinload for transcripts and summary (eager loading)
+  - POST /calls with user validation before creation
+  - PATCH /calls/{id} for partial updates using model_dump(exclude_unset=True)
+  - DELETE /calls/{id} (cascades to transcripts and summary per model)
+  - Added IntegrityError handling for consistency with users.py
+- **Files changed**:
+  - backend/src/api/routes/calls.py (created)
+  - backend/src/api/schemas.py (added CallReadWithDetails schema)
+  - backend/src/api/routes/__init__.py (registered calls router)
+- **Verification**: ruff ✓ | pytest ✓ (2 tests pass) | build (backend only)
+- **Learnings for future iterations**:
+  - Use selectinload() to eager-load relationships and avoid N+1 queries
+  - For nested response schemas, define them after the schemas they reference
+  - Auth/authorization to be added in future story (US-007 area)
+  - Status transition validation could be added when call lifecycle is better defined
+---
+
+## 2026-01-28 - US-010: Create Schedules API endpoints
+- **Subagents used**:
+  - architect: Not needed - patterns identical to calls.py and users.py
+  - specialist: Implemented directly following established patterns
+  - simplifier: Not needed - code is straightforward
+  - reviewer: Not needed - patterns well-established, straightforward CRUD
+- **What was implemented**:
+  - Created schedules.py API router with all 5 CRUD endpoints
+  - GET /schedules with optional user_id filter and pagination
+  - GET /schedules/{id} - get single schedule by UUID
+  - POST /schedules - create with user validation (404 if user not found), 201 status
+  - PATCH /schedules/{id} - partial update with model_dump(exclude_unset=True)
+  - DELETE /schedules/{id} - delete with 204 No Content
+  - Consistent error handling with IntegrityError catching
+  - Structlog logging throughout (no PII)
+- **Files changed**:
+  - backend/src/api/routes/schedules.py (created)
+  - backend/src/api/routes/__init__.py (registered schedules router)
+- **Verification**: ruff ✓ | pytest ✓ (2 tests pass) | build (backend only)
+- **Learnings for future iterations**:
+  - All CRUD routers follow same pattern: list with filter/pagination, get, create, update, delete
+  - Schedule validation (cron expression) happens in Pydantic schema, not route
+---
+
+## 2026-01-28 - US-011: Write API integration tests
+- **Subagents used**:
+  - architect: Analyzed test patterns, pytest-asyncio config, SQLite compatibility needs
+  - specialist: backend - created async test fixtures and comprehensive CRUD tests
+  - simplifier: Not needed - test code is straightforward
+  - reviewer: Approved with comments - suggested cascade delete tests and invalid UUID tests for future
+- **What was implemented**:
+  - Added aiosqlite dependency for in-memory SQLite testing
+  - Created async database fixtures with SQLite function shims for gen_random_uuid() and now()
+  - Created comprehensive CRUD tests: 15 users tests, 13 calls tests, 14 schedules tests, 2 health tests
+  - Updated test_health.py to use async client
+  - Tests cover: list/pagination, get, create, update, delete, error cases (404, 409, 422)
+- **Files changed**:
+  - backend/pyproject.toml (added aiosqlite dev dependency)
+  - backend/tests/conftest.py (async fixtures, SQLite PostgreSQL function shims)
+  - backend/tests/test_api.py (created - 44 test methods)
+  - backend/tests/test_health.py (converted to async)
+  - backend/uv.lock (updated)
+- **Verification**: ruff ✓ | pytest ✓ (46 tests pass) | build (backend only)
+- **Learnings for future iterations**:
+  - SQLite doesn't support gen_random_uuid() - use event listeners to register custom functions
+  - Test URLs need trailing slashes to match route definitions with redirect_slashes
+  - Use ASGITransport with httpx.AsyncClient for async endpoint testing
+  - Fixture factory pattern allows easy test data creation with explicit UUIDs
+---

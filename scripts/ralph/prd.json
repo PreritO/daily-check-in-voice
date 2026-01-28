@@ -135,7 +135,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 9,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-010",
@@ -149,7 +149,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 10,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-011",
@@ -163,7 +163,7 @@
         "uv run pytest tests/ -v passes all tests"
       ],
       "priority": 11,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-012",
