@@ -1,5 +1,9 @@
 """LiveKit voice agent for standup calls."""
 
-# Agent components will be imported here:
-# from .standup_agent import StandupAgent
-# from .conversation import ConversationManager
+from .standup_agent import STANDUP_SYSTEM_PROMPT, entrypoint, main
+
+__all__ = [
+    "STANDUP_SYSTEM_PROMPT",
+    "entrypoint",
+    "main",
+]
