@@ -131,6 +131,28 @@ class SummaryRead(BaseModel):
 
 
 # =============================================================================
+# Call Detail Schema (with nested data)
+# =============================================================================
+
+
+class CallReadWithDetails(BaseModel):
+    """Schema for reading call data with nested transcripts and summary."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    status: CallStatus
+    scheduled_at: datetime | None
+    started_at: datetime | None
+    ended_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    transcripts: list[TranscriptRead] = Field(default_factory=list)
+    summary: SummaryRead | None = None
+
+
+# =============================================================================
 # Schedule Schemas
 # =============================================================================
 
