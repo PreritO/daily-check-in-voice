@@ -90,7 +90,7 @@
         "uv run alembic downgrade -1 succeeds"
       ],
       "priority": 6,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-007",

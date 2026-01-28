@@ -99,3 +99,26 @@ Started: Initial setup
   - Consider composite indexes for frequent query patterns (e.g., enabled + next_run_at for scheduler)
   - Cron expression validation should happen at service/API layer, not in model
 ---
+
+## 2026-01-28 - US-006: Create Alembic migration for all models
+- **Subagents used**:
+  - architect: Not needed - migration is straightforward following model definitions
+  - specialist: Created migration manually (autogenerate requires live DB connection)
+  - simplifier: Not needed
+  - reviewer: Approved - all tables, FKs, indexes, and cascades are correct
+- **What was implemented**:
+  - Created initial migration (001_initial) with all 5 tables
+  - Tables: users, calls, transcripts, summaries, schedules
+  - All foreign keys with ondelete="CASCADE"
+  - Indexes on email (unique), user_id columns, call_id columns
+  - Proper downgrade function drops tables in reverse dependency order
+  - Used native_enum=False for enum portability
+- **Files changed**:
+  - backend/alembic/versions/001_create_initial_tables.py (created)
+  - backend/alembic/env.py (fixed ruff import ordering)
+- **Verification**: ruff ✓ | pytest (no tests yet) | alembic upgrade/downgrade (requires DB)
+- **Learnings for future iterations**:
+  - Drop tables in reverse dependency order in downgrade (child tables first)
+  - Use sa.text() for server defaults like gen_random_uuid() and now()
+  - native_enum=False avoids need to explicitly drop enum types in downgrade
+---
