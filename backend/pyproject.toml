@@ -10,6 +10,7 @@ dependencies = [
     "apscheduler>=3.11.2",
     "asyncpg>=0.31.0",
     "fastapi>=0.128.0",
+    "greenlet>=3.3.1",
     "httpx>=0.28.1",
     "livekit-agents[silero,turn-detector]~=1.3",
     "python-dotenv>=1.2.1",

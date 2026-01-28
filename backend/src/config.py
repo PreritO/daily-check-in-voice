@@ -12,7 +12,16 @@ class Settings:
     """Application settings from environment variables."""
 
     # Supabase Database
-    DATABASE_URL: str = os.getenv("SUPABASE_DB_URL", "")
+    _raw_db_url: str = os.getenv("SUPABASE_DB_URL", "")
+
+    @property
+    def DATABASE_URL(self) -> str:
+        """Get database URL, ensuring asyncpg driver is specified."""
+        url = self._raw_db_url
+        # Auto-fix common issue: add +asyncpg if missing
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
 
     # Supabase API (for direct client access)
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")

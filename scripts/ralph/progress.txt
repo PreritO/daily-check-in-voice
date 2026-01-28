@@ -1,0 +1,15 @@
+# Ralph Progress Log
+Started: Initial setup
+---
+
+## Codebase Patterns
+- SQLAlchemy models go in backend/src/models/ and must be imported in __init__.py
+- API routes go in backend/src/api/routes/ and must be registered in __init__.py
+- Use structlog for logging, never print()
+- Frontend API client is at frontend/src/lib/api/client.ts
+- Supabase client is at frontend/src/lib/supabase.ts
+- Run `uv run ruff check src/` before committing backend changes
+- Run `npm run build` before committing frontend changes
+- Database uses Supabase PostgreSQL via asyncpg
+
+---
