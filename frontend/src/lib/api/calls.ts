@@ -160,3 +160,24 @@ export function useDeleteCallMutation() {
     },
   });
 }
+
+// =============================================================================
+// Summary-related API Functions
+// =============================================================================
+
+async function postSummaryToSlack(summaryId: string): Promise<Summary> {
+  const response = await apiClient.post<Summary>(`/summaries/${summaryId}/post-to-slack`);
+  return response.data;
+}
+
+export function usePostToSlackMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: postSummaryToSlack,
+    onSuccess: (data) => {
+      // Invalidate the call detail query to refresh the summary
+      queryClient.invalidateQueries({ queryKey: callsKeys.detail(data.call_id) });
+    },
+  });
+}
