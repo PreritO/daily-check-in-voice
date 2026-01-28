@@ -92,7 +92,9 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     OUTPUT=$(cat "$SCRIPT_DIR/prompt.md" | amp --dangerously-allow-all 2>&1 | tee /dev/stderr) || true
   else
     # Claude Code: use --dangerously-skip-permissions for autonomous operation, --print for output
-    OUTPUT=$(claude --dangerously-skip-permissions --print < "$SCRIPT_DIR/ralph-prompt.md" 2>&1 | tee /dev/stderr) || true
+    # Pass prompt as argument (not stdin) since Claude Code reads prompts from args
+    PROMPT=$(cat "$SCRIPT_DIR/ralph-prompt.md")
+    OUTPUT=$(claude --dangerously-skip-permissions --print "$PROMPT" 2>&1 | tee /dev/stderr) || true
   fi
 
   # Check for completion signal
