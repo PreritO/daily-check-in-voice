@@ -122,3 +122,58 @@ Started: Initial setup
   - Use sa.text() for server defaults like gen_random_uuid() and now()
   - native_enum=False avoids need to explicitly drop enum types in downgrade
 ---
+
+## 2026-01-28 - US-007: Create Pydantic schemas for API
+- **Subagents used**:
+  - architect: Analyzed Pydantic v2 patterns, model field types, enum imports
+  - specialist: backend - created all Pydantic schemas in schemas.py
+  - simplifier: Not needed - code is well-structured
+  - reviewer: Approved with minor suggestions (cron validator could be more permissive, duplicate validator code)
+- **What was implemented**:
+  - Created Pydantic v2 schemas: UserCreate/Read/Update, CallCreate/Read/Update, TranscriptRead, SummaryRead, ScheduleCreate/Read/Update
+  - Used ConfigDict(from_attributes=True) for ORM compatibility
+  - EmailStr for email validation
+  - Field constraints matching SQLAlchemy model limits
+  - Cron expression validator (5 fields, basic format checking)
+  - Imported CallStatus and Speaker enums from src.models
+  - Added email-validator>=2.2.0 to dependencies
+- **Files changed**:
+  - backend/src/api/schemas.py (created)
+  - backend/pyproject.toml (added email-validator)
+  - backend/uv.lock (updated)
+- **Verification**: ruff ✓ | pytest (no tests yet) | build (backend only)
+- **Learnings for future iterations**:
+  - Use ConfigDict(from_attributes=True) for Pydantic v2 ORM mode (not class Config)
+  - Pydantic v2 handles UUID and datetime natively
+  - Import enums from models to keep single source of truth
+  - Consider more comprehensive cron validation with croniter library in future
+---
+
+## 2026-01-28 - US-008: Create Users API endpoints
+- **Subagents used**:
+  - architect: Analyzed existing API patterns, router registration, database session handling
+  - specialist: backend - created Users CRUD endpoints
+  - simplifier: Not needed - code is well-structured
+  - reviewer: Found security suggestions (auth needed - deferred to future story), PII logging issue (fixed)
+- **What was implemented**:
+  - Created backend/src/api/routes/users.py with all 5 CRUD endpoints
+  - GET /users - list with pagination (skip, limit params, max 1000)
+  - GET /users/{id} - get single user by UUID
+  - POST /users - create with 201 status, 409 on duplicate email
+  - PATCH /users/{id} - partial update with model_dump(exclude_unset=True)
+  - DELETE /users/{id} - delete with 204 No Content
+  - Async database operations with proper error handling
+  - Removed PII (email) from log statements for security
+  - Added B008 to ruff ignore (FastAPI Depends() pattern)
+- **Files changed**:
+  - backend/src/api/routes/users.py (created)
+  - backend/src/api/routes/__init__.py (registered users router)
+  - backend/pyproject.toml (added B008 to ruff ignore)
+- **Verification**: ruff ✓ | pytest (no tests yet) | build (backend only)
+- **Learnings for future iterations**:
+  - Use Query() with ge/le for pagination parameter validation
+  - Don't log PII (emails, phone numbers) - log user_id instead
+  - B008 rule needs to be ignored for FastAPI Depends() pattern
+  - Use model_dump(exclude_unset=True) for PATCH partial updates
+  - IntegrityError handling for unique constraint violations
+---
