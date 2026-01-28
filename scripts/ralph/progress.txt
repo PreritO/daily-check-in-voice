@@ -254,3 +254,26 @@ Started: Initial setup
   - Use ASGITransport with httpx.AsyncClient for async endpoint testing
   - Fixture factory pattern allows easy test data creation with explicit UUIDs
 ---
+
+## 2026-01-28 - US-012: Set up React Query provider in frontend
+- **Subagents used**:
+  - architect: Not needed - standard React Query setup
+  - specialist: Implemented directly (straightforward pattern)
+  - simplifier: Not needed - code is minimal
+  - reviewer: Approved with minor suggestions (devtools, gcTime - deferred)
+- **What was implemented**:
+  - Created query-client.ts with QueryClient factory and singleton pattern for browser
+  - Configured staleTime (60s), retry (3 for queries, 1 for mutations), refetchOnWindowFocus disabled
+  - Created Providers component with "use client" directive wrapping QueryClientProvider
+  - Updated layout.tsx to wrap children with Providers
+  - Updated metadata title/description
+- **Files changed**:
+  - frontend/src/lib/query-client.ts (created)
+  - frontend/src/lib/providers.tsx (created)
+  - frontend/src/app/layout.tsx (updated)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - React Query v5 in Next.js App Router requires client component for QueryClientProvider
+  - Use singleton pattern on client, new instance on server for SSR isolation
+  - Consider adding React Query Devtools in future for debugging
+---
