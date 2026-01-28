@@ -371,7 +371,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 25,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-026",

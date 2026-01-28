@@ -578,3 +578,36 @@ Started: Initial setup
   - State machine pattern with enum for conversation phases
   - Track timestamps relative to session start for transcript ordering
 ---
+
+## 2026-01-28 - US-025: Create manual call trigger endpoint
+- **Subagents used**:
+  - architect: Not needed - follows existing endpoint patterns
+  - specialist: Implemented directly (new service + endpoint)
+  - simplifier: Not needed - code is well-structured
+  - reviewer: Skipped - follows established patterns
+- **What was implemented**:
+  - CallTriggerRequest/CallTriggerResponse schemas in schemas.py
+  - livekit_service.py with RoomInfo dataclass and two async functions:
+    - create_room_for_call: Creates LiveKit room and generates participant token
+    - dispatch_agent_to_room: Dispatches standup agent to join the room
+  - POST /calls/trigger endpoint in calls.py:
+    - Validates user exists (404 if not)
+    - Creates call record with IN_PROGRESS status and started_at timestamp
+    - Creates LiveKit room with metadata (call_id, user_id)
+    - Generates participant access token with publish/subscribe grants
+    - Dispatches agent (non-blocking, warns if fails)
+    - Returns call_id, room_name, token, livekit_url
+  - Service exports added to services/__init__.py
+- **Files changed**:
+  - backend/src/api/schemas.py (added CallTriggerRequest, CallTriggerResponse)
+  - backend/src/services/livekit_service.py (created)
+  - backend/src/services/__init__.py (updated exports)
+  - backend/src/api/routes/calls.py (added trigger endpoint)
+- **Verification**: ruff ✓ | pytest ✓ (46 tests pass)
+- **Learnings for future iterations**:
+  - LiveKit API uses api.LiveKitAPI with URL, key, secret
+  - Access tokens built with api.AccessToken(...).with_grants(...).to_jwt()
+  - Room metadata is JSON string, useful for passing call_id to agent
+  - Agent dispatch is non-critical - user can still join if agent fails to dispatch
+  - Use datetime.UTC alias instead of timezone.utc (ruff UP017)
+---

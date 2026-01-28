@@ -218,3 +218,23 @@ class ScheduleUpdate(BaseModel):
             if not re.match(r"^(\*|[0-9]+|\*/[0-9]+|[0-9]+-[0-9]+|([0-9]+,)+[0-9]+)$", field):
                 raise ValueError(f"Invalid cron field format: {field}")
         return v
+
+
+# =============================================================================
+# Call Trigger Schemas
+# =============================================================================
+
+
+class CallTriggerRequest(BaseModel):
+    """Schema for triggering a manual call."""
+
+    user_id: UUID = Field(..., description="ID of the user to call")
+
+
+class CallTriggerResponse(BaseModel):
+    """Schema for call trigger response with LiveKit connection info."""
+
+    call_id: UUID = Field(..., description="ID of the created call")
+    room_name: str = Field(..., description="LiveKit room name")
+    token: str = Field(..., description="LiveKit access token for the participant")
+    livekit_url: str = Field(..., description="LiveKit server URL")

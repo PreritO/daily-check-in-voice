@@ -9,10 +9,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.api.schemas import CallCreate, CallRead, CallReadWithDetails, CallUpdate, SummaryRead
+from src.api.schemas import (
+    CallCreate,
+    CallRead,
+    CallReadWithDetails,
+    CallTriggerRequest,
+    CallTriggerResponse,
+    CallUpdate,
+    SummaryRead,
+)
 from src.database import get_db
-from src.models import Call, Summary, User
-from src.services import generate_summary
+from src.models import Call, CallStatus, Summary, User
+from src.services import create_room_for_call, dispatch_agent_to_room, generate_summary
 
 logger = structlog.get_logger()
 
@@ -308,3 +316,89 @@ async def summarize_call(
 
     logger.info("Summary generated and saved", call_id=str(call_id), summary_id=str(summary.id))
     return summary
+
+
+@router.post("/trigger", response_model=CallTriggerResponse, status_code=status.HTTP_201_CREATED)
+async def trigger_call(
+    request: CallTriggerRequest,
+    db: AsyncSession = Depends(get_db),
+) -> CallTriggerResponse:
+    """Trigger a manual call for a user.
+
+    Creates a new call record, creates a LiveKit room, and returns connection info.
+
+    Args:
+        request: Call trigger request with user_id.
+        db: Database session.
+
+    Returns:
+        Call ID and LiveKit connection details.
+
+    Raises:
+        HTTPException: 404 if user not found, 500 if LiveKit setup fails.
+    """
+    logger.info("Triggering manual call", user_id=str(request.user_id))
+
+    # Get user to verify they exist and get their name
+    result = await db.execute(select(User).where(User.id == request.user_id))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        logger.warning("User not found for call trigger", user_id=str(request.user_id))
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with id {request.user_id} not found",
+        )
+
+    # Create call record with in_progress status
+    from datetime import UTC, datetime
+
+    call = Call(
+        user_id=request.user_id,
+        status=CallStatus.IN_PROGRESS,
+        started_at=datetime.now(UTC),
+    )
+
+    db.add(call)
+    await db.flush()
+    await db.refresh(call)
+
+    logger.info("Call record created", call_id=str(call.id), user_id=str(user.id))
+
+    # Create LiveKit room and get connection info
+    try:
+        room_info = await create_room_for_call(
+            call_id=str(call.id),
+            user_id=str(user.id),
+            user_name=user.name,
+        )
+    except ValueError as e:
+        # LiveKit not configured - still return call info but without valid room
+        logger.error("LiveKit setup failed", call_id=str(call.id), error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create LiveKit room: {e}",
+        ) from e
+
+    # Dispatch agent to the room (non-blocking, agent may not be running)
+    dispatch_success = await dispatch_agent_to_room(room_info.room_name)
+    if not dispatch_success:
+        logger.warning(
+            "Agent dispatch failed, user can still join",
+            call_id=str(call.id),
+            room_name=room_info.room_name,
+        )
+
+    logger.info(
+        "Manual call triggered successfully",
+        call_id=str(call.id),
+        room_name=room_info.room_name,
+        agent_dispatched=dispatch_success,
+    )
+
+    return CallTriggerResponse(
+        call_id=call.id,
+        room_name=room_info.room_name,
+        token=room_info.token,
+        livekit_url=room_info.livekit_url,
+    )
