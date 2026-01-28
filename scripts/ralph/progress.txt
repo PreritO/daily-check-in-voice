@@ -611,3 +611,40 @@ Started: Initial setup
   - Agent dispatch is non-critical - user can still join if agent fails to dispatch
   - Use datetime.UTC alias instead of timezone.utc (ruff UP017)
 ---
+
+## 2026-01-28 - US-026: Wire up manual call button in UI
+- **Subagents used**:
+  - architect: Not needed - follows existing React Query patterns
+  - specialist: Implemented directly (mutation + UI update)
+  - simplifier: Not needed - code is straightforward
+  - reviewer: Skipped - follows established patterns
+- **What was implemented**:
+  - TriggerCallResponse interface for API response type
+  - triggerCall API function calling POST /calls/trigger
+  - useTriggerCallMutation hook with cache invalidation
+  - Updated QuickActions to accept isStartingCall and startCallError props
+  - Loading spinner animation during call trigger
+  - Disabled button state while loading
+  - Error message display below button
+  - Navigation to /calls/{call_id} on successful trigger
+  - Temporary user ID constant until auth is implemented
+- **Files changed**:
+  - frontend/src/lib/api/calls.ts (added TriggerCallResponse, triggerCall, useTriggerCallMutation)
+  - frontend/src/app/(dashboard)/page.tsx (updated QuickActions and DashboardPage)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Use mutateAsync with try/catch for error handling in async handlers
+  - Pass isPending from mutation to component for loading state
+  - Use router.push() from useRouter for navigation after mutation
+  - Remove unused imports (WEEKDAYS was not used)
+---
+
+## COMPLETE - All V0 User Stories Implemented
+All 26 user stories have been implemented:
+- US-001 to US-006: Database models and migrations
+- US-007 to US-011: API schemas and CRUD endpoints with tests
+- US-012 to US-017: Frontend dashboard, pages, and layouts
+- US-018 to US-022: Summary generation and Slack integration
+- US-023 to US-026: LiveKit agent and manual call trigger
+
+The V0 core feature set is complete.

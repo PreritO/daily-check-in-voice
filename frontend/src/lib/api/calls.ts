@@ -162,6 +162,38 @@ export function useDeleteCallMutation() {
 }
 
 // =============================================================================
+// Call Trigger API
+// =============================================================================
+
+export interface TriggerCallResponse {
+  call_id: string;
+  room_name: string;
+  token: string;
+  livekit_url: string;
+}
+
+interface TriggerCallParams {
+  user_id: string;
+}
+
+async function triggerCall(params: TriggerCallParams): Promise<TriggerCallResponse> {
+  const response = await apiClient.post<TriggerCallResponse>("/calls/trigger", params);
+  return response.data;
+}
+
+export function useTriggerCallMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: triggerCall,
+    onSuccess: () => {
+      // Invalidate calls list to show the new in-progress call
+      queryClient.invalidateQueries({ queryKey: callsKeys.lists() });
+    },
+  });
+}
+
+// =============================================================================
 // Summary-related API Functions
 // =============================================================================
 
