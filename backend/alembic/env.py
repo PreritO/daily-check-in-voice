@@ -21,10 +21,10 @@ from src.models import Base  # noqa: E402
 # this is the Alembic Config object
 config = context.config
 
-# Override sqlalchemy.url with environment variable
+# Override sqlalchemy.url with Supabase database URL
 config.set_main_option(
     "sqlalchemy.url",
-    os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/daily_checkin"),
+    os.getenv("SUPABASE_DB_URL", ""),
 )
 
 # Interpret the config file for Python logging

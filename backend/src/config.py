@@ -11,10 +11,13 @@ load_dotenv()
 class Settings:
     """Application settings from environment variables."""
 
-    # Database
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/daily_checkin"
-    )
+    # Supabase Database
+    DATABASE_URL: str = os.getenv("SUPABASE_DB_URL", "")
+
+    # Supabase API (for direct client access)
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+    SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")
+    SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
     # LiveKit
     LIVEKIT_URL: str = os.getenv("LIVEKIT_URL", "")
