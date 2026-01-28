@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base
 
 if TYPE_CHECKING:
+    from .transcript import Transcript
     from .user import User
 
 
@@ -65,6 +66,12 @@ class Call(Base):
     user: Mapped["User"] = relationship(
         "User",
         back_populates="calls",
+    )
+    transcripts: Mapped[list["Transcript"]] = relationship(
+        "Transcript",
+        back_populates="call",
+        cascade="all, delete-orphan",
+        order_by="Transcript.timestamp_ms",
     )
 
     def __repr__(self) -> str:

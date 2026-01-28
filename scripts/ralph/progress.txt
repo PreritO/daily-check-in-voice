@@ -11,5 +11,49 @@ Started: Initial setup
 - Run `uv run ruff check src/` before committing backend changes
 - Run `npm run build` before committing frontend changes
 - Database uses Supabase PostgreSQL via asyncpg
+- Use `Enum(EnumClass, native_enum=False, length=N)` for enum columns, not `String(N)`
+- Use TYPE_CHECKING guard for circular import prevention in relationship models
 
+---
+
+## 2026-01-28 - US-002: Create Call database model
+- **Subagents used**:
+  - architect: Not needed - patterns clear from US-001
+  - specialist: backend - created Call model and updated User relationship
+  - simplifier: not needed - code straightforward
+  - reviewer: Found major issue with enum type (String vs Enum), fixed
+- **What was implemented**:
+  - Created CallStatus enum with SCHEDULED, IN_PROGRESS, COMPLETED, FAILED values
+  - Created Call model with UUID pk, user_id FK (indexed), status, timestamps
+  - Added bidirectional relationship between User and Call with back_populates
+  - Used proper SQLAlchemy Enum type with native_enum=False for portability
+- **Files changed**:
+  - backend/src/models/call.py (created)
+  - backend/src/models/user.py (added calls relationship)
+  - backend/src/models/__init__.py (added Call, CallStatus exports)
+- **Verification**: ruff ✓ | pytest (no tests yet) | build (backend only)
+- **Learnings for future iterations**:
+  - Use ondelete="CASCADE" on FK and cascade="all, delete-orphan" on relationship for proper deletion
+---
+
+## 2026-01-28 - US-003: Create Transcript database model
+- **Subagents used**:
+  - architect: Not needed - patterns established from US-001/US-002
+  - specialist: Implemented directly following established patterns
+  - simplifier: Not needed - code is straightforward
+  - reviewer: Approved with minor suggestions (order_by on relationship - implemented)
+- **What was implemented**:
+  - Created Speaker enum with AGENT, USER values
+  - Created Transcript model with UUID pk, call_id FK (indexed), speaker, content (Text), timestamp_ms
+  - Added bidirectional relationship between Call and Transcript with back_populates
+  - Added order_by="Transcript.timestamp_ms" to Call.transcripts relationship for chronological ordering
+  - No updated_at field - transcripts are immutable records
+- **Files changed**:
+  - backend/src/models/transcript.py (created)
+  - backend/src/models/call.py (added transcripts relationship with ordering)
+  - backend/src/models/__init__.py (added Transcript, Speaker exports)
+- **Verification**: ruff ✓ | pytest (no tests yet) | build (backend only)
+- **Learnings for future iterations**:
+  - Use order_by on relationships where ordering matters (e.g., conversation transcripts)
+  - Immutable records (like transcripts) don't need updated_at field
 ---

@@ -14,7 +14,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-002",
@@ -30,7 +30,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-003",
@@ -45,7 +45,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-004",

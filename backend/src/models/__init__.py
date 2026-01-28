@@ -2,10 +2,7 @@
 
 from .base import Base
 from .call import Call, CallStatus
+from .transcript import Speaker, Transcript
 from .user import User
 
-# Models will be imported here as they are created:
-# from .transcript import Transcript
-# from .summary import Summary
-
-__all__ = ["Base", "Call", "CallStatus", "User"]
+__all__ = ["Base", "Call", "CallStatus", "Speaker", "Transcript", "User"]
