@@ -1,17 +1,17 @@
 """Tests for health check endpoints."""
 
-from fastapi.testclient import TestClient
+from httpx import AsyncClient
 
 
-def test_health_check(client: TestClient) -> None:
+async def test_health_check(client: AsyncClient) -> None:
     """Test health check endpoint returns healthy status."""
-    response = client.get("/api/health")
+    response = await client.get("/api/health")
     assert response.status_code == 200
     assert response.json() == {"status": "healthy"}
 
 
-def test_readiness_check(client: TestClient) -> None:
+async def test_readiness_check(client: AsyncClient) -> None:
     """Test readiness check endpoint returns ready status."""
-    response = client.get("/api/ready")
+    response = await client.get("/api/ready")
     assert response.status_code == 200
     assert response.json() == {"status": "ready"}

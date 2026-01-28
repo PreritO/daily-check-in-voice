@@ -58,3 +58,4 @@ temp/
 # Ralph autonomous agent
 # Note: prd.json and progress.txt are tracked (valuable state)
 archive/
+scripts/*

@@ -1,0 +1,391 @@
+{
+  "branchName": "feature/v0-core",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create User database model",
+      "description": "Create SQLAlchemy User model in backend/src/models/user.py with fields: id (UUID primary key), email (unique string, indexed), name (string), timezone (string, default 'UTC'), phone_number (string, nullable), created_at (datetime with timezone), updated_at (datetime with timezone, auto-update on change).",
+      "acceptanceCriteria": [
+        "File backend/src/models/user.py exists",
+        "User class inherits from Base",
+        "All fields have proper Python type hints",
+        "Email field has unique=True and index=True",
+        "Model is imported and exported in backend/src/models/__init__.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 1,
+      "passes": true
+    },
+    {
+      "id": "US-002",
+      "title": "Create Call database model",
+      "description": "Create SQLAlchemy Call model in backend/src/models/call.py with fields: id (UUID), user_id (FK to User, indexed), status (Enum: scheduled, in_progress, completed, failed), scheduled_at (datetime nullable), started_at (datetime nullable), ended_at (datetime nullable), created_at (datetime), updated_at (datetime). Include relationship to User.",
+      "acceptanceCriteria": [
+        "File backend/src/models/call.py exists",
+        "Call class inherits from Base",
+        "CallStatus enum defined with all status values",
+        "Foreign key relationship to User model",
+        "Relationship back_populates configured on both models",
+        "Model exported in backend/src/models/__init__.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 2,
+      "passes": true
+    },
+    {
+      "id": "US-003",
+      "title": "Create Transcript database model",
+      "description": "Create SQLAlchemy Transcript model in backend/src/models/transcript.py with fields: id (UUID), call_id (FK to Call, indexed), speaker (Enum: agent, user), content (Text), timestamp_ms (Integer - milliseconds from call start), created_at (datetime). Include relationship to Call.",
+      "acceptanceCriteria": [
+        "File backend/src/models/transcript.py exists",
+        "Transcript class inherits from Base",
+        "Speaker enum defined with 'agent' and 'user' values",
+        "Foreign key relationship to Call model",
+        "Model exported in backend/src/models/__init__.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 3,
+      "passes": true
+    },
+    {
+      "id": "US-004",
+      "title": "Create Summary database model",
+      "description": "Create SQLAlchemy Summary model in backend/src/models/summary.py with fields: id (UUID), call_id (FK to Call, unique - one summary per call), yesterday (Text - what was done yesterday), today (Text - plans for today), blockers (Text nullable - any blockers), raw_summary (Text - full AI-generated summary), posted_to_slack (boolean default false), slack_message_id (string nullable), created_at (datetime).",
+      "acceptanceCriteria": [
+        "File backend/src/models/summary.py exists",
+        "Summary class inherits from Base",
+        "Foreign key to Call with unique constraint (one summary per call)",
+        "All text fields properly typed",
+        "Model exported in backend/src/models/__init__.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 4,
+      "passes": true
+    },
+    {
+      "id": "US-005",
+      "title": "Create Schedule database model",
+      "description": "Create SQLAlchemy Schedule model in backend/src/models/schedule.py with fields: id (UUID), user_id (FK to User), enabled (boolean default true), cron_expression (string - e.g. '0 9 * * 1-5' for weekdays 9am), next_run_at (datetime nullable), created_at (datetime), updated_at (datetime).",
+      "acceptanceCriteria": [
+        "File backend/src/models/schedule.py exists",
+        "Schedule class inherits from Base",
+        "Foreign key relationship to User",
+        "cron_expression field for flexible scheduling",
+        "Model exported in backend/src/models/__init__.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 5,
+      "passes": true
+    },
+    {
+      "id": "US-006",
+      "title": "Create Alembic migration for all models",
+      "description": "Generate Alembic migration that creates all tables (users, calls, transcripts, summaries, schedules) with proper relationships, indexes, and constraints. The migration should be reversible.",
+      "acceptanceCriteria": [
+        "Migration file exists in backend/alembic/versions/",
+        "Migration creates all 5 tables",
+        "Foreign keys are properly defined",
+        "Indexes created on user_id columns and email",
+        "uv run alembic upgrade head succeeds (test with Supabase)",
+        "uv run alembic downgrade -1 succeeds"
+      ],
+      "priority": 6,
+      "passes": true
+    },
+    {
+      "id": "US-007",
+      "title": "Create Pydantic schemas for API",
+      "description": "Create Pydantic schemas in backend/src/api/schemas.py for all models: UserCreate, UserRead, UserUpdate, CallCreate, CallRead, CallUpdate, TranscriptRead, SummaryRead, ScheduleCreate, ScheduleRead, ScheduleUpdate. Use proper typing and field validation.",
+      "acceptanceCriteria": [
+        "File backend/src/api/schemas.py exists",
+        "All Create/Read/Update schemas defined",
+        "UUID fields use proper Pydantic UUID type",
+        "Datetime fields properly typed",
+        "Enums properly referenced",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 7,
+      "passes": true
+    },
+    {
+      "id": "US-008",
+      "title": "Create Users API endpoints",
+      "description": "Create CRUD endpoints for users in backend/src/api/routes/users.py: GET /users (list), GET /users/{id} (get one), POST /users (create), PATCH /users/{id} (update), DELETE /users/{id} (delete). Use async SQLAlchemy sessions and return proper Pydantic schemas.",
+      "acceptanceCriteria": [
+        "File backend/src/api/routes/users.py exists",
+        "All 5 CRUD endpoints implemented",
+        "Proper HTTP status codes (200, 201, 404, etc)",
+        "Async database operations",
+        "Router registered in backend/src/api/routes/__init__.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 8,
+      "passes": true
+    },
+    {
+      "id": "US-009",
+      "title": "Create Calls API endpoints",
+      "description": "Create CRUD endpoints for calls in backend/src/api/routes/calls.py: GET /calls (list, with user_id filter), GET /calls/{id} (get one with transcripts and summary), POST /calls (create), PATCH /calls/{id} (update status), DELETE /calls/{id}. Include nested transcript and summary data in responses.",
+      "acceptanceCriteria": [
+        "File backend/src/api/routes/calls.py exists",
+        "All CRUD endpoints implemented",
+        "GET /calls supports ?user_id= query param",
+        "GET /calls/{id} includes transcripts and summary",
+        "Router registered in backend/src/api/routes/__init__.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 9,
+      "passes": true
+    },
+    {
+      "id": "US-010",
+      "title": "Create Schedules API endpoints",
+      "description": "Create CRUD endpoints for schedules in backend/src/api/routes/schedules.py: GET /schedules (list, with user_id filter), GET /schedules/{id}, POST /schedules (create), PATCH /schedules/{id} (update), DELETE /schedules/{id}.",
+      "acceptanceCriteria": [
+        "File backend/src/api/routes/schedules.py exists",
+        "All CRUD endpoints implemented",
+        "GET /schedules supports ?user_id= query param",
+        "Router registered in backend/src/api/routes/__init__.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 10,
+      "passes": true
+    },
+    {
+      "id": "US-011",
+      "title": "Write API integration tests",
+      "description": "Create integration tests in backend/tests/test_api.py that test the users, calls, and schedules endpoints. Use pytest-asyncio and create fixtures for test database setup. Tests should create, read, update, and delete records.",
+      "acceptanceCriteria": [
+        "File backend/tests/test_api.py exists",
+        "Tests for users CRUD operations",
+        "Tests for calls CRUD operations",
+        "Tests for schedules CRUD operations",
+        "uv run pytest tests/ -v passes all tests"
+      ],
+      "priority": 11,
+      "passes": true
+    },
+    {
+      "id": "US-012",
+      "title": "Set up React Query provider in frontend",
+      "description": "Configure TanStack React Query in the frontend. Create a QueryClientProvider wrapper in frontend/src/lib/query-client.ts and wrap the app in frontend/src/app/layout.tsx. Configure default options for stale time and retry behavior.",
+      "acceptanceCriteria": [
+        "File frontend/src/lib/query-client.ts exists with QueryClient config",
+        "QueryClientProvider wraps the app in layout.tsx",
+        "Default staleTime and retry options configured",
+        "npm run build passes"
+      ],
+      "priority": 12,
+      "passes": true
+    },
+    {
+      "id": "US-013",
+      "title": "Create dashboard layout shell",
+      "description": "Create a dashboard layout in frontend/src/app/(dashboard)/layout.tsx with a sidebar navigation (Home, Call History, Schedule, Settings) and main content area. Use Tailwind CSS for styling. The sidebar should be responsive (collapsible on mobile).",
+      "acceptanceCriteria": [
+        "File frontend/src/app/(dashboard)/layout.tsx exists",
+        "Sidebar with navigation links",
+        "Main content area",
+        "Responsive design (mobile-friendly)",
+        "npm run build passes"
+      ],
+      "priority": 13,
+      "passes": true
+    },
+    {
+      "id": "US-014",
+      "title": "Create call history page",
+      "description": "Create the call history page at frontend/src/app/(dashboard)/calls/page.tsx. Display a list of calls with status, date, and duration. Include empty state when no calls exist. Create API hooks in frontend/src/lib/api/calls.ts using React Query.",
+      "acceptanceCriteria": [
+        "File frontend/src/app/(dashboard)/calls/page.tsx exists",
+        "File frontend/src/lib/api/calls.ts exists with useCallsQuery hook",
+        "Call list displays status, date, duration",
+        "Empty state shown when no calls",
+        "Loading state while fetching",
+        "npm run build passes"
+      ],
+      "priority": 14,
+      "passes": true
+    },
+    {
+      "id": "US-015",
+      "title": "Create call detail page",
+      "description": "Create call detail page at frontend/src/app/(dashboard)/calls/[id]/page.tsx. Show call info, transcript (if available), and summary (if available). Use React Query to fetch call with nested data.",
+      "acceptanceCriteria": [
+        "File frontend/src/app/(dashboard)/calls/[id]/page.tsx exists",
+        "Displays call status and timing info",
+        "Shows transcript entries in conversation format",
+        "Shows summary if available",
+        "Loading and error states handled",
+        "npm run build passes"
+      ],
+      "priority": 15,
+      "passes": true
+    },
+    {
+      "id": "US-016",
+      "title": "Create schedule management page",
+      "description": "Create schedule page at frontend/src/app/(dashboard)/schedule/page.tsx. Allow users to view and edit their call schedule. Include a form to set schedule time and days of week. Create API hooks in frontend/src/lib/api/schedules.ts.",
+      "acceptanceCriteria": [
+        "File frontend/src/app/(dashboard)/schedule/page.tsx exists",
+        "File frontend/src/lib/api/schedules.ts exists",
+        "Form to set schedule time",
+        "Toggle for enabling/disabling schedule",
+        "Day of week selection",
+        "npm run build passes"
+      ],
+      "priority": 16,
+      "passes": true
+    },
+    {
+      "id": "US-017",
+      "title": "Create home dashboard page",
+      "description": "Create the home/dashboard page at frontend/src/app/(dashboard)/page.tsx. Show a summary: next scheduled call, recent calls count, quick actions (trigger manual call button placeholder). Redirect from root / to this dashboard.",
+      "acceptanceCriteria": [
+        "File frontend/src/app/(dashboard)/page.tsx exists",
+        "Shows next scheduled call time",
+        "Shows recent calls summary",
+        "Manual call trigger button (placeholder action)",
+        "Root page redirects to dashboard",
+        "npm run build passes"
+      ],
+      "priority": 17,
+      "passes": true
+    },
+    {
+      "id": "US-018",
+      "title": "Create summary generation service",
+      "description": "Create backend/src/services/summary_service.py that uses Anthropic Claude API to generate structured summaries from call transcripts. Extract: yesterday's work, today's plans, blockers. Use structlog for logging.",
+      "acceptanceCriteria": [
+        "File backend/src/services/summary_service.py exists",
+        "Function generate_summary(transcripts: list[Transcript]) -> Summary",
+        "Uses Anthropic Python SDK",
+        "Extracts yesterday/today/blockers from transcript",
+        "Proper error handling and logging",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 18,
+      "passes": true
+    },
+    {
+      "id": "US-019",
+      "title": "Create summary API endpoint",
+      "description": "Create endpoint POST /calls/{id}/summarize in backend/src/api/routes/calls.py that generates a summary for a completed call. The endpoint should get transcripts, call summary service, save summary to DB, and return it.",
+      "acceptanceCriteria": [
+        "POST /calls/{id}/summarize endpoint exists",
+        "Returns 400 if call has no transcripts",
+        "Returns 409 if summary already exists",
+        "Saves generated summary to database",
+        "Returns the created summary",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 19,
+      "passes": true
+    },
+    {
+      "id": "US-020",
+      "title": "Create Slack integration service",
+      "description": "Create backend/src/services/slack_service.py that posts standup summaries to Slack. Use httpx for API calls (not the slack_sdk to keep deps light). Support posting formatted messages with yesterday/today/blockers sections.",
+      "acceptanceCriteria": [
+        "File backend/src/services/slack_service.py exists",
+        "Function post_summary(summary: Summary, user: User) -> str (returns message_id)",
+        "Uses httpx to call Slack API",
+        "Formats message with sections for each standup part",
+        "Handles Slack API errors gracefully",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 20,
+      "passes": true
+    },
+    {
+      "id": "US-021",
+      "title": "Create Slack posting endpoint",
+      "description": "Create endpoint POST /summaries/{id}/post-to-slack in a new backend/src/api/routes/summaries.py. This posts an existing summary to Slack and updates the summary record with posted_to_slack=True and slack_message_id.",
+      "acceptanceCriteria": [
+        "File backend/src/api/routes/summaries.py exists",
+        "POST /summaries/{id}/post-to-slack endpoint",
+        "Returns 404 if summary not found",
+        "Returns 400 if already posted (optional: allow repost)",
+        "Updates summary record after posting",
+        "Router registered in __init__.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 21,
+      "passes": true
+    },
+    {
+      "id": "US-022",
+      "title": "Add Slack posting UI to call detail",
+      "description": "Update frontend/src/app/(dashboard)/calls/[id]/page.tsx to add a 'Post to Slack' button on summaries that haven't been posted. Show success/error feedback. Disable button and show posted status if already posted.",
+      "acceptanceCriteria": [
+        "Post to Slack button on summary section",
+        "Button disabled if already posted",
+        "Shows 'Posted to Slack' badge if posted",
+        "Loading state while posting",
+        "Error handling with user feedback",
+        "npm run build passes"
+      ],
+      "priority": 22,
+      "passes": true
+    },
+    {
+      "id": "US-023",
+      "title": "Create LiveKit agent skeleton",
+      "description": "Create backend/src/agent/standup_agent.py with a basic LiveKit VoicePipelineAgent setup. Import necessary LiveKit components, set up the agent class, but use placeholder/mock STT and TTS for now. The agent should be runnable with 'livekit-agents start'.",
+      "acceptanceCriteria": [
+        "File backend/src/agent/standup_agent.py exists",
+        "VoicePipelineAgent class created",
+        "Agent can be started (even if just with mocks)",
+        "Basic conversation prompts defined",
+        "Exported from backend/src/agent/__init__.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 23,
+      "passes": true
+    },
+    {
+      "id": "US-024",
+      "title": "Implement standup conversation flow",
+      "description": "Update backend/src/agent/standup_agent.py to implement the full standup conversation flow: greet user, ask about yesterday, ask about today, ask about blockers, thank and end. Store conversation state and transcript entries.",
+      "acceptanceCriteria": [
+        "Agent greets user by name",
+        "Asks 'What did you accomplish yesterday?'",
+        "Asks 'What are you planning to work on today?'",
+        "Asks 'Any blockers or things you need help with?'",
+        "Thanks user and ends call",
+        "Conversation state tracked",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 24,
+      "passes": true
+    },
+    {
+      "id": "US-025",
+      "title": "Create manual call trigger endpoint",
+      "description": "Create endpoint POST /calls/trigger in backend/src/api/routes/calls.py that creates a new call record, starts the LiveKit agent (or prepares the room), and returns the call ID and connection info. This is for testing the voice agent.",
+      "acceptanceCriteria": [
+        "POST /calls/trigger endpoint exists",
+        "Creates call record with status 'in_progress'",
+        "Creates or returns LiveKit room info",
+        "Returns call_id and connection details",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 25,
+      "passes": true
+    },
+    {
+      "id": "US-026",
+      "title": "Wire up manual call button in UI",
+      "description": "Update the dashboard home page to make the 'Start Call' button functional. When clicked, it should call POST /calls/trigger and then navigate to a call-in-progress page or show connection info.",
+      "acceptanceCriteria": [
+        "Start Call button calls /calls/trigger",
+        "Shows loading state while triggering",
+        "Navigates to call page or shows room info on success",
+        "Error handling with user feedback",
+        "npm run build passes"
+      ],
+      "priority": 26,
+      "passes": true
+    }
+  ]
+}
