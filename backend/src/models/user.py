@@ -11,6 +11,7 @@ from .base import Base
 
 if TYPE_CHECKING:
     from .call import Call
+    from .schedule import Schedule
 
 
 class User(Base):
@@ -54,6 +55,11 @@ class User(Base):
     # Relationships
     calls: Mapped[list["Call"]] = relationship(
         "Call",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    schedules: Mapped[list["Schedule"]] = relationship(
+        "Schedule",
         back_populates="user",
         cascade="all, delete-orphan",
     )

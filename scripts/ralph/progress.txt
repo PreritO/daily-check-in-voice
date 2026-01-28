@@ -79,3 +79,23 @@ Started: Initial setup
   - Use unique=True on FK for one-to-one constraint at DB level
   - Add updated_at to models that can be modified after creation
 ---
+
+## 2026-01-28 - US-005: Create Schedule database model
+- **Subagents used**:
+  - architect: Not needed - patterns well-established
+  - specialist: Implemented directly following established patterns
+  - simplifier: Not needed - code is straightforward
+  - reviewer: Approved with suggestions (composite index for scheduler queries - future enhancement)
+- **What was implemented**:
+  - Created Schedule model with UUID pk, user_id FK (indexed), enabled (boolean), cron_expression, next_run_at
+  - Added bidirectional relationship between User and Schedule with back_populates and cascade
+  - Users can have multiple schedules (one-to-many relationship)
+- **Files changed**:
+  - backend/src/models/schedule.py (created)
+  - backend/src/models/user.py (added schedules relationship)
+  - backend/src/models/__init__.py (added Schedule export, reformatted __all__ for readability)
+- **Verification**: ruff ✓ | pytest (no tests yet) | build (backend only)
+- **Learnings for future iterations**:
+  - Consider composite indexes for frequent query patterns (e.g., enabled + next_run_at for scheduler)
+  - Cron expression validation should happen at service/API layer, not in model
+---
