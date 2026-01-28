@@ -1,12 +1,16 @@
 """User database model."""
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .call import Call
 
 
 class User(Base):
@@ -45,6 +49,13 @@ class User(Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+    )
+
+    # Relationships
+    calls: Mapped[list["Call"]] = relationship(
+        "Call",
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:
