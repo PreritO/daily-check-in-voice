@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.uv/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+.next/
+out/
+
+# Test/coverage
+.coverage
+htmlcov/
+.pytest_cache/
+coverage/
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+
+# Secrets (never commit these)
+*.pem
+*.key
+credentials.json
+service-account.json
+
+# Claude local settings (keep settings.json, ignore local)
+.claude/*
+CLAUDE.md
+
+# Temporary files
+tmp/
+temp/
+*.tmp
