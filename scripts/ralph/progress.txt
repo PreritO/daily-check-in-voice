@@ -277,3 +277,304 @@ Started: Initial setup
   - Use singleton pattern on client, new instance on server for SSR isolation
   - Consider adding React Query Devtools in future for debugging
 ---
+
+## 2026-01-28 - US-013: Create dashboard layout shell
+- **Subagents used**:
+  - architect: Not needed - standard dashboard layout pattern
+  - specialist: Implemented directly (straightforward pattern)
+  - simplifier: Not needed - code is well-structured
+  - reviewer: Found accessibility issues - fixed (aria-labels, aria-current, aria-hidden)
+- **What was implemented**:
+  - Created (dashboard) route group with layout.tsx
+  - Responsive sidebar with mobile toggle and backdrop
+  - Navigation links: Home (/), Call History (/calls), Schedule (/schedule), Settings (/settings)
+  - NavLink component with isActive state and aria-current
+  - Mobile header with hamburger menu
+  - All decorative SVGs have aria-hidden="true"
+  - Removed default page.tsx, created dashboard page.tsx
+- **Files changed**:
+  - frontend/src/app/(dashboard)/layout.tsx (created)
+  - frontend/src/app/(dashboard)/page.tsx (created)
+  - frontend/src/app/page.tsx (deleted)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Route groups like (dashboard) don't add URL segments but share layouts
+  - Use aria-current="page" for active navigation links
+  - Add aria-hidden="true" to decorative SVG icons
+  - Add aria-label to buttons that only contain icons
+---
+
+## 2026-01-28 - US-014: Create call history page
+- **Subagents used**:
+  - architect: Not needed - standard React Query patterns
+  - specialist: Implemented directly (straightforward pattern)
+  - simplifier: Not needed - code is well-structured
+  - reviewer: Approved with comments (missing detail page addressed in US-015)
+- **What was implemented**:
+  - Created TypeScript types for Call, Transcript, Summary, CallWithDetails
+  - Created API functions for getCalls, getCall, createCall, updateCall, deleteCall
+  - Implemented query key factory pattern (callsKeys) for cache management
+  - Created useCallsQuery, useCallQuery, and mutation hooks
+  - Built call history page with status badges, date formatting, duration display
+  - Added loading skeleton, empty state, and error state components
+  - Used date-fns for date formatting
+- **Files changed**:
+  - frontend/src/lib/api/calls.ts (created)
+  - frontend/src/app/(dashboard)/calls/page.tsx (created)
+  - frontend/src/lib/api/index.ts (updated exports)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Use query key factory pattern for React Query cache management
+  - Separate API functions from hooks for testability
+  - Include loading, error, and empty states for all data-fetching components
+  - date-fns is already installed for date formatting
+---
+
+## 2026-01-28 - US-015: Create call detail page
+- **Subagents used**:
+  - architect: Not needed - patterns established in US-014
+  - specialist: Implemented directly (extends calls API patterns)
+  - simplifier: Not needed - code is well-structured
+  - reviewer: Skipped - straightforward extension of existing patterns
+- **What was implemented**:
+  - Call detail page at /calls/[id] with dynamic routing
+  - Call info card with status badge, scheduled/started/ended times, duration
+  - Transcript section with conversation-style layout (agent left, user right)
+  - Summary section with yesterday/today/blockers fields
+  - "Posted to Slack" badge indicator
+  - Loading skeleton matching content structure
+  - Error state with back navigation
+  - Reuses useCallQuery hook from calls.ts
+- **Files changed**:
+  - frontend/src/app/(dashboard)/calls/[id]/page.tsx (created)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Next.js App Router dynamic routes use [param] folder naming
+  - useParams() hook returns params as strings (cast with `as string`)
+  - Conversation-style layouts use flex-row/flex-row-reverse for direction
+---
+
+## 2026-01-28 - US-016: Create schedule management page
+- **Subagents used**:
+  - architect: Not needed - patterns established
+  - specialist: Implemented directly (form handling patterns)
+  - simplifier: Not needed - code is well-structured
+  - reviewer: Skipped - straightforward pattern
+- **What was implemented**:
+  - Schedules API hooks with query key factory pattern
+  - Cron expression helpers (parse, build, formatTime)
+  - Schedule form with time picker (hour, minute, AM/PM)
+  - Day of week toggle buttons (Mon-Sun)
+  - Enable/disable toggle switch with proper ARIA
+  - Schedule cards with edit/delete actions
+  - Create, edit, delete flows with confirmation
+  - Loading and empty states
+  - Temporary user ID placeholder until auth is implemented
+- **Files changed**:
+  - frontend/src/lib/api/schedules.ts (created)
+  - frontend/src/app/(dashboard)/schedule/page.tsx (created)
+  - frontend/src/lib/api/index.ts (updated exports)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Cron expression format: "minute hour * * days"
+  - Use role="switch" and aria-checked for toggle buttons
+  - Temporary user ID pattern for pre-auth development
+---
+
+## 2026-01-28 - US-017: Create home dashboard page
+- **Subagents used**:
+  - architect: Not needed - standard dashboard pattern
+  - specialist: Implemented directly (reuses calls/schedules hooks)
+  - simplifier: Not needed - code is well-structured
+  - reviewer: Skipped - straightforward pattern
+- **What was implemented**:
+  - StatCard reusable component with icon, title, value, subtitle
+  - Next scheduled call card showing time and date
+  - Calls this week summary with total completed count
+  - Quick actions section with "Start Call Now" placeholder button
+  - Recent calls list with links to detail pages
+  - Loading state skeleton
+  - Root page (/) already serves as dashboard via route group
+- **Files changed**:
+  - frontend/src/app/(dashboard)/page.tsx (updated)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Route groups like (dashboard) make their page.tsx the effective root
+  - Reuse API hooks across pages for consistency
+  - Placeholder actions with alert() for features to be implemented later
+---
+
+## 2026-01-28 - US-018: Create summary generation service
+- **Subagents used**:
+  - architect: Not needed - standard Anthropic API pattern
+  - specialist: Implemented directly (async service pattern)
+  - simplifier: Not needed - code is well-structured
+  - reviewer: Skipped - straightforward API integration
+- **What was implemented**:
+  - generate_summary async function that takes list[Transcript]
+  - StandupSummary dataclass with yesterday, today, blockers, raw_summary fields
+  - format_transcript helper to format conversation for Claude
+  - System and user prompts for structured JSON extraction
+  - Claude API integration using claude-sonnet-4-20250514 model
+  - Error handling for API connection, rate limit, and status errors
+  - JSON parsing with fallback values
+  - Structlog logging throughout
+- **Files changed**:
+  - backend/src/services/summary_service.py (created)
+  - backend/src/services/__init__.py (updated exports)
+- **Verification**: ruff ✓ | pytest ✓ (46 tests pass)
+- **Learnings for future iterations**:
+  - Use dataclass for simple structured return types
+  - Prompt Claude for JSON output with clear format specification
+  - Handle Anthropic-specific exceptions (APIConnectionError, RateLimitError, APIStatusError)
+  - Import json inside function to avoid unused import warnings when not needed at top level
+---
+
+## 2026-01-28 - US-019: Create summary API endpoint
+- **Subagents used**:
+  - architect: Not needed - extends existing calls.py patterns
+  - specialist: Implemented directly (follows CRUD endpoint patterns)
+  - simplifier: Not needed - code is straightforward
+  - reviewer: Skipped - follows established patterns
+- **What was implemented**:
+  - POST /calls/{id}/summarize endpoint in calls.py
+  - Return 404 if call not found
+  - Return 400 if call has no transcripts
+  - Return 409 if summary already exists (prevents duplicates)
+  - Call generate_summary service with transcripts
+  - Create Summary model and save to database
+  - Return created summary with 201 status
+- **Files changed**:
+  - backend/src/api/routes/calls.py (updated - added summarize endpoint)
+- **Verification**: ruff ✓ | pytest ✓ (46 tests pass)
+- **Learnings for future iterations**:
+  - Use 409 Conflict for "already exists" scenarios vs 400 Bad Request
+  - Eager load relationships (selectinload) when checking existence and generating
+  - Service function can be async and called directly from route handler
+---
+
+## 2026-01-28 - US-020: Create Slack integration service
+- **Subagents used**:
+  - architect: Not needed - standard HTTP API integration
+  - specialist: Implemented directly (httpx async pattern)
+  - simplifier: Not needed - code is well-structured
+  - reviewer: Skipped - straightforward integration
+- **What was implemented**:
+  - post_summary async function that posts to Slack
+  - SlackPostResult dataclass for structured return with success/message_id/error
+  - build_slack_blocks helper for Slack Block Kit formatting
+  - Formatted message sections: header, yesterday, today, blockers (conditional), footer
+  - Uses SLACK_BOT_TOKEN and SLACK_CHANNEL_ID from environment
+  - Error handling for missing config, API errors, timeouts, and request errors
+  - Structlog logging throughout
+- **Files changed**:
+  - backend/src/services/slack_service.py (created)
+  - backend/src/services/__init__.py (updated exports)
+- **Verification**: ruff ✓ | pytest ✓ (46 tests pass)
+- **Learnings for future iterations**:
+  - Slack Block Kit uses structured JSON for rich message formatting
+  - Slack API returns {"ok": false, "error": "..."} on failure, not HTTP errors
+  - Use dataclass for service return types with success/error information
+  - httpx.AsyncClient for async HTTP calls with proper timeout handling
+---
+
+## 2026-01-28 - US-021: Create Slack posting endpoint
+- **Subagents used**:
+  - architect: Not needed - follows existing router patterns
+  - specialist: Implemented directly (REST endpoint pattern)
+  - simplifier: Not needed - code is straightforward
+  - reviewer: Skipped - follows established patterns
+- **What was implemented**:
+  - New summaries.py router with POST /summaries/{id}/post-to-slack
+  - Return 404 if summary not found
+  - Return 400 if summary already posted to Slack
+  - Return 502 if Slack API call fails (bad gateway for external service failure)
+  - Eager load call and user relationships with chained selectinload
+  - Update summary.posted_to_slack and summary.slack_message_id
+  - Register router in __init__.py with /summaries prefix
+- **Files changed**:
+  - backend/src/api/routes/summaries.py (created)
+  - backend/src/api/routes/__init__.py (updated)
+- **Verification**: ruff ✓ | pytest ✓ (46 tests pass)
+- **Learnings for future iterations**:
+  - Use 502 Bad Gateway for external service failures
+  - Chain selectinload for nested relationships: Summary.call.selectinload(Call.user)
+  - Import models directly to use in selectinload, not via string references
+---
+
+## 2026-01-28 - US-022: Add Slack posting UI to call detail
+- **Subagents used**:
+  - architect: Not needed - standard React Query mutation pattern
+  - specialist: Implemented directly (mutation + UI pattern)
+  - simplifier: Not needed - code is straightforward
+  - reviewer: Skipped - follows established patterns
+- **What was implemented**:
+  - usePostToSlackMutation hook with cache invalidation
+  - Post to Slack button in SummarySection component
+  - Loading spinner while posting (isPending state)
+  - Error message display with red styling
+  - "Posted to Slack" badge shown when already posted
+  - Button hidden when already posted (shows badge instead)
+- **Files changed**:
+  - frontend/src/lib/api/calls.ts (added usePostToSlackMutation)
+  - frontend/src/app/(dashboard)/calls/[id]/page.tsx (updated SummarySection)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Use mutateAsync for try/catch error handling
+  - Show error state with useState + try/catch pattern
+  - Invalidate related queries on mutation success
+---
+
+## 2026-01-28 - US-023: Create LiveKit agent skeleton
+- **Subagents used**:
+  - architect: Not needed - following LiveKit documentation patterns
+  - specialist: Implemented directly (LiveKit agents SDK pattern)
+  - simplifier: Not needed - code is minimal skeleton
+  - reviewer: Skipped - skeleton implementation
+- **What was implemented**:
+  - standup_agent.py with VoicePipelineAgent setup
+  - STANDUP_SYSTEM_PROMPT for conversation context
+  - entrypoint function: connect to room, wait for participant, start agent
+  - Use silero VAD for voice activity detection
+  - Placeholders for STT/LLM/TTS providers (None = use defaults)
+  - main() function for CLI startup
+  - Export from agent/__init__.py
+- **Files changed**:
+  - backend/src/agent/standup_agent.py (created)
+  - backend/src/agent/__init__.py (updated exports)
+- **Verification**: ruff ✓ | pytest ✓ (46 tests pass)
+- **Learnings for future iterations**:
+  - LiveKit agents use entrypoint function pattern
+  - VoicePipelineAgent takes vad, stt, llm, tts, chat_ctx parameters
+  - Agent can be started with: python -m src.agent.standup_agent dev
+  - silero.VAD.load() for voice activity detection
+---
+
+## 2026-01-28 - US-024: Implement standup conversation flow
+- **Subagents used**:
+  - architect: Not needed - patterns established from US-023
+  - specialist: Implemented directly (extended agent with state machine)
+  - simplifier: Not needed - code is well-structured
+  - reviewer: Skipped - follows established patterns
+- **What was implemented**:
+  - ConversationState enum: GREETING, ASK_YESTERDAY, ASK_TODAY, ASK_BLOCKERS, CLOSING, COMPLETED
+  - TranscriptEntry dataclass for storing transcript entries with speaker, content, timestamp_ms
+  - StandupSession dataclass for tracking conversation state, transcript, and standup answers
+  - STANDUP_PROMPTS dictionary with template strings for each conversation state
+  - get_prompt_for_state helper to format prompts with user name
+  - create_standup_agent function that sets up event handlers for speech events
+  - Event handlers: user_speech_committed (stores responses), agent_speech_committed (logs)
+  - run_standup_conversation function that initiates the greeting and starts the flow
+  - User name extraction from participant identity (handles email and underscore formats)
+  - Call ID extraction from room metadata (JSON parsing with fallback)
+  - Final logging of session state (transcript count, response lengths)
+- **Files changed**:
+  - backend/src/agent/standup_agent.py (updated - full conversation flow)
+- **Verification**: ruff ✓ | pytest ✓ (46 tests pass)
+- **Learnings for future iterations**:
+  - Use @agent.on("user_speech_committed") to capture final user speech
+  - ChatMessage.content can be string or list - always convert to str
+  - Extract user info from participant.identity and room.metadata
+  - State machine pattern with enum for conversation phases
+  - Track timestamps relative to session start for transcript ordering
+---

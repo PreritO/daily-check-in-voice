@@ -190,7 +190,7 @@
         "npm run build passes"
       ],
       "priority": 13,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-014",
@@ -205,7 +205,7 @@
         "npm run build passes"
       ],
       "priority": 14,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-015",
@@ -220,7 +220,7 @@
         "npm run build passes"
       ],
       "priority": 15,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-016",
@@ -235,7 +235,7 @@
         "npm run build passes"
       ],
       "priority": 16,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-017",
@@ -250,7 +250,7 @@
         "npm run build passes"
       ],
       "priority": 17,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-018",
@@ -265,7 +265,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 18,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-019",
@@ -280,7 +280,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 19,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-020",
@@ -295,7 +295,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 20,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-021",
@@ -311,7 +311,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 21,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-022",
@@ -326,7 +326,7 @@
         "npm run build passes"
       ],
       "priority": 22,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-023",
@@ -341,7 +341,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 23,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-024",
@@ -357,7 +357,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 24,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-025",
