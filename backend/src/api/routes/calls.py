@@ -9,9 +9,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.api.schemas import CallCreate, CallRead, CallReadWithDetails, CallUpdate
+from src.api.schemas import CallCreate, CallRead, CallReadWithDetails, CallUpdate, SummaryRead
 from src.database import get_db
-from src.models import Call, User
+from src.models import Call, Summary, User
+from src.services import generate_summary
 
 logger = structlog.get_logger()
 
@@ -225,3 +226,85 @@ async def delete_call(
     await db.flush()
 
     logger.info("Call deleted", call_id=str(call_id))
+
+
+@router.post(
+    "/{call_id}/summarize", response_model=SummaryRead, status_code=status.HTTP_201_CREATED
+)
+async def summarize_call(
+    call_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> Summary:
+    """Generate a summary for a call from its transcripts.
+
+    Args:
+        call_id: UUID of the call to summarize.
+        db: Database session.
+
+    Returns:
+        The generated summary.
+
+    Raises:
+        HTTPException: 404 if call not found, 400 if no transcripts, 409 if summary exists.
+    """
+    logger.info("Generating summary for call", call_id=str(call_id))
+
+    # Get call with transcripts and summary
+    result = await db.execute(
+        select(Call)
+        .where(Call.id == call_id)
+        .options(
+            selectinload(Call.transcripts),
+            selectinload(Call.summary),
+        )
+    )
+    call = result.scalar_one_or_none()
+
+    if call is None:
+        logger.warning("Call not found for summarization", call_id=str(call_id))
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Call with id {call_id} not found",
+        )
+
+    # Check if transcripts exist
+    if not call.transcripts:
+        logger.warning("No transcripts for call", call_id=str(call_id))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot generate summary: call has no transcripts",
+        )
+
+    # Check if summary already exists
+    if call.summary is not None:
+        logger.warning("Summary already exists for call", call_id=str(call_id))
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Summary already exists for this call",
+        )
+
+    # Generate summary using Anthropic Claude
+    try:
+        standup_summary = await generate_summary(call.transcripts)
+    except ValueError as e:
+        logger.error("Summary generation failed", call_id=str(call_id), error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate summary: {e}",
+        ) from e
+
+    # Create and save summary to database
+    summary = Summary(
+        call_id=call_id,
+        yesterday=standup_summary.yesterday,
+        today=standup_summary.today,
+        blockers=standup_summary.blockers,
+        raw_summary=standup_summary.raw_summary,
+    )
+
+    db.add(summary)
+    await db.flush()
+    await db.refresh(summary)
+
+    logger.info("Summary generated and saved", call_id=str(call_id), summary_id=str(summary.id))
+    return summary
