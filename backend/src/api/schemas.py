@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from src.models import CallDirection, CallStatus, MemoryType, SentimentType, Speaker
+from src.models import AlertType, CallDirection, CallStatus, MemoryType, SentimentType, Speaker
 from src.models.preferences import CallDurationPreference, CommunicationStyle
 
 # =============================================================================
@@ -356,3 +356,30 @@ class UserAnalyticsRead(BaseModel):
         default_factory=list, description="Recent mood data points"
     )
     streak_days: int = Field(..., ge=0, description="Current consecutive days with calls")
+
+
+# =============================================================================
+# Alert Schemas
+# =============================================================================
+
+
+class AlertRead(BaseModel):
+    """Schema for reading alert data."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    call_id: UUID | None
+    alert_type: AlertType
+    title: str
+    message: str
+    acknowledged: bool
+    acknowledged_at: datetime | None
+    created_at: datetime
+
+
+class AlertAcknowledge(BaseModel):
+    """Schema for acknowledging an alert."""
+
+    acknowledged: bool = Field(default=True, description="Acknowledge status")

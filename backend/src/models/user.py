@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base
 
 if TYPE_CHECKING:
+    from .alert import Alert
     from .call import Call
     from .memory import ConversationMemory
     from .preferences import UserPreferences
@@ -79,6 +80,11 @@ class User(Base):
     )
     memories: Mapped[list["ConversationMemory"]] = relationship(
         "ConversationMemory",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    alerts: Mapped[list["Alert"]] = relationship(
+        "Alert",
         back_populates="user",
         cascade="all, delete-orphan",
     )

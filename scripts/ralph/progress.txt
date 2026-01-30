@@ -632,3 +632,257 @@ Started: Thu Jan 29 21:15:04 EST 2026
 - Duration formatting: <1m, Xm, Xh Ym based on minutes
 - Empty state: Check if total_calls === 0 to show onboarding message
 ---
+
+## 2026-01-30 - US-119: Create settings page with preferences
+- **Subagents used**:
+  - architect: Analyzed dashboard pages, API client patterns, Preferences API, User API, styling patterns, sidebar navigation
+  - frontend: Implemented complete settings page with all sections, preferences API client
+  - reviewer: Found critical auth issue in delete endpoint, missing error states, Slack toggle persistence issue
+- **What was implemented**:
+  - Created preferences.ts API client with UserPreferences types, query keys, hooks
+  - Created settings/page.tsx with ProfileSection, PreferencesSection, NotificationsSection, DangerZoneSection
+  - TagInput component for multi-select topics/interests with keyboard support
+  - Delete account confirmation modal requiring "DELETE" text
+  - Added security check to DELETE /users/{user_id} endpoint (users can only delete own account)
+  - Added error states for ProfileSection and PreferencesSection
+  - Added deleteUser mutation and useDeleteUserMutation hook
+  - Added authenticated_client test fixture
+- **Files changed**:
+  - frontend/src/lib/api/preferences.ts (new)
+  - frontend/src/app/(dashboard)/settings/page.tsx (new)
+  - frontend/src/lib/api/users.ts (modified - added deleteUser, useDeleteUserMutation)
+  - frontend/src/lib/api/index.ts (modified - export preferences)
+  - backend/src/api/routes/users.py (modified - added auth check to delete endpoint)
+  - backend/tests/conftest.py (modified - added authenticated_client fixture)
+  - backend/tests/test_api.py (modified - updated delete tests with auth)
+- **Verification**: ruff ✓ | pytest (47 passed) ✓ | npm run build ✓
+- **Learnings for future iterations**:
+  - Always add auth check to endpoints that modify user data - reviewer caught critical security issue
+  - For singleton resources (preferences), use GET with auto-create and PUT for upsert
+  - Add error states to all data-fetching components, not just loading states
+  - Modal backdrop click handlers should also clear form state
+  - Slack toggle is UI-only placeholder - shows "Configuration Required" notice when enabled
+  - authenticated_client fixture mocks get_or_create_user dependency for testing protected endpoints
+
+### Settings Page Patterns
+- Settings page has 4 sections: Profile, Preferences, Notifications, Danger Zone
+- TagInput: Type + Enter/comma to add tags, Backspace to remove last tag
+- Delete confirmation: Requires typing "DELETE" to enable button
+- Error states: Show red alert with icon, "Please refresh" message
+- Slack toggle: UI-only, shows amber warning when enabled that backend config is required
+- Delete endpoint requires auth and checks current_user.id == user_id
+---
+
+## 2026-01-30 - US-120: Add mood indicator to call detail page
+- **Subagents used**:
+  - architect: Analyzed call detail page, API client patterns, backend schema, styling patterns
+  - frontend: Implemented MoodSection component with all features
+  - reviewer: Found missing analyzed_at timestamp - added
+- **What was implemented**:
+  - Added SentimentType and MoodAnalysis types to calls.ts
+  - Added analyzeMood API function and useAnalyzeMoodMutation hook
+  - Created MoodSection component with two states:
+    - No analysis: Shows "Analyze Mood" button (indigo) with loading spinner
+    - Has analysis: Shows sentiment badge, confidence bar, flags, notes, analyzed_at timestamp
+  - Sentiment badge colors: positive=green, neutral=zinc, negative=red, concerned=amber
+  - Flag badges use amber warning style with triangle icon
+  - Integrated between SummarySection and TranscriptSection
+- **Files changed**:
+  - frontend/src/lib/api/calls.ts (modified - added types, mutation)
+  - frontend/src/app/(dashboard)/calls/[id]/page.tsx (modified - added MoodSection)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Always display timestamps for when AI analysis was performed
+  - Use indigo for "action" buttons to differentiate from status colors
+  - Confidence visualized as progress bar is more intuitive than just percentage
+  - Reviewer caught missing analyzed_at display
+
+### Mood Indicator Patterns
+- SentimentType: "positive" | "neutral" | "negative" | "concerned"
+- Badge colors: positive=green-100/800, neutral=zinc-100/800, negative=red-100/800, concerned=amber-100/800
+- Flag badges: amber warning style with triangle icon
+- Confidence: progress bar + percentage text
+- Always show analyzed_at timestamp with format "MMM d, yyyy 'at' h:mm a"
+---
+
+## 2026-01-30 - US-121: Add memories tab to call detail page
+- **Subagents used**:
+  - architect: Analyzed backend schema, models, routes; identified missing endpoint
+  - backend: Implemented MemoryRead schema, extract-memories endpoint, updated get_call
+  - frontend: Implemented MemoriesSection and MemoryCard components
+  - reviewer: Found critical API response type mismatch - fixed
+- **What was implemented**:
+  - Backend: MemoryRead schema, POST /calls/{id}/extract-memories endpoint, memories in CallReadWithDetails
+  - Frontend: Memory, MemoryType types, useExtractMemoriesMutation hook
+  - MemoriesSection component with Extract Memories button (teal color)
+  - MemoryCard with type badge, content, importance progress bar
+  - Memory type badge colors: fact=blue, preference=purple, event=amber, relationship=emerald
+  - Importance shown as X/10 with progress bar
+- **Files changed**:
+  - backend/src/api/schemas.py (modified - added MemoryRead, updated CallReadWithDetails)
+  - backend/src/api/routes/calls.py (modified - added extract-memories endpoint, selectinload memories)
+  - frontend/src/lib/api/calls.ts (modified - added types, mutation)
+  - frontend/src/app/(dashboard)/calls/[id]/page.tsx (modified - added MemoriesSection, MemoryCard)
+- **Verification**: ruff ✓ | pytest (47 passed) ✓ | npm run build ✓
+- **Learnings for future iterations**:
+  - Backend returns list directly (list[MemoryRead]), not wrapped in object
+  - Reviewer caught API response type mismatch - always verify backend return type matches frontend expectation
+  - Use teal for memories button to differentiate from indigo (mood) and purple (slack)
+  - Memory importance uses same progress bar pattern as confidence
+
+### Memories Section Patterns
+- MemoryType: "fact" | "preference" | "event" | "relationship"
+- Badge colors: fact=blue, preference=purple, event=amber, relationship=emerald
+- Extract endpoint returns plain list, not wrapped object
+- useExtractMemoriesMutation takes callId as arg, invalidates call detail query
+- Importance shown as progress bar + "X/10" label
+---
+
+## 2026-01-30 - US-122: Create Twilio webhook handler
+- **Subagents used**:
+  - architect: Analyzed settings patterns, existing routes, required Twilio dependencies
+  - backend: Implemented webhooks.py with signature validation and TwiML generation
+  - reviewer: Found critical issues - missing db.commit(), phone PII in logs, XML injection risk
+- **What was implemented**:
+  - Created backend/src/api/routes/webhooks.py with POST /twilio/incoming
+  - Twilio signature validation dependency using RequestValidator
+  - mask_phone() helper for privacy-safe logging
+  - TwiML generation using Twilio VoiceResponse (avoids XML injection)
+  - Looks up user by phone number, creates call with IN_PROGRESS status
+  - Returns TwiML to connect to LiveKit SIP room
+  - Added TWILIO_AUTH_TOKEN, TWILIO_WEBHOOK_URL, LIVEKIT_SIP_DOMAIN settings
+  - Added twilio>=9.0.0 dependency
+- **Files changed**:
+  - backend/src/api/routes/webhooks.py (new)
+  - backend/src/api/routes/__init__.py (modified - registered router)
+  - backend/src/config.py (modified - added settings)
+  - backend/pyproject.toml (modified - added twilio dependency)
+- **Verification**: ruff ✓ | pytest (47 passed) ✓
+- **Learnings for future iterations**:
+  - Always mask PII (phone numbers) in logs
+  - Use library-provided builders (VoiceResponse) instead of f-string XML to avoid injection
+  - Don't forget db.commit() after creating records
+  - Return form data from validation dependency to avoid reading twice
+  - Twilio expects TwiML responses even for errors (not HTTP error codes)
+
+### Twilio Webhook Patterns
+- POST /webhooks/twilio/incoming receives form data
+- Validate signature using RequestValidator(auth_token).validate(url, params, signature)
+- Return TwiML XML with media_type="application/xml"
+- Use VoiceResponse builder for safe TwiML: response.say(), response.reject(), dial.sip()
+- Mask phone numbers in logs: show first 3 and last 3 chars only
+- Form data validation dependency returns the params to avoid reading twice
+---
+
+## 2026-01-30 - US-123: Add call direction tracking
+- **Subagents used**:
+  - architect: Analyzed call model, trigger endpoint, webhooks, frontend calls page patterns
+  - backend: Implemented CallDirection enum, model field, migration, schema updates
+  - frontend: Implemented CallDirection type and direction badge on calls list
+- **What was implemented**:
+  - Backend: CallDirection enum (INBOUND/OUTBOUND), direction field on Call model with default OUTBOUND
+  - Migration 006_add_call_direction.py with server_default="outbound"
+  - Trigger endpoint sets direction=OUTBOUND
+  - Twilio webhook sets direction=INBOUND
+  - Updated CallRead and CallReadWithDetails schemas
+  - Frontend: CallDirection type, direction field in Call interface
+  - Direction badge on calls list page (purple for inbound, indigo for outbound)
+- **Files changed**:
+  - backend/src/models/call.py (modified - added enum and field)
+  - backend/src/models/__init__.py (modified - export enum)
+  - backend/alembic/versions/006_add_call_direction.py (new)
+  - backend/src/api/schemas.py (modified - added direction field)
+  - backend/src/api/routes/calls.py (modified - set direction=OUTBOUND)
+  - backend/src/api/routes/webhooks.py (modified - set direction=INBOUND)
+  - frontend/src/lib/api/calls.ts (modified - added type and field)
+  - frontend/src/app/(dashboard)/calls/page.tsx (modified - added badge)
+- **Verification**: ruff ✓ | pytest (47 passed) ✓ | npm run build ✓
+- **Learnings for future iterations**:
+  - Use server_default in migration to handle existing records
+  - Direction badge colors: inbound=purple (user-initiated), outbound=indigo (system-initiated)
+  - Straightforward enum addition follows existing patterns well
+
+### Call Direction Patterns
+- CallDirection: INBOUND (user calls Meela) vs OUTBOUND (Meela calls user)
+- Default is OUTBOUND since most calls are scheduled/triggered
+- Migration uses server_default for backfilling existing records
+- Badge colors: purple for inbound, indigo for outbound
+---
+
+## 2026-01-30 - US-124: Enhance dashboard home with insights
+- **Subagents used**:
+  - architect: Analyzed current dashboard, available data, identified missing memories endpoint
+  - backend: Added GET /users/me/memories endpoint
+  - frontend: Implemented enhanced dashboard with all new components
+- **What was implemented**:
+  - Backend: GET /users/me/memories endpoint (limit query param, 1-10, default 3)
+  - Frontend API: useUserMemoriesQuery hook with UserMemory/UserMemoryType types
+  - WelcomeHeader: Time-based greeting ("Good morning/afternoon/evening") + user name
+  - QuickStatsRow: Calls this week + current streak (with fire emoji)
+  - MiniMoodTrend: Last 5 moods as colored dots with legend
+  - MemoriesSection: 2-3 memory cards with type badge + content + relative date
+  - Empty states for no moods/memories
+- **Files changed**:
+  - backend/src/api/routes/users.py (modified - added memories endpoint)
+  - frontend/src/lib/api/users.ts (modified - added UserMemory types, useUserMemoriesQuery)
+  - frontend/src/app/(dashboard)/page.tsx (major rewrite - enhanced dashboard)
+- **Verification**: ruff ✓ | pytest (47 passed) ✓ | npm run build ✓
+- **Learnings for future iterations**:
+  - Renamed Memory to UserMemory to avoid conflict with Memory type in calls.ts
+  - Time-based greetings use new Date().getHours() for morning/afternoon/evening
+  - Mood trend as colored dots is simpler than a chart and visually clean
+  - formatDistanceToNow from date-fns for "X days ago" format
+
+### Enhanced Dashboard Patterns
+- WelcomeHeader: getGreeting() uses hours < 12 = morning, < 18 = afternoon, else evening
+- MiniMoodTrend: Colored dots - green=positive, gray=neutral, amber=concerned, red=negative
+- Memory cards: Type badge (same colors as call detail) + content + relative date
+- QuickStatsRow: Two stat cards side by side
+---
+
+## 2026-01-30 - US-125: Add alert notifications for concerning moods
+- **Subagents used**:
+  - architect: Analyzed alert patterns, model design, integration points
+  - backend: Implemented Alert model, alert_service, routes, integration with post_call_service
+  - frontend: Implemented alerts API client and AlertBanner component
+  - reviewer: Found deprecated datetime.utcnow(), duplicate alerts bug, missing composite index
+- **What was implemented**:
+  - Backend: Alert model with AlertType enum (mood_concern, missed_calls)
+  - alert_service.py: create_mood_alert, get_unacknowledged_alerts, get_all_alerts, acknowledge_alert
+  - Integration in post_call_service.py: creates alert after mood analysis if concerning
+  - Duplicate alert prevention: checks existing alert before creating new one
+  - Migration 007_add_alerts.py with composite index (user_id, acknowledged)
+  - AlertRead schema in schemas.py
+  - GET /alerts endpoint with acknowledged filter, POST /alerts/{id}/acknowledge
+  - Frontend: alerts.ts API client with useUnacknowledgedAlertsQuery (30s refetch)
+  - AlertBanner component with dismiss functionality, call link, color-coded by type
+- **Files changed**:
+  - backend/src/models/alert.py (new)
+  - backend/src/models/user.py (modified - added alerts relationship)
+  - backend/src/models/call.py (modified - added alerts relationship)
+  - backend/src/models/__init__.py (modified - exports)
+  - backend/alembic/versions/007_add_alerts.py (new)
+  - backend/src/services/alert_service.py (new)
+  - backend/src/services/post_call_service.py (modified - added alert creation)
+  - backend/src/api/schemas.py (modified - added AlertRead)
+  - backend/src/api/routes/alerts.py (new)
+  - backend/src/api/routes/__init__.py (modified - registered router)
+  - frontend/src/lib/api/alerts.ts (new)
+  - frontend/src/components/AlertBanner.tsx (new)
+  - frontend/src/app/(dashboard)/page.tsx (modified - added AlertBanner)
+- **Verification**: ruff ✓ | npm run build ✓
+- **Learnings for future iterations**:
+  - Use datetime.now(UTC) instead of deprecated datetime.utcnow()
+  - Always check for existing records before creating alerts (prevent duplicates)
+  - Add composite indexes for common query patterns (user_id, acknowledged)
+  - POST is better than PATCH for action endpoints with no body
+  - Alert banner with 30s refetch keeps dashboard up to date
+
+### Alert Patterns
+- AlertType: mood_concern, missed_calls
+- create_mood_alert: Creates alert for NEGATIVE, CONCERNED sentiment or any flags
+- Alert banner colors: mood_concern=amber, missed_calls=blue
+- POST /alerts/{id}/acknowledge for action endpoints (no body needed)
+- Composite index (user_id, acknowledged) for efficient queries
+- useUnacknowledgedAlertsQuery with 30s refetchInterval
+---

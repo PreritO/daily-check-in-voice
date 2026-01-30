@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base
 
 if TYPE_CHECKING:
+    from .alert import Alert
     from .memory import ConversationMemory
     from .mood import MoodAnalysis
     from .summary import Summary
@@ -103,6 +104,10 @@ class Call(Base):
         back_populates="call",
         uselist=False,
         cascade="all, delete-orphan",
+    )
+    alerts: Mapped[list["Alert"]] = relationship(
+        "Alert",
+        back_populates="call",
     )
 
     def __repr__(self) -> str:

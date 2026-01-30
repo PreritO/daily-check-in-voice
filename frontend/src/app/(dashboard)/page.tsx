@@ -13,6 +13,7 @@ import {
 } from "@/lib/api/schedules";
 import { useCurrentUserQuery, useUserMemoriesQuery, type UserMemory, type UserMemoryType } from "@/lib/api/users";
 import { useAnalyticsQuery, type Sentiment, type MoodTrendItem } from "@/lib/api/analytics";
+import { AlertBanner } from "@/components/AlertBanner";
 
 function getStatusBadgeClasses(status: CallStatus): string {
   switch (status) {
@@ -531,6 +532,9 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Welcome Header */}
       <WelcomeHeader userName={user?.name} />
+
+      {/* Alert Banner */}
+      <AlertBanner />
 
       {/* Quick Stats Row */}
       <QuickStatsRow

@@ -1,5 +1,6 @@
 """Database models for Daily Check-In Agent."""
 
+from .alert import Alert, AlertType
 from .base import Base
 from .call import Call, CallDirection, CallStatus
 from .memory import ConversationMemory, MemoryType
@@ -11,6 +12,8 @@ from .transcript import Speaker, Transcript
 from .user import User
 
 __all__ = [
+    "Alert",
+    "AlertType",
     "Base",
     "Call",
     "CallDirection",

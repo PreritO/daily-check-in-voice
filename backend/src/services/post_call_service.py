@@ -8,8 +8,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.models import Call, ConversationMemory, MoodAnalysis, Summary
+from src.models import Alert, Call, ConversationMemory, MoodAnalysis, Summary
 
+from .alert_service import create_mood_alert
 from .memory_service import extract_memories
 from .mood_service import analyze_mood
 from .slack_service import post_summary
@@ -29,6 +30,8 @@ class PostCallResult:
     memory_count: int = 0
     mood_analyzed: bool = False
     mood_analysis_id: UUID | None = None
+    alert_created: bool = False
+    alert_id: UUID | None = None
     slack_posted: bool = False
     slack_message_id: str | None = None
     errors: list[str] = field(default_factory=list)
@@ -187,6 +190,7 @@ async def _run_pipeline_steps(
         log.info("memories_already_extracted", count=existing_memory_count)
 
     # Step 3: Analyze mood
+    mood_analysis_for_alert = None
     if call.mood_analysis is None:
         try:
             log.info("analyzing_mood")
@@ -207,6 +211,7 @@ async def _run_pipeline_steps(
 
             result.mood_analyzed = True
             result.mood_analysis_id = mood_analysis.id
+            mood_analysis_for_alert = mood_analysis
             log.info(
                 "mood_analyzed",
                 mood_analysis_id=str(mood_analysis.id),
@@ -220,7 +225,35 @@ async def _run_pipeline_steps(
         # Mood analysis already exists
         result.mood_analyzed = True
         result.mood_analysis_id = call.mood_analysis.id
+        mood_analysis_for_alert = call.mood_analysis
         log.info("mood_analysis_already_exists", mood_analysis_id=str(call.mood_analysis.id))
+
+    # Step 3b: Create alert if mood is concerning (but only if no alert exists for this call)
+    if mood_analysis_for_alert is not None:
+        try:
+            # Check if alert already exists for this call to prevent duplicates
+            existing_alert_query = select(Alert).where(Alert.call_id == call.id)
+            existing_alert_result = await db.execute(existing_alert_query)
+            existing_alert = existing_alert_result.scalar_one_or_none()
+
+            if existing_alert is not None:
+                log.info("alert_already_exists", alert_id=str(existing_alert.id))
+            else:
+                alert = create_mood_alert(
+                    user_id=call.user_id,
+                    call_id=call.id,
+                    mood_analysis=mood_analysis_for_alert,
+                )
+                if alert is not None:
+                    db.add(alert)
+                    await db.flush()
+                    result.alert_created = True
+                    result.alert_id = alert.id
+                    log.info("alert_created", alert_id=str(alert.id), alert_type=alert.alert_type.value)
+        except Exception as e:
+            error_msg = f"Alert creation failed: {e}"
+            log.error("alert_creation_error", error=str(e))
+            result.errors.append(error_msg)
 
     # Step 4: Post to Slack if summary exists
     # Use the summary we have (either existing or newly created)
@@ -264,6 +297,7 @@ async def _run_pipeline_steps(
         memories_extracted=result.memories_extracted,
         memory_count=result.memory_count,
         mood_analyzed=result.mood_analyzed,
+        alert_created=result.alert_created,
         slack_posted=result.slack_posted,
         error_count=len(result.errors),
     )
