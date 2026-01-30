@@ -12,6 +12,7 @@ from .base import Base
 if TYPE_CHECKING:
     from .alert import Alert
     from .call import Call
+    from .cronometer_credential import CronometerCredential
     from .memory import ConversationMemory
     from .preferences import UserPreferences
     from .schedule import Schedule
@@ -86,6 +87,12 @@ class User(Base):
     alerts: Mapped[list["Alert"]] = relationship(
         "Alert",
         back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    cronometer_credential: Mapped["CronometerCredential | None"] = relationship(
+        "CronometerCredential",
+        back_populates="user",
+        uselist=False,
         cascade="all, delete-orphan",
     )
 
