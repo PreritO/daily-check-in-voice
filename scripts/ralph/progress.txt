@@ -468,3 +468,33 @@ Started: Thu Jan 29 21:15:04 EST 2026
 - Job ID format: `schedule_{schedule_id}` - used by get_job(), remove_schedule_job()
 - Always update next_run_at after adding/updating a job for UI display
 ---
+
+## 2026-01-30 - US-114: Update voice agent with memory context
+- **Subagents used**:
+  - architect: Analyzed standup_agent.py, memory_service.py, livekit_service.py patterns
+  - backend: Implemented fetch_agent_context(), build_system_prompt(), updated entrypoint()
+  - reviewer: Found inline `import time` issue (fixed), verified acceptance criteria met
+- **What was implemented**:
+  - Added fetch_agent_context(user_id, log) async function to retrieve user name, memory context, and communication style
+  - Added build_system_prompt(memory_context, communication_style) function to construct personalized prompts
+  - Updated create_standup_agent() to accept memory_context and communication_style parameters
+  - Updated entrypoint() to extract user_id from room metadata and fetch user context
+  - System prompt now includes Communication Style and User Context sections
+  - Graceful degradation when user data unavailable (returns default values)
+- **Files changed**:
+  - backend/src/agent/standup_agent.py (modified - added imports, 2 new functions, updated existing functions)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
+- **Learnings for future iterations**:
+  - livekit_service.py already includes user_id in room metadata (line 71) - no changes needed there
+  - Use `async with async_session_maker() as db:` for standalone DB sessions in non-FastAPI contexts
+  - selectinload(User.preferences) for eager loading of relationships
+  - Move all `import time` to module level - inline imports are code smell and may fail lint
+  - CommunicationStyle.CASUAL.value returns lowercase "casual" - match case in style_guidance dict
+
+### Voice Agent Personalization Patterns
+- Extract user_id from room metadata: `metadata = json.loads(ctx.room.metadata); user_id = UUID(metadata.get("user_id"))`
+- Use async_session_maker for DB access outside FastAPI request context
+- build_system_prompt() combines base prompt + style guidance + memory context
+- Graceful degradation: return ("there", "", None) on any error in fetch_agent_context
+- Log has_memory_context=bool(memory_context) for debugging
+---
