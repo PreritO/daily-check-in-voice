@@ -30,6 +30,14 @@ class CallDurationPreference(enum.Enum):
     LONG = "long"
 
 
+class ThemeMode(enum.Enum):
+    """Enumeration of theme mode preferences."""
+
+    LIGHT = "light"
+    DARK = "dark"
+    SYSTEM = "system"
+
+
 class UserPreferences(Base):
     """User preferences model for storing personalization settings."""
 
@@ -55,13 +63,33 @@ class UserPreferences(Base):
         nullable=False,
     )
     communication_style: Mapped[CommunicationStyle] = mapped_column(
-        Enum(CommunicationStyle, native_enum=False, length=20),
+        Enum(
+            CommunicationStyle,
+            native_enum=False,
+            length=20,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         server_default=CommunicationStyle.FRIENDLY.value,
         nullable=False,
     )
     call_duration_preference: Mapped[CallDurationPreference] = mapped_column(
-        Enum(CallDurationPreference, native_enum=False, length=20),
+        Enum(
+            CallDurationPreference,
+            native_enum=False,
+            length=20,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         server_default=CallDurationPreference.MEDIUM.value,
+        nullable=False,
+    )
+    theme_mode: Mapped[ThemeMode] = mapped_column(
+        Enum(
+            ThemeMode,
+            native_enum=False,
+            length=10,
+            values_callable=lambda x: [e.value for e in x],
+        ),
+        server_default=ThemeMode.SYSTEM.value,
         nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(

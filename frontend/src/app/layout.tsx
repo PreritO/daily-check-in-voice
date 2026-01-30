@@ -22,13 +22,31 @@ export const metadata: Metadata = {
   description: "Your daily wellness companion for mindful check-ins",
 };
 
+// Inline script to prevent flash of wrong theme
+// This runs before React hydrates to apply the correct theme class immediately
+const themeScript = `
+(function() {
+  try {
+    var stored = localStorage.getItem('miro-theme');
+    var theme = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+    var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    }
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body
         className={`${ibmPlexSans.variable} ${ibmPlexSerif.variable} font-sans antialiased`}
       >

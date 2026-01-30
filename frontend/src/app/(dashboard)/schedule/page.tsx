@@ -85,7 +85,7 @@ function ScheduleForm({
           <select
             value={formData.hour}
             onChange={(e) => setFormData({ ...formData, hour: parseInt(e.target.value) })}
-            className="rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+            className="rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
           >
             {Array.from({ length: 24 }, (_, i) => (
               <option key={i} value={i}>
@@ -97,7 +97,7 @@ function ScheduleForm({
           <select
             value={formData.minute}
             onChange={(e) => setFormData({ ...formData, minute: parseInt(e.target.value) })}
-            className="rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+            className="rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
           >
             {[0, 15, 30, 45].map((m) => (
               <option key={m} value={m}>
@@ -113,7 +113,7 @@ function ScheduleForm({
               if (isPM) newHour += 12;
               setFormData({ ...formData, hour: newHour });
             }}
-            className="rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+            className="rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
           >
             <option value="AM">AM</option>
             <option value="PM">PM</option>
@@ -151,7 +151,7 @@ function ScheduleForm({
       </div>
 
       {/* Enable/Disable Toggle */}
-      <div className="flex items-center justify-between rounded-xl border border-[#DEDDDB] bg-[#FDFBF7] p-5 shadow-sm dark:border-[#4A4543] dark:bg-[#3D3935]">
+      <div className="flex items-center justify-between rounded-xl border border-[#DEDDDB] bg-[#FDFBF7] p-5 shadow-sm dark:border-[#3D3935] dark:bg-[#3D3935]">
         <div>
           <h3 className="text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]">
             Schedule Enabled
@@ -163,7 +163,7 @@ function ScheduleForm({
         <button
           type="button"
           onClick={() => setFormData({ ...formData, enabled: !formData.enabled })}
-          className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#E8A0BF] focus:ring-offset-2 ${
+          className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#E8A0BF] focus:ring-offset-2 dark:focus:ring-offset-[#363230] ${
             formData.enabled ? "bg-[#E8A0BF]" : "bg-[#E8E5EB] dark:bg-[#4A4543]"
           }`}
           role="switch"
@@ -190,7 +190,7 @@ function ScheduleForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-[#DEDDDB] px-6 py-3 text-base font-medium text-[#4A4543] shadow-sm transition-all duration-200 hover:bg-[#E8E5EB] hover:shadow-md dark:border-[#4A4543] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
+            className="rounded-xl border border-[#DEDDDB] px-6 py-3 text-base font-medium text-[#4A4543] shadow-sm transition-all duration-200 hover:bg-[#E8E5EB] hover:shadow-md dark:border-[#3D3935] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
           >
             Cancel
           </button>
@@ -220,7 +220,7 @@ function ScheduleCard({
     : "Invalid days";
 
   return (
-    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
@@ -276,7 +276,7 @@ function LoadingState() {
       {[1, 2].map((i) => (
         <div
           key={i}
-          className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]"
+          className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]"
         >
           <div className="flex items-start justify-between">
             <div className="space-y-3">
@@ -299,7 +299,7 @@ function LoadingState() {
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#DEDDDB] py-16 dark:border-[#4A4543]">
+    <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#DEDDDB] py-16 dark:border-[#3D3935]">
       <svg
         className="h-14 w-14 text-[#A89B86] dark:text-[#B8A99A]"
         fill="none"
@@ -401,7 +401,7 @@ export default function SchedulePage() {
       </div>
 
       {isCreating && (
-        <div className="rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+        <div className="rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
           <h2 className="mb-5 font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
             Create New Schedule
           </h2>
@@ -415,7 +415,7 @@ export default function SchedulePage() {
       )}
 
       {editingSchedule && (
-        <div className="rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+        <div className="rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
           <h2 className="mb-5 font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
             Edit Schedule
           </h2>

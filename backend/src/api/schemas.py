@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from src.models import AlertType, CallDirection, CallStatus, MemoryType, SentimentType, Speaker
-from src.models.preferences import CallDurationPreference, CommunicationStyle
+from src.models.preferences import CallDurationPreference, CommunicationStyle, ThemeMode
 
 # =============================================================================
 # User Schemas
@@ -300,6 +300,7 @@ class PreferencesRead(BaseModel):
     interests: list[str]
     communication_style: CommunicationStyle
     call_duration_preference: CallDurationPreference
+    theme_mode: ThemeMode
     created_at: datetime
     updated_at: datetime
 
@@ -322,6 +323,9 @@ class PreferencesUpsert(BaseModel):
     )
     call_duration_preference: CallDurationPreference | None = Field(
         default=None, description="Preferred call duration"
+    )
+    theme_mode: ThemeMode | None = Field(
+        default=None, description="UI theme mode preference (light/dark/system)"
     )
 
 

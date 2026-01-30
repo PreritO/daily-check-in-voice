@@ -67,7 +67,7 @@ function CallListItem({ call }: { call: Call }) {
   return (
     <Link
       href={`/calls/${call.id}`}
-      className="card-hover block rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm transition-all duration-200 hover:border-[#E8A0BF]/50 hover:bg-[#FDFBF7] dark:border-[#4A4543] dark:bg-[#363230] dark:hover:border-[#E8A0BF]/30 dark:hover:bg-[#3D3935]"
+      className="card-hover block rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm transition-all duration-200 hover:border-[#E8A0BF]/50 hover:bg-[#FDFBF7] dark:border-[#3D3935] dark:bg-[#363230] dark:hover:border-[#E8A0BF]/30 dark:hover:bg-[#3D3935]"
     >
       <div className="flex items-center justify-between">
         <div className="space-y-2">
@@ -107,7 +107,7 @@ function CallListItem({ call }: { call: Call }) {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#DEDDDB] py-16 dark:border-[#4A4543]">
+    <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#DEDDDB] py-16 dark:border-[#3D3935]">
       <svg
         className="h-14 w-14 text-[#A89B86] dark:text-[#B8A99A]"
         fill="none"
@@ -138,7 +138,7 @@ function LoadingState() {
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]"
+          className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]"
         >
           <div className="flex items-center justify-between">
             <div className="space-y-3">

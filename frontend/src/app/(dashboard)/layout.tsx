@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
+import { ThemeToggleCompact } from "@/components/ThemeToggle";
 
 interface NavItem {
   href: string;
@@ -141,7 +142,7 @@ export default function DashboardLayout({
   };
 
   return (
-    <div className="ambient-bg flex min-h-screen">
+    <div className="ambient-bg flex h-screen overflow-hidden">
       {/* Mobile menu backdrop */}
       {isMobileMenuOpen && (
         <div
@@ -150,14 +151,14 @@ export default function DashboardLayout({
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - fixed position, full height, never scrolls with content */}
       <aside
-        className={`sidebar-transition fixed inset-y-0 left-0 z-50 flex flex-col border-r border-[#DEDDDB] bg-white/95 backdrop-blur-sm dark:border-[#4A4543] dark:bg-[#363230]/95 lg:static ${
+        className={`sidebar-transition fixed inset-y-0 left-0 z-50 flex flex-col border-r border-[#DEDDDB] bg-white/95 backdrop-blur-sm dark:border-[#3D3935] dark:bg-[#363230]/95 ${
           isCollapsed ? "w-20" : "w-64"
         } ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}
       >
         {/* Sidebar header */}
-        <div className={`flex h-20 items-center border-b border-[#DEDDDB] dark:border-[#4A4543] ${isCollapsed ? "justify-center px-2" : "justify-between px-5"}`}>
+        <div className={`flex h-20 flex-shrink-0 items-center border-b border-[#DEDDDB] dark:border-[#3D3935] ${isCollapsed ? "justify-center px-2" : "justify-between px-5"}`}>
           <div className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : ""}`}>
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F9E4EC] shadow-sm dark:bg-[#E8A0BF]/20">
               <svg className="h-6 w-6 text-[#E8A0BF]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -179,20 +180,26 @@ export default function DashboardLayout({
 
         {/* Collapse button when collapsed (centered) */}
         {isCollapsed && (
-          <div className="hidden justify-center py-4 lg:flex">
+          <div className="hidden flex-shrink-0 justify-center py-4 lg:flex">
             <CollapseButton isCollapsed={isCollapsed} onClick={toggleCollapsed} />
           </div>
         )}
 
-        {/* Navigation */}
-        <nav className={`flex-1 space-y-2 p-4 ${isCollapsed ? "px-2" : "px-4"}`} aria-label="Main navigation">
+        {/* Navigation - takes available space, can scroll if needed */}
+        <nav className={`flex-1 space-y-2 overflow-y-auto p-4 ${isCollapsed ? "px-2" : "px-4"}`} aria-label="Main navigation">
           {navItems.map((item) => (
             <NavLink key={item.href} item={item} isCollapsed={isCollapsed} />
           ))}
         </nav>
 
-        {/* User section */}
-        <div className={`border-t border-[#DEDDDB] p-4 dark:border-[#4A4543] ${isCollapsed ? "px-2" : "px-4"}`}>
+        {/* Footer - Theme Toggle + User section */}
+        <div className={`flex-shrink-0 border-t border-[#DEDDDB] p-4 dark:border-[#3D3935] ${isCollapsed ? "px-2" : "px-4"} space-y-4`}>
+          {/* Theme Toggle */}
+          <div className={`${isCollapsed ? "flex justify-center" : ""}`}>
+            <ThemeToggleCompact />
+          </div>
+
+          {/* User section */}
           {isLoading ? (
             <div className="animate-pulse">
               <div className={`h-4 rounded bg-[#E8E5EB] dark:bg-[#3D3935] ${isCollapsed ? "w-10 mx-auto" : "w-32"}`} />
@@ -264,10 +271,10 @@ export default function DashboardLayout({
         </button>
       </aside>
 
-      {/* Main content */}
-      <div className="relative z-10 flex flex-1 flex-col">
+      {/* Main content area - scrolls independently */}
+      <div className={`flex flex-1 flex-col transition-all duration-300 ${isCollapsed ? "lg:ml-20" : "lg:ml-64"}`}>
         {/* Mobile header */}
-        <header className="flex h-20 items-center gap-4 border-b border-[#DEDDDB] bg-white/95 px-6 backdrop-blur-sm dark:border-[#4A4543] dark:bg-[#363230]/95 lg:hidden">
+        <header className="sticky top-0 z-20 flex h-20 flex-shrink-0 items-center gap-4 border-b border-[#DEDDDB] bg-white/95 px-6 backdrop-blur-sm dark:border-[#3D3935] dark:bg-[#363230]/95 lg:hidden">
           <button
             className="text-[#A89B86] transition-colors duration-200 hover:text-[#4A4543] dark:text-[#B8A99A] dark:hover:text-[#F5F3F0]"
             onClick={() => setIsMobileMenuOpen(true)}
@@ -290,8 +297,8 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 p-8">{children}</main>
+        {/* Scrollable content */}
+        <main className="flex-1 overflow-y-auto p-8">{children}</main>
       </div>
     </div>
   );

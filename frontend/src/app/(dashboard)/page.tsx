@@ -98,7 +98,7 @@ function QuickStatsRow({
 }) {
   return (
     <div className="grid gap-5 sm:grid-cols-2">
-      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#F9E4EC] text-[#E8A0BF] shadow-sm dark:bg-[#E8A0BF]/20">
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -116,7 +116,7 @@ function QuickStatsRow({
         </div>
       </div>
 
-      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#FFF9E6] text-[#F5D89A] shadow-sm dark:bg-[#F5D89A]/20">
             <span className="text-xl" role="img" aria-label="fire">
@@ -143,7 +143,7 @@ function MiniMoodTrend({ moodTrend }: { moodTrend: MoodTrendItem[] }) {
 
   if (lastFiveMoods.length === 0) {
     return (
-      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
           Mood Trend
         </h2>
@@ -155,7 +155,7 @@ function MiniMoodTrend({ moodTrend }: { moodTrend: MoodTrendItem[] }) {
   }
 
   return (
-    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
       <div className="flex items-center justify-between">
         <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
           Mood Trend
@@ -216,7 +216,7 @@ function MemoryCard({ memory }: { memory: UserMemory }) {
       : `${daysAgo} days ago`;
 
   return (
-    <div className="card-hover rounded-xl border border-[#DEDDDB] bg-[#FDFBF7] p-4 shadow-sm dark:border-[#4A4543] dark:bg-[#3D3935]">
+    <div className="card-hover rounded-xl border border-[#DEDDDB] bg-[#FDFBF7] p-4 shadow-sm dark:border-[#3D3935] dark:bg-[#3D3935]">
       <div className="flex items-start justify-between gap-2">
         <span
           className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${getMemoryTypeBadgeClasses(
@@ -237,7 +237,7 @@ function MemoryCard({ memory }: { memory: UserMemory }) {
 function MemoriesSection({ memories }: { memories: UserMemory[] }) {
   if (memories.length === 0) {
     return (
-      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
           Recent Memories
         </h2>
@@ -249,7 +249,7 @@ function MemoriesSection({ memories }: { memories: UserMemory[] }) {
   }
 
   return (
-    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
       <div className="flex items-center justify-between">
         <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
           Recent Memories
@@ -275,7 +275,7 @@ function NextScheduledCall({ schedules }: { schedules: Schedule[] }) {
 
   if (!nextSchedule || !nextSchedule.next_run_at) {
     return (
-      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#E8F5E9] text-[#A8D5BA] shadow-sm dark:bg-[#A8D5BA]/20">
             <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -313,7 +313,7 @@ function NextScheduledCall({ schedules }: { schedules: Schedule[] }) {
   const countdown = formatDistanceToNow(nextRunDate, { addSuffix: true });
 
   return (
-    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
       <div className="flex items-center gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#E8F5E9] text-[#A8D5BA] shadow-sm dark:bg-[#A8D5BA]/20">
           <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -351,7 +351,7 @@ function RecentCallItem({ call }: { call: Call }) {
   return (
     <Link
       href={`/calls/${call.id}`}
-      className="card-hover flex items-center justify-between rounded-xl border border-[#DEDDDB] bg-white p-5 shadow-sm transition-all duration-200 hover:border-[#E8A0BF]/50 hover:bg-[#FDFBF7] dark:border-[#4A4543] dark:bg-[#363230] dark:hover:border-[#E8A0BF]/30 dark:hover:bg-[#3D3935]"
+      className="card-hover flex items-center justify-between rounded-xl border border-[#DEDDDB] bg-white p-5 shadow-sm transition-all duration-200 hover:border-[#E8A0BF]/50 hover:bg-[#FDFBF7] dark:border-[#3D3935] dark:bg-[#363230] dark:hover:border-[#E8A0BF]/30 dark:hover:bg-[#3D3935]"
     >
       <div className="flex items-center gap-4">
         <span
@@ -388,7 +388,7 @@ function QuickActions({
   startCallError: string | null;
 }) {
   return (
-    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
       <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
         Quick Actions
       </h2>
@@ -433,7 +433,7 @@ function QuickActions({
         </button>
         <Link
           href="/schedule"
-          className="inline-flex items-center justify-center gap-3 rounded-xl border border-[#DEDDDB] px-6 py-3 text-base font-medium text-[#4A4543] shadow-sm transition-all duration-200 hover:bg-[#E8E5EB] hover:shadow-md dark:border-[#4A4543] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
+          className="inline-flex items-center justify-center gap-3 rounded-xl border border-[#DEDDDB] px-6 py-3 text-base font-medium text-[#4A4543] shadow-sm transition-all duration-200 hover:bg-[#E8E5EB] hover:shadow-md dark:border-[#3D3935] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
         >
           <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -461,7 +461,7 @@ function LoadingState() {
         {[1, 2].map((i) => (
           <div
             key={i}
-            className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]"
+            className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]"
           >
             <div className="flex items-center gap-4">
               <div className="h-12 w-12 rounded-xl bg-[#E8E5EB] dark:bg-[#3D3935]" />
@@ -477,7 +477,7 @@ function LoadingState() {
         {[1, 2].map((i) => (
           <div
             key={i}
-            className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]"
+            className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]"
           >
             <div className="flex items-center gap-4">
               <div className="h-14 w-14 rounded-xl bg-[#E8E5EB] dark:bg-[#3D3935]" />
@@ -559,7 +559,7 @@ export default function DashboardPage() {
       />
 
       {/* Recent Calls */}
-      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <div className="flex items-center justify-between">
           <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
             Recent Calls

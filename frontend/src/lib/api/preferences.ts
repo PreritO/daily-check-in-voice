@@ -7,6 +7,7 @@ import { apiClient } from "./client";
 
 export type CommunicationStyle = "casual" | "formal" | "friendly";
 export type CallDurationPreference = "short" | "medium" | "long";
+export type ThemeMode = "light" | "dark" | "system";
 
 export interface UserPreferences {
   id: string;
@@ -15,6 +16,7 @@ export interface UserPreferences {
   interests: string[];
   communication_style: CommunicationStyle;
   call_duration_preference: CallDurationPreference;
+  theme_mode: ThemeMode;
   created_at: string;
   updated_at: string;
 }
@@ -24,6 +26,7 @@ export interface UpdatePreferencesParams {
   interests?: string[];
   communication_style?: CommunicationStyle;
   call_duration_preference?: CallDurationPreference;
+  theme_mode?: ThemeMode;
 }
 
 // =============================================================================

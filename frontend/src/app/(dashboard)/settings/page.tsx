@@ -15,6 +15,7 @@ import {
   useUpdatePreferencesMutation,
   type CommunicationStyle,
 } from "@/lib/api/preferences";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 // =============================================================================
 // Common Timezones
@@ -80,7 +81,7 @@ function TagInput({ value, onChange, placeholder, maxTags = 10 }: TagInputProps)
   );
 
   return (
-    <div className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 shadow-sm transition-all duration-200 focus-within:border-[#E8A0BF] focus-within:ring-2 focus-within:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935]">
+    <div className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 shadow-sm transition-all duration-200 focus-within:border-[#E8A0BF] focus-within:ring-2 focus-within:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935]">
       <div className="flex flex-wrap gap-2">
         {value.map((tag) => (
           <span
@@ -172,7 +173,7 @@ function ProfileSection() {
 
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <div className="animate-pulse space-y-5">
           <div className="h-7 w-36 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
           <div className="h-12 w-full rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
@@ -199,7 +200,7 @@ function ProfileSection() {
   }
 
   return (
-    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
       <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">Profile</h2>
       <p className="mt-1 text-base text-[#A89B86] dark:text-[#B8A99A]">
         Your personal information and contact details.
@@ -216,7 +217,7 @@ function ProfileSection() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] placeholder-[#A89B86] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0] dark:placeholder-[#B8A99A]"
+            className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] placeholder-[#A89B86] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0] dark:placeholder-[#B8A99A]"
             placeholder="Your name"
           />
         </div>
@@ -231,7 +232,7 @@ function ProfileSection() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] placeholder-[#A89B86] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0] dark:placeholder-[#B8A99A]"
+            className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] placeholder-[#A89B86] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0] dark:placeholder-[#B8A99A]"
             placeholder="your@email.com"
           />
         </div>
@@ -252,7 +253,7 @@ function ProfileSection() {
             className={`w-full rounded-xl border px-4 py-3 text-base text-[#4A4543] placeholder-[#A89B86] shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 dark:bg-[#3D3935] dark:text-[#F5F3F0] dark:placeholder-[#B8A99A] ${
               phoneError
                 ? "border-[#F5A9A9] focus:border-[#F5A9A9] focus:ring-[#F5A9A9]/20"
-                : "border-[#DEDDDB] bg-white focus:border-[#E8A0BF] focus:ring-[#E8A0BF]/20 dark:border-[#4A4543]"
+                : "border-[#DEDDDB] bg-white focus:border-[#E8A0BF] focus:ring-[#E8A0BF]/20 dark:border-[#3D3935]"
             }`}
             placeholder="+1 (555) 123-4567"
           />
@@ -271,7 +272,7 @@ function ProfileSection() {
             id="timezone"
             value={timezone}
             onChange={(e) => setTimezone(e.target.value)}
-            className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+            className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
           >
             {COMMON_TIMEZONES.map((tz) => (
               <option key={tz.value} value={tz.value}>
@@ -298,6 +299,31 @@ function ProfileSection() {
             <span className="text-base text-[#F5A9A9]">Failed to save. Please try again.</span>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Appearance Section
+// =============================================================================
+
+function AppearanceSection() {
+  return (
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+      <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">Appearance</h2>
+      <p className="mt-1 text-base text-[#A89B86] dark:text-[#B8A99A]">
+        Customize how Miro looks.
+      </p>
+
+      <div className="mt-6">
+        <label className="mb-3 block text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+          Theme
+        </label>
+        <ThemeToggle />
+        <p className="mt-3 text-sm text-[#A89B86] dark:text-[#B8A99A]">
+          Choose between light, dark, or system theme
+        </p>
       </div>
     </div>
   );
@@ -342,7 +368,7 @@ function PreferencesSection() {
 
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <div className="animate-pulse space-y-5">
           <div className="h-7 w-36 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
           <div className="h-12 w-full rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
@@ -369,7 +395,7 @@ function PreferencesSection() {
   }
 
   return (
-    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
       <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">Preferences</h2>
       <p className="mt-1 text-base text-[#A89B86] dark:text-[#B8A99A]">
         Customize your wellness experience.
@@ -415,7 +441,7 @@ function PreferencesSection() {
             id="communication-style"
             value={communicationStyle}
             onChange={(e) => setCommunicationStyle(e.target.value as CommunicationStyle)}
-            className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+            className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
           >
             <option value="casual">Casual - Relaxed and conversational</option>
             <option value="friendly">Friendly - Warm and supportive</option>
@@ -456,7 +482,7 @@ function NotificationsSection() {
   const [slackEnabled, setSlackEnabled] = useState(false);
 
   return (
-    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
       <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">Notifications</h2>
       <p className="mt-1 text-base text-[#A89B86] dark:text-[#B8A99A]">
         Configure how you receive updates and summaries.
@@ -464,7 +490,7 @@ function NotificationsSection() {
 
       <div className="mt-6 space-y-5">
         {/* Slack Integration Toggle */}
-        <div className="flex items-center justify-between rounded-xl border border-[#DEDDDB] bg-[#FDFBF7] p-5 shadow-sm dark:border-[#4A4543] dark:bg-[#3D3935]">
+        <div className="flex items-center justify-between rounded-xl border border-[#DEDDDB] bg-[#FDFBF7] p-5 shadow-sm dark:border-[#3D3935] dark:bg-[#3D3935]">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#4A154B]">
               <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -483,7 +509,7 @@ function NotificationsSection() {
           <button
             type="button"
             onClick={() => setSlackEnabled(!slackEnabled)}
-            className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#E8A0BF] focus:ring-offset-2 ${
+            className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#E8A0BF] focus:ring-offset-2 dark:focus:ring-offset-[#363230] ${
               slackEnabled ? "bg-[#E8A0BF]" : "bg-[#E8E5EB] dark:bg-[#4A4543]"
             }`}
             role="switch"
@@ -586,7 +612,7 @@ function DangerZoneSection() {
           />
 
           {/* Modal */}
-          <div className="relative z-10 w-full max-w-md rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-xl dark:border-[#4A4543] dark:bg-[#363230]">
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-xl dark:border-[#3D3935] dark:bg-[#363230]">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F5A9A9]/20 dark:bg-[#F5A9A9]/10">
                 <svg className="h-6 w-6 text-[#C77070] dark:text-[#F5A9A9]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -623,7 +649,7 @@ function DangerZoneSection() {
                 type="text"
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
-                className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] placeholder-[#A89B86] shadow-sm transition-all duration-200 focus:border-[#F5A9A9] focus:outline-none focus:ring-2 focus:ring-[#F5A9A9]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0] dark:placeholder-[#B8A99A]"
+                className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] placeholder-[#A89B86] shadow-sm transition-all duration-200 focus:border-[#F5A9A9] focus:outline-none focus:ring-2 focus:ring-[#F5A9A9]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0] dark:placeholder-[#B8A99A]"
                 placeholder="DELETE"
               />
             </div>
@@ -635,7 +661,7 @@ function DangerZoneSection() {
                   setShowConfirmModal(false);
                   setConfirmText("");
                 }}
-                className="flex-1 rounded-xl border border-[#DEDDDB] px-6 py-3 text-base font-medium text-[#4A4543] shadow-sm transition-all duration-200 hover:bg-[#E8E5EB] hover:shadow-md dark:border-[#4A4543] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
+                className="flex-1 rounded-xl border border-[#DEDDDB] px-6 py-3 text-base font-medium text-[#4A4543] shadow-sm transition-all duration-200 hover:bg-[#E8E5EB] hover:shadow-md dark:border-[#3D3935] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
               >
                 Cancel
               </button>
@@ -671,6 +697,7 @@ export default function SettingsPage() {
       <h1 className="font-serif text-3xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">Settings</h1>
 
       <ProfileSection />
+      <AppearanceSection />
       <PreferencesSection />
       <NotificationsSection />
       <DangerZoneSection />

@@ -71,7 +71,7 @@ function StatCard({
   iconBgClass?: string;
 }) {
   return (
-    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
       <div className="flex items-center gap-5">
         <div
           className={`flex h-14 w-14 items-center justify-center rounded-xl shadow-sm ${iconBgClass}`}
@@ -138,7 +138,7 @@ function MoodTrendChart({ data }: { data: MoodTrendItem[] }) {
             if (active && payload && payload.length) {
               const data = payload[0].payload;
               return (
-                <div className="rounded-xl border border-[#DEDDDB] bg-white p-4 shadow-lg dark:border-[#4A4543] dark:bg-[#363230]">
+                <div className="rounded-xl border border-[#DEDDDB] bg-white p-4 shadow-lg dark:border-[#3D3935] dark:bg-[#363230]">
                   <p className="text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]">
                     {data.fullDate}
                   </p>
@@ -197,7 +197,7 @@ function LoadingState() {
         {[1, 2, 3, 4, 5].map((i) => (
           <div
             key={i}
-            className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]"
+            className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]"
           >
             <div className="flex items-center gap-5">
               <div className="h-14 w-14 rounded-xl bg-[#E8E5EB] dark:bg-[#3D3935]" />
@@ -209,7 +209,7 @@ function LoadingState() {
           </div>
         ))}
       </div>
-      <div className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <div className="h-7 w-36 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
         <div className="mt-5 h-72 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
       </div>
@@ -257,7 +257,7 @@ function EmptyState() {
       <h1 className="font-serif text-3xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
         Analytics
       </h1>
-      <div className="rounded-2xl border border-[#DEDDDB] bg-white p-16 text-center shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="rounded-2xl border border-[#DEDDDB] bg-white p-16 text-center shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#E8E5EB] dark:bg-[#3D3935]">
           <svg
             className="h-10 w-10 text-[#A89B86]"
@@ -414,7 +414,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Mood Trend Chart */}
-      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
           Mood Trend
         </h2>

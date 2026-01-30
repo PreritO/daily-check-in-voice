@@ -125,7 +125,7 @@ function MoodSection({
   // If no mood analysis exists, show the analyze button
   if (!moodAnalysis) {
     return (
-      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <div className="flex items-center justify-between">
           <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
             Mood Analysis
@@ -199,7 +199,7 @@ function MoodSection({
 
   // Display existing mood analysis
   return (
-    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
@@ -288,7 +288,7 @@ function MoodSection({
 
 function MemoryCard({ memory }: { memory: Memory }) {
   return (
-    <div className="card-hover rounded-xl border border-[#DEDDDB] bg-[#FDFBF7] p-5 shadow-sm dark:border-[#4A4543] dark:bg-[#3D3935]">
+    <div className="card-hover rounded-xl border border-[#DEDDDB] bg-[#FDFBF7] p-5 shadow-sm dark:border-[#3D3935] dark:bg-[#3D3935]">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
           <span
@@ -308,7 +308,7 @@ function MemoryCard({ memory }: { memory: Memory }) {
           Importance: {memory.importance}/10
         </h4>
         <div className="mt-2 flex items-center gap-3">
-          <div className="h-2 flex-1 rounded-full bg-[#E8E5EB] dark:bg-[#4A4543]">
+          <div className="h-2 flex-1 rounded-full bg-[#E8E5EB] dark:bg-[#3D3935]">
             <div
               className="h-2 rounded-full bg-[#A8D5BA]"
               style={{ width: `${(memory.importance / 10) * 100}%` }}
@@ -346,7 +346,7 @@ function MemoriesSection({
   // If no memories exist, show the extract button
   if (memories.length === 0) {
     return (
-      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <div className="flex items-center justify-between">
           <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
             Memories
@@ -420,7 +420,7 @@ function MemoriesSection({
 
   // Display existing memories
   return (
-    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
       <div className="flex items-center justify-between">
         <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
           Memories
@@ -441,7 +441,7 @@ function MemoriesSection({
 
 function CallInfoCard({ call }: { call: CallWithDetails }) {
   return (
-    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
       <div className="flex items-center justify-between">
         <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
           Call Details
@@ -547,7 +547,7 @@ function TranscriptEntry({ entry }: { entry: Transcript }) {
 function TranscriptSection({ transcripts }: { transcripts: Transcript[] }) {
   if (transcripts.length === 0) {
     return (
-      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
           Transcript
         </h2>
@@ -559,7 +559,7 @@ function TranscriptSection({ transcripts }: { transcripts: Transcript[] }) {
   }
 
   return (
-    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
       <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
         Transcript
       </h2>
@@ -587,7 +587,7 @@ function SummarySection({ summary }: { summary: Summary }) {
   };
 
   return (
-    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
       <div className="flex items-center justify-between">
         <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
           Summary
@@ -680,7 +680,7 @@ function LoadingState() {
         <div className="h-9 w-56 animate-pulse rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
       </div>
       {/* Call info skeleton */}
-      <div className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <div className="flex items-center justify-between">
           <div className="h-7 w-36 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
           <div className="h-6 w-24 rounded-full bg-[#E8E5EB] dark:bg-[#3D3935]" />
@@ -695,7 +695,7 @@ function LoadingState() {
         </div>
       </div>
       {/* Transcript skeleton */}
-      <div className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
         <div className="h-7 w-32 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
         <div className="mt-5 space-y-5">
           {[1, 2, 3].map((i) => (
