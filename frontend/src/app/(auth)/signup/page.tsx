@@ -34,9 +34,9 @@ export default function SignupPage() {
         // Check if email confirmation is required
         // Supabase may auto-confirm or require email verification depending on settings
         setSuccess(true);
-        // If auto-confirm is enabled, redirect to dashboard
+        // If auto-confirm is enabled, redirect to onboarding
         setTimeout(() => {
-          router.push("/");
+          router.push("/onboarding");
           router.refresh();
         }, 2000);
       }
@@ -70,7 +70,7 @@ export default function SignupPage() {
           Account created!
         </h1>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          Redirecting you to the dashboard...
+          Redirecting you to complete setup...
         </p>
       </div>
     );

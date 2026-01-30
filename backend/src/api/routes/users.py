@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.dependencies import get_or_create_user
 from src.api.schemas import UserCreate, UserRead, UserUpdate
 from src.database import get_db
 from src.models import User
@@ -15,6 +16,79 @@ from src.models import User
 logger = structlog.get_logger()
 
 router = APIRouter()
+
+
+@router.get("/me", response_model=UserRead)
+async def get_current_user_profile(
+    current_user: User = Depends(get_or_create_user),
+) -> User:
+    """Get the current authenticated user's profile.
+
+    This endpoint uses get_or_create_user dependency which will:
+    - Create a new user record if this is the first time they're calling the API
+    - Return the existing user record if they already exist
+
+    Args:
+        current_user: The authenticated user from the JWT token.
+
+    Returns:
+        The current user's profile.
+    """
+    logger.info("Getting current user profile", user_id=str(current_user.id))
+    return current_user
+
+
+@router.patch("/me", response_model=UserRead)
+async def update_current_user_profile(
+    user_data: UserUpdate,
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Update the current authenticated user's profile.
+
+    Uses get_or_create_user to support the onboarding flow where
+    this may be the first API call after Supabase signup.
+
+    Args:
+        user_data: User update data (only provided fields will be updated).
+        current_user: The authenticated user from the JWT token.
+        db: Database session.
+
+    Returns:
+        The updated user profile.
+
+    Raises:
+        HTTPException: 409 if email already exists.
+    """
+    logger.info("Updating current user profile", user_id=str(current_user.id))
+
+    # Only update fields that were explicitly provided
+    update_data = user_data.model_dump(exclude_unset=True)
+
+    if not update_data:
+        logger.info("No fields to update", user_id=str(current_user.id))
+        return current_user
+
+    for field, value in update_data.items():
+        setattr(current_user, field, value)
+
+    try:
+        await db.flush()
+        await db.refresh(current_user)
+    except IntegrityError as e:
+        await db.rollback()
+        logger.warning("Duplicate email on update", user_id=str(current_user.id), error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User with email {update_data.get('email')} already exists",
+        ) from e
+
+    logger.info(
+        "Current user profile updated",
+        user_id=str(current_user.id),
+        updated_fields=list(update_data.keys()),
+    )
+    return current_user
 
 
 @router.get("/", response_model=list[UserRead])
