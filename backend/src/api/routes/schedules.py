@@ -11,6 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.schemas import ScheduleCreate, ScheduleRead, ScheduleUpdate
 from src.database import get_db
 from src.models import Schedule, User
+from src.services.scheduler_service import (
+    add_schedule_job,
+    get_scheduler,
+    remove_schedule_job,
+)
 
 logger = structlog.get_logger()
 
@@ -137,6 +142,37 @@ async def create_schedule(
             detail="Failed to create schedule due to database constraint violation",
         ) from e
 
+    # Add scheduler job if schedule is enabled
+    if schedule.enabled:
+        try:
+            user_timezone = user.timezone if user.timezone else "UTC"
+            if add_schedule_job(schedule, user_timezone):
+                # Update next_run_at from the APScheduler job
+                scheduler = get_scheduler()
+                if scheduler:
+                    job = scheduler.get_job(f"schedule_{schedule.id}")
+                    if job and job.next_run_time:
+                        schedule.next_run_at = job.next_run_time
+                        await db.flush()
+                        await db.refresh(schedule)
+                logger.info(
+                    "Scheduler job added for schedule",
+                    schedule_id=str(schedule.id),
+                    next_run_at=str(schedule.next_run_at) if schedule.next_run_at else None,
+                )
+            else:
+                logger.warning(
+                    "Failed to add scheduler job for schedule",
+                    schedule_id=str(schedule.id),
+                )
+        except Exception as e:
+            # Log but don't fail the create operation
+            logger.error(
+                "Error adding scheduler job",
+                schedule_id=str(schedule.id),
+                error=str(e),
+            )
+
     logger.info(
         "Schedule created",
         schedule_id=str(schedule.id),
@@ -183,11 +219,60 @@ async def update_schedule(
         logger.info("No fields to update", schedule_id=str(schedule_id))
         return schedule
 
+    # Track if scheduler-relevant fields changed
+    scheduler_fields_changed = "cron_expression" in update_data or "enabled" in update_data
+
     for field, value in update_data.items():
         setattr(schedule, field, value)
 
     await db.flush()
     await db.refresh(schedule)
+
+    # Update scheduler job if cron_expression or enabled changed
+    if scheduler_fields_changed:
+        try:
+            if schedule.enabled:
+                # Fetch user to get timezone
+                user_result = await db.execute(select(User).where(User.id == schedule.user_id))
+                user = user_result.scalar_one_or_none()
+                user_timezone = user.timezone if user and user.timezone else "UTC"
+
+                if add_schedule_job(schedule, user_timezone):
+                    # Update next_run_at from the APScheduler job
+                    scheduler = get_scheduler()
+                    if scheduler:
+                        job = scheduler.get_job(f"schedule_{schedule.id}")
+                        if job and job.next_run_time:
+                            schedule.next_run_at = job.next_run_time
+                            await db.flush()
+                            await db.refresh(schedule)
+                    logger.info(
+                        "Scheduler job updated for schedule",
+                        schedule_id=str(schedule_id),
+                        next_run_at=str(schedule.next_run_at) if schedule.next_run_at else None,
+                    )
+                else:
+                    logger.warning(
+                        "Failed to update scheduler job for schedule",
+                        schedule_id=str(schedule_id),
+                    )
+            else:
+                # Schedule disabled - remove the job
+                remove_schedule_job(str(schedule_id))
+                schedule.next_run_at = None
+                await db.flush()
+                await db.refresh(schedule)
+                logger.info(
+                    "Scheduler job removed for disabled schedule",
+                    schedule_id=str(schedule_id),
+                )
+        except Exception as e:
+            # Log but don't fail the update operation
+            logger.error(
+                "Error updating scheduler job",
+                schedule_id=str(schedule_id),
+                error=str(e),
+            )
 
     logger.info(
         "Schedule updated",
@@ -221,6 +306,18 @@ async def delete_schedule(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Schedule with id {schedule_id} not found",
+        )
+
+    # Remove the scheduler job before deleting the schedule
+    try:
+        remove_schedule_job(str(schedule_id))
+        logger.info("Scheduler job removed for deleted schedule", schedule_id=str(schedule_id))
+    except Exception as e:
+        # Log but don't fail the delete operation
+        logger.error(
+            "Error removing scheduler job during schedule deletion",
+            schedule_id=str(schedule_id),
+            error=str(e),
         )
 
     await db.delete(schedule)

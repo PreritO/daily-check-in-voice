@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api.routes import api_router
 from .config import get_settings
+from .services.scheduler_service import shutdown_scheduler, start_scheduler
 
 settings = get_settings()
 
@@ -52,8 +53,22 @@ async def startup_event() -> None:
     """Run on application startup."""
     logger.info("Starting Daily Check-In Agent API", env=settings.APP_ENV)
 
+    # Initialize and start the scheduler
+    try:
+        await start_scheduler()
+        logger.info("Scheduler started successfully")
+    except Exception as e:
+        logger.exception("Failed to start scheduler", error=str(e))
+
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
     """Run on application shutdown."""
     logger.info("Shutting down Daily Check-In Agent API")
+
+    # Gracefully shutdown the scheduler
+    try:
+        await shutdown_scheduler()
+        logger.info("Scheduler shutdown successfully")
+    except Exception as e:
+        logger.exception("Error shutting down scheduler", error=str(e))
