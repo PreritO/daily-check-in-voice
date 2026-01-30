@@ -533,3 +533,35 @@ Started: Thu Jan 29 21:15:04 EST 2026
 - Commit at end of pipeline, rollback on unexpected error
 - post_summary handles Slack not configured gracefully (returns SlackPostResult with success=False)
 ---
+
+## 2026-01-30 - US-116: Create analytics data aggregation
+- **Subagents used**:
+  - architect: Analyzed service patterns, SQLAlchemy query patterns, timezone handling
+  - backend: Implemented analytics_service.py with all functions
+  - reviewer: Found timezone inconsistency in mood_trend and defensive timezone handling
+- **What was implemented**:
+  - Created MoodTrendItem and UserAnalytics dataclasses
+  - Created get_user_analytics(user_id, db, user_timezone) returning UserAnalytics
+  - Helper functions: _get_total_calls, _get_duration_stats, _get_period_counts, _get_mood_trend, _calculate_streak_days
+  - Mood trend retrieves last 10 calls with sentiment and confidence
+  - Streak calculation: lenient (allows today OR yesterday), timezone-aware
+  - Duration stats use func.extract('epoch', ...) for PostgreSQL compatibility
+  - All date calculations convert UTC timestamps to user's local timezone
+- **Files changed**:
+  - backend/src/services/analytics_service.py (new)
+  - backend/src/services/__init__.py (modified - exports)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
+- **Learnings for future iterations**:
+  - Use func.extract("epoch", datetime) for duration calculations in PostgreSQL
+  - Convert UTC to user timezone for streak/period calculations using ZoneInfo
+  - Defensive timezone handling: check if started_at.tzinfo is None before .replace()
+  - Streak lenient logic: allow today OR yesterday as valid starting points
+  - Reviewer caught timezone inconsistency - mood_trend should also use user_tz
+
+### Analytics Service Patterns
+- UserAnalytics dataclass with 7 fields: total_calls, total_duration_minutes, average_call_duration, calls_this_week, calls_this_month, mood_trend, streak_days
+- MoodTrendItem dataclass: call_date, sentiment (SentimentType), confidence (float)
+- Timezone handling: parse with ZoneInfo, fallback to UTC on KeyError/ValueError
+- Streak: sort dates descending, count consecutive from most recent, stop on gap
+- Duration: func.extract("epoch", ended_at) - func.extract("epoch", started_at) / 60.0
+---
