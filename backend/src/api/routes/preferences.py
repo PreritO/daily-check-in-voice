@@ -10,7 +10,11 @@ from src.api.dependencies import get_or_create_user
 from src.api.schemas import PreferencesRead, PreferencesUpsert
 from src.database import get_db
 from src.models import User
-from src.models.preferences import UserPreferences
+from src.models.preferences import (
+    CallDurationPreference,
+    CommunicationStyle,
+    UserPreferences,
+)
 
 logger = structlog.get_logger()
 
@@ -37,8 +41,14 @@ async def get_preferences(
     preferences = result.scalar_one_or_none()
 
     if preferences is None:
-        # Create default preferences
-        preferences = UserPreferences(user_id=current_user.id)
+        # Create default preferences with explicit enum values (SQLite compatibility)
+        preferences = UserPreferences(
+            user_id=current_user.id,
+            conversation_topics=[],
+            interests=[],
+            communication_style=CommunicationStyle.FRIENDLY,
+            call_duration_preference=CallDurationPreference.MEDIUM,
+        )
         db.add(preferences)
         try:
             await db.flush()

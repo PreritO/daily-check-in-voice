@@ -17,6 +17,7 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "pyjwt[crypto]>=2.8.0",
     "python-dotenv>=1.2.1",
+    "python-multipart>=0.0.22",
     "sqlalchemy>=2.0.46",
     "structlog>=25.5.0",
     "twilio>=9.0.0",

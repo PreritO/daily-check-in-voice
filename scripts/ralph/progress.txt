@@ -886,3 +886,47 @@ Started: Thu Jan 29 21:15:04 EST 2026
 - Composite index (user_id, acknowledged) for efficient queries
 - useUnacknowledgedAlertsQuery with 30s refetchInterval
 ---
+
+## 2026-01-30 - US-126: Write integration tests for new features
+- **Subagents used**:
+  - architect: Analyzed test infrastructure, identified existing patterns and fixtures
+  - backend: Implemented all test files with proper mocking patterns
+- **What was implemented**:
+  - test_auth.py: Auth middleware tests (7 tests)
+    - Valid token, invalid token, missing token
+    - Protected endpoint access verification
+  - test_preferences.py: Preferences CRUD tests (10 tests)
+    - GET auto-creates defaults, PUT upsert, DELETE reset
+    - Fixed SQLite enum compatibility in preferences route
+  - test_mood_analysis.py: Mood analysis endpoint tests (6 tests)
+    - Success, 404, 400, 409 cases with mocked analyze_mood service
+  - test_analytics.py: Analytics endpoint tests (6 tests)
+    - Empty analytics, with calls, mood trend, streak calculation
+  - test_webhooks.py: Twilio webhook tests (6 tests)
+    - Valid signature, invalid signature, missing signature
+    - Unknown phone, no SIP domain, call creation verification
+  - Added python-multipart dependency for form parsing
+  - Fixed preferences route to explicitly set enum values (SQLite compatibility)
+- **Files changed**:
+  - backend/tests/test_auth.py (new)
+  - backend/tests/test_preferences.py (new)
+  - backend/tests/test_mood_analysis.py (new)
+  - backend/tests/test_analytics.py (new)
+  - backend/tests/test_webhooks.py (new)
+  - backend/src/api/routes/preferences.py (modified - explicit enum values)
+  - backend/pyproject.toml (modified - added python-multipart)
+- **Verification**: ruff ✓ | pytest (81 passed) ✓
+- **Learnings for future iterations**:
+  - SQLite handles enums differently - explicitly pass enum values instead of relying on server_default
+  - python-multipart is required for form data parsing in FastAPI tests
+  - Use @patch with module path where the function is imported, not where it's defined
+  - Webhook tests need to mock RequestValidator and get_settings
+  - Test fixtures should use test_session directly when needed for assertions
+
+### Test Patterns
+- Use authenticated_client fixture for protected endpoints
+- Use @patch("src.api.routes.module.function") for mocking
+- Mock RequestValidator.validate() for Twilio signature tests
+- SQLite compatibility: Explicitly set enum values in code, don't rely on server_default
+- Fixtures can be defined at class level with @pytest.fixture
+---
