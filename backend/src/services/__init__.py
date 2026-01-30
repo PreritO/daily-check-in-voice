@@ -8,6 +8,7 @@ from .memory_service import (
     extract_memories,
     get_user_context,
 )
+from .mood_service import MoodAnalysisResult, analyze_mood
 from .slack_service import SlackPostResult, post_summary
 from .summary_service import StandupSummary, generate_summary
 
@@ -15,10 +16,12 @@ __all__ = [
     "AuthError",
     "ExtractedMemory",
     "MemoryExtractionResult",
+    "MoodAnalysisResult",
     "RoomInfo",
     "SlackPostResult",
     "StandupSummary",
     "TokenPayload",
+    "analyze_mood",
     "create_room_for_call",
     "dispatch_agent_to_room",
     "extract_memories",
