@@ -1,5 +1,6 @@
 """Business logic services."""
 
+from .analytics_service import MoodTrendItem, UserAnalytics, get_user_analytics
 from .auth_service import AuthError, TokenPayload, reset_jwks_client, verify_supabase_token
 from .livekit_service import RoomInfo, create_room_for_call, dispatch_agent_to_room
 from .memory_service import (
@@ -25,11 +26,13 @@ __all__ = [
     "ExtractedMemory",
     "MemoryExtractionResult",
     "MoodAnalysisResult",
+    "MoodTrendItem",
     "PostCallResult",
     "RoomInfo",
     "SlackPostResult",
     "StandupSummary",
     "TokenPayload",
+    "UserAnalytics",
     "add_schedule_job",
     "analyze_mood",
     "create_room_for_call",
@@ -37,6 +40,7 @@ __all__ = [
     "extract_memories",
     "generate_summary",
     "get_scheduler",
+    "get_user_analytics",
     "get_user_context",
     "post_summary",
     "process_completed_call",
