@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from src.models import CallStatus, Speaker
+from src.models.preferences import CallDurationPreference, CommunicationStyle
 
 # =============================================================================
 # User Schemas
@@ -239,3 +240,44 @@ class CallTriggerResponse(BaseModel):
     room_name: str = Field(..., description="LiveKit room name")
     token: str = Field(..., description="LiveKit access token for the participant")
     livekit_url: str = Field(..., description="LiveKit server URL")
+
+
+# =============================================================================
+# Preference Schemas
+# =============================================================================
+
+
+class PreferencesRead(BaseModel):
+    """Schema for reading user preferences."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    conversation_topics: list[str]
+    interests: list[str]
+    communication_style: CommunicationStyle
+    call_duration_preference: CallDurationPreference
+    created_at: datetime
+    updated_at: datetime
+
+
+class PreferencesUpsert(BaseModel):
+    """Schema for creating or updating user preferences (upsert).
+
+    All fields are optional - missing fields will use defaults on create
+    or remain unchanged on update.
+    """
+
+    conversation_topics: list[str] | None = Field(
+        default=None, description="Topics the user wants to discuss"
+    )
+    interests: list[str] | None = Field(
+        default=None, description="User's interests for personalization"
+    )
+    communication_style: CommunicationStyle | None = Field(
+        default=None, description="Preferred communication style"
+    )
+    call_duration_preference: CallDurationPreference | None = Field(
+        default=None, description="Preferred call duration"
+    )
