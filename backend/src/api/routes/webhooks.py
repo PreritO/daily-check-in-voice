@@ -12,7 +12,7 @@ from twilio.twiml.voice_response import VoiceResponse
 
 from src.config import get_settings
 from src.database import get_db
-from src.models import Call, CallStatus, User
+from src.models import Call, CallDirection, CallStatus, User
 
 logger = structlog.get_logger()
 
@@ -185,6 +185,7 @@ async def handle_twilio_incoming(
     call = Call(
         user_id=user.id,
         status=CallStatus.IN_PROGRESS,
+        direction=CallDirection.INBOUND,
         started_at=datetime.now(UTC),
     )
 

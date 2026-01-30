@@ -1,7 +1,7 @@
 """Database models for Daily Check-In Agent."""
 
 from .base import Base
-from .call import Call, CallStatus
+from .call import Call, CallDirection, CallStatus
 from .memory import ConversationMemory, MemoryType
 from .mood import MoodAnalysis, SentimentType
 from .preferences import CallDurationPreference, CommunicationStyle, UserPreferences
@@ -13,6 +13,7 @@ from .user import User
 __all__ = [
     "Base",
     "Call",
+    "CallDirection",
     "CallDurationPreference",
     "CallStatus",
     "CommunicationStyle",

@@ -27,6 +27,13 @@ class CallStatus(enum.Enum):
     FAILED = "failed"
 
 
+class CallDirection(enum.Enum):
+    """Enumeration of call directions."""
+
+    INBOUND = "inbound"
+    OUTBOUND = "outbound"
+
+
 class Call(Base):
     """Call model for storing standup call information."""
 
@@ -44,6 +51,11 @@ class Call(Base):
     status: Mapped[CallStatus] = mapped_column(
         Enum(CallStatus, native_enum=False, length=20),
         default=CallStatus.SCHEDULED,
+        nullable=False,
+    )
+    direction: Mapped[CallDirection] = mapped_column(
+        Enum(CallDirection, native_enum=False, length=20),
+        default=CallDirection.OUTBOUND,
         nullable=False,
     )
     scheduled_at: Mapped[datetime | None] = mapped_column(

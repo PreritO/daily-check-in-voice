@@ -6,6 +6,7 @@ import { apiClient } from "./client";
 // =============================================================================
 
 export type CallStatus = "scheduled" | "in_progress" | "completed" | "failed";
+export type CallDirection = "inbound" | "outbound";
 export type Speaker = "agent" | "user";
 export type SentimentType = "positive" | "neutral" | "negative" | "concerned";
 export type MemoryType = "fact" | "preference" | "event" | "relationship";
@@ -14,6 +15,7 @@ export interface Call {
   id: string;
   user_id: string;
   status: CallStatus;
+  direction: CallDirection;
   scheduled_at: string | null;
   started_at: string | null;
   ended_at: string | null;

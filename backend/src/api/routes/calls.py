@@ -21,7 +21,15 @@ from src.api.schemas import (
     SummaryRead,
 )
 from src.database import get_db
-from src.models import Call, CallStatus, ConversationMemory, MoodAnalysis, Summary, User
+from src.models import (
+    Call,
+    CallDirection,
+    CallStatus,
+    ConversationMemory,
+    MoodAnalysis,
+    Summary,
+    User,
+)
 from src.services import (
     analyze_mood,
     create_room_for_call,
@@ -541,6 +549,7 @@ async def trigger_call(
     call = Call(
         user_id=request.user_id,
         status=CallStatus.IN_PROGRESS,
+        direction=CallDirection.OUTBOUND,
         started_at=datetime.now(UTC),
     )
 

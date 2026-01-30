@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from src.models import CallStatus, MemoryType, SentimentType, Speaker
+from src.models import CallDirection, CallStatus, MemoryType, SentimentType, Speaker
 from src.models.preferences import CallDurationPreference, CommunicationStyle
 
 # =============================================================================
@@ -76,6 +76,7 @@ class CallRead(BaseModel):
     id: UUID
     user_id: UUID
     status: CallStatus
+    direction: CallDirection
     scheduled_at: datetime | None
     started_at: datetime | None
     ended_at: datetime | None
@@ -183,6 +184,7 @@ class CallReadWithDetails(BaseModel):
     id: UUID
     user_id: UUID
     status: CallStatus
+    direction: CallDirection
     scheduled_at: datetime | None
     started_at: datetime | None
     ended_at: datetime | None

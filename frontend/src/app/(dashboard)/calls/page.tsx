@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallsQuery, type Call, type CallStatus } from "@/lib/api/calls";
+import { useCallsQuery, type Call, type CallStatus, type CallDirection } from "@/lib/api/calls";
 import { formatDistanceToNow, format, differenceInMinutes } from "date-fns";
 
 function getStatusBadgeClasses(status: CallStatus): string {
@@ -15,6 +15,19 @@ function getStatusBadgeClasses(status: CallStatus): string {
     case "failed":
       return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
   }
+}
+
+function getDirectionBadgeClasses(direction: CallDirection): string {
+  switch (direction) {
+    case "inbound":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
+    case "outbound":
+      return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400";
+  }
+}
+
+function formatDirection(direction: CallDirection): string {
+  return direction.charAt(0).toUpperCase() + direction.slice(1);
 }
 
 function formatStatus(status: CallStatus): string {
@@ -65,6 +78,13 @@ function CallListItem({ call }: { call: Call }) {
               )}`}
             >
               {formatStatus(call.status)}
+            </span>
+            <span
+              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getDirectionBadgeClasses(
+                call.direction
+              )}`}
+            >
+              {formatDirection(call.direction)}
             </span>
             <span className="text-sm text-zinc-500 dark:text-zinc-400">
               {formatRelativeTime(call)}
