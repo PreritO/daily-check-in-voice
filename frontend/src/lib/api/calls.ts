@@ -8,6 +8,7 @@ import { apiClient } from "./client";
 export type CallStatus = "scheduled" | "in_progress" | "completed" | "failed";
 export type Speaker = "agent" | "user";
 export type SentimentType = "positive" | "neutral" | "negative" | "concerned";
+export type MemoryType = "fact" | "preference" | "event" | "relationship";
 
 export interface Call {
   id: string;
@@ -52,10 +53,21 @@ export interface MoodAnalysis {
   analyzed_at: string;
 }
 
+export interface Memory {
+  id: string;
+  user_id: string;
+  memory_type: MemoryType;
+  content: string;
+  source_call_id: string | null;
+  importance: number;
+  created_at: string;
+}
+
 export interface CallWithDetails extends Call {
   transcripts: Transcript[];
   summary: Summary | null;
   mood_analysis: MoodAnalysis | null;
+  memories: Memory[];
 }
 
 // =============================================================================
@@ -242,6 +254,26 @@ export function useAnalyzeMoodMutation() {
     mutationFn: analyzeMood,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: callsKeys.detail(data.call_id) });
+    },
+  });
+}
+
+// =============================================================================
+// Memory Extraction API Functions
+// =============================================================================
+
+async function extractMemories(callId: string): Promise<Memory[]> {
+  const response = await apiClient.post<Memory[]>(`/calls/${callId}/extract-memories`);
+  return response.data;
+}
+
+export function useExtractMemoriesMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (callId: string) => extractMemories(callId),
+    onSuccess: (_, callId) => {
+      queryClient.invalidateQueries({ queryKey: callsKeys.detail(callId) });
     },
   });
 }

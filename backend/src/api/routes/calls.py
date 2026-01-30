@@ -16,15 +16,17 @@ from src.api.schemas import (
     CallTriggerRequest,
     CallTriggerResponse,
     CallUpdate,
+    MemoryRead,
     MoodAnalysisRead,
     SummaryRead,
 )
 from src.database import get_db
-from src.models import Call, CallStatus, MoodAnalysis, Summary, User
+from src.models import Call, CallStatus, ConversationMemory, MoodAnalysis, Summary, User
 from src.services import (
     analyze_mood,
     create_room_for_call,
     dispatch_agent_to_room,
+    extract_memories,
     generate_summary,
 )
 
@@ -95,6 +97,7 @@ async def get_call(
             selectinload(Call.transcripts),
             selectinload(Call.summary),
             selectinload(Call.mood_analysis),
+            selectinload(Call.memories),
         )
     )
     call = result.scalar_one_or_none()
@@ -409,6 +412,95 @@ async def analyze_call_mood(
         mood_analysis_id=str(mood_analysis.id),
     )
     return mood_analysis
+
+
+@router.post(
+    "/{call_id}/extract-memories",
+    response_model=list[MemoryRead],
+    status_code=status.HTTP_201_CREATED,
+)
+async def extract_call_memories(
+    call_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> list[ConversationMemory]:
+    """Extract memories from a call's transcripts.
+
+    Args:
+        call_id: UUID of the call to extract memories from.
+        db: Database session.
+
+    Returns:
+        The extracted memories.
+
+    Raises:
+        HTTPException: 404 if call not found, 400 if no transcripts, 409 if memories exist.
+    """
+    logger.info("Extracting memories for call", call_id=str(call_id))
+
+    # Get call with transcripts
+    result = await db.execute(
+        select(Call)
+        .where(Call.id == call_id)
+        .options(
+            selectinload(Call.transcripts),
+        )
+    )
+    call = result.scalar_one_or_none()
+
+    if call is None:
+        logger.warning("Call not found for memory extraction", call_id=str(call_id))
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Call with id {call_id} not found",
+        )
+
+    # Check if transcripts exist
+    if not call.transcripts:
+        logger.warning("No transcripts for call", call_id=str(call_id))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot extract memories: call has no transcripts",
+        )
+
+    # Check if memories already exist for this call
+    existing_memories_result = await db.execute(
+        select(ConversationMemory).where(ConversationMemory.source_call_id == call_id)
+    )
+    existing_memories = existing_memories_result.scalars().first()
+
+    if existing_memories is not None:
+        logger.warning("Memories already exist for call", call_id=str(call_id))
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Memories already exist for this call",
+        )
+
+    # Extract memories using Anthropic Claude
+    try:
+        memories = await extract_memories(call_id, call.user_id, call.transcripts)
+    except ValueError as e:
+        logger.error("Memory extraction failed", call_id=str(call_id), error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to extract memories: {e}",
+        ) from e
+
+    # Save memories to database
+    for memory in memories:
+        db.add(memory)
+
+    await db.flush()
+
+    # Refresh all memories to get generated fields
+    for memory in memories:
+        await db.refresh(memory)
+
+    logger.info(
+        "Memories extracted and saved",
+        call_id=str(call_id),
+        memory_count=len(memories),
+    )
+    return memories
 
 
 @router.post("/trigger", response_model=CallTriggerResponse, status_code=status.HTTP_201_CREATED)

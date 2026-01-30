@@ -8,12 +8,15 @@ import {
   useCallQuery,
   usePostToSlackMutation,
   useAnalyzeMoodMutation,
+  useExtractMemoriesMutation,
   type CallWithDetails,
   type CallStatus,
   type Transcript,
   type Summary,
   type MoodAnalysis,
   type SentimentType,
+  type Memory,
+  type MemoryType,
 } from "@/lib/api/calls";
 
 function getStatusBadgeClasses(status: CallStatus): string {
@@ -73,6 +76,23 @@ function getSentimentBadgeClasses(sentiment: SentimentType): string {
     case "concerned":
       return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400";
   }
+}
+
+function getMemoryTypeBadgeClasses(memoryType: MemoryType): string {
+  switch (memoryType) {
+    case "fact":
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+    case "preference":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
+    case "event":
+      return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400";
+    case "relationship":
+      return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
+  }
+}
+
+function formatMemoryType(memoryType: MemoryType): string {
+  return memoryType.charAt(0).toUpperCase() + memoryType.slice(1);
 }
 
 function formatSentiment(sentiment: SentimentType): string {
@@ -261,6 +281,159 @@ function MoodSection({
             </p>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function MemoryCard({ memory }: { memory: Memory }) {
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1">
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getMemoryTypeBadgeClasses(
+              memory.memory_type
+            )}`}
+          >
+            {formatMemoryType(memory.memory_type)}
+          </span>
+          <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
+            {memory.content}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3">
+        <h4 className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+          Importance: {memory.importance}/10
+        </h4>
+        <div className="mt-1 flex items-center gap-2">
+          <div className="h-2 flex-1 rounded-full bg-zinc-200 dark:bg-zinc-700">
+            <div
+              className="h-2 rounded-full bg-teal-600"
+              style={{ width: `${(memory.importance / 10) * 100}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MemoriesSection({
+  memories,
+  callId,
+  hasTranscripts,
+}: {
+  memories: Memory[];
+  callId: string;
+  hasTranscripts: boolean;
+}) {
+  const extractMemoriesMutation = useExtractMemoriesMutation();
+  const [error, setError] = useState<string | null>(null);
+
+  const handleExtractMemories = async () => {
+    setError(null);
+    try {
+      await extractMemoriesMutation.mutateAsync(callId);
+    } catch (e) {
+      const errorMessage =
+        e instanceof Error ? e.message : "Failed to extract memories";
+      setError(errorMessage);
+    }
+  };
+
+  // If no memories exist, show the extract button
+  if (memories.length === 0) {
+    return (
+      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            Memories
+          </h2>
+          <button
+            onClick={handleExtractMemories}
+            disabled={extractMemoriesMutation.isPending || !hasTranscripts}
+            className="rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {extractMemoriesMutation.isPending ? (
+              <span className="inline-flex items-center gap-1.5">
+                <svg
+                  className="h-4 w-4 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                Extracting...
+              </span>
+            ) : (
+              "Extract Memories"
+            )}
+          </button>
+        </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+            <div className="flex items-center gap-2">
+              <svg
+                className="h-4 w-4 text-red-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {!hasTranscripts && (
+          <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
+            Memory extraction requires a transcript. Complete a call first.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // Display existing memories
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          Memories
+        </h2>
+        <span className="text-sm text-zinc-500 dark:text-zinc-400">
+          {memories.length} {memories.length === 1 ? "memory" : "memories"} extracted
+        </span>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        {memories.map((memory) => (
+          <MemoryCard key={memory.id} memory={memory} />
+        ))}
       </div>
     </div>
   );
@@ -653,6 +826,12 @@ export default function CallDetailPage() {
 
       <MoodSection
         moodAnalysis={call.mood_analysis}
+        callId={call.id}
+        hasTranscripts={call.transcripts.length > 0}
+      />
+
+      <MemoriesSection
+        memories={call.memories}
         callId={call.id}
         hasTranscripts={call.transcripts.length > 0}
       />
