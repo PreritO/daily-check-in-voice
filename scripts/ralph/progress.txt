@@ -397,3 +397,42 @@ Started: Thu Jan 29 21:15:04 EST 2026
 - Service returns dataclass result, endpoint creates ORM object and persists
 - Eager load mood_analysis in get_call with selectinload
 ---
+
+## 2026-01-30 - US-112: Create APScheduler service
+- **Subagents used**:
+  - architect: Analyzed service patterns, database session handling, Schedule model, call trigger flow
+  - backend: Implemented complete scheduler_service.py with all functions
+  - reviewer: Found critical session handling issues, orphaned job cleanup, logging inconsistencies
+- **What was implemented**:
+  - Created scheduler_service.py with AsyncIOScheduler singleton
+  - _trigger_scheduled_call() - internal job handler with proper error handling
+  - _parse_cron_expression() - validates and parses 5-field cron strings
+  - add_schedule_job() - creates CronTrigger jobs with user timezone
+  - remove_schedule_job() - removes jobs by schedule ID
+  - _load_existing_schedules() - loads enabled schedules on startup
+  - start_scheduler() / shutdown_scheduler() - lifecycle management
+  - get_scheduler() - access singleton instance
+  - Fixed session handling: use flush instead of multiple commits, handle rollback safely
+  - Fixed orphaned job removal when user is deleted
+- **Files changed**:
+  - backend/src/services/scheduler_service.py (new)
+  - backend/src/services/__init__.py (modified - exports scheduler functions)
+  - backend/src/services/memory_service.py (modified - ruff formatting only)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
+- **Learnings for future iterations**:
+  - Use async_session_maker for DB access in scheduled jobs (outside request context)
+  - Use flush() instead of commit() when you need IDs but want single transaction
+  - Use contextlib.suppress(Exception) instead of try/except pass (ruff SIM105)
+  - Remove orphaned APScheduler jobs when associated user/schedule is deleted
+  - Use bound logger (logger.bind()) for cleaner logging with consistent context
+  - APScheduler job_defaults: coalesce=True, max_instances=1, misfire_grace_time=60
+
+### Scheduler Service Patterns
+- Module-level singleton: `_scheduler: AsyncIOScheduler | None = None`
+- Job ID format: `schedule_{schedule_id}` for deterministic lookup
+- CronTrigger with user timezone for per-user time support
+- `replace_existing=True` for idempotent job updates
+- Load enabled schedules from DB on startup via selectinload for user timezone
+- Single commit at end of transaction, use flush() for intermediate IDs
+- contextlib.suppress() for safe rollback and cleanup operations
+---
