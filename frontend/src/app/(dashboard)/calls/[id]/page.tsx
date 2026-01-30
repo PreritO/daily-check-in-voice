@@ -7,10 +7,13 @@ import { format, differenceInMinutes } from "date-fns";
 import {
   useCallQuery,
   usePostToSlackMutation,
+  useAnalyzeMoodMutation,
   type CallWithDetails,
   type CallStatus,
   type Transcript,
   type Summary,
+  type MoodAnalysis,
+  type SentimentType,
 } from "@/lib/api/calls";
 
 function getStatusBadgeClasses(status: CallStatus): string {
@@ -57,6 +60,210 @@ function formatTimestamp(ms: number): string {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+}
+
+function getSentimentBadgeClasses(sentiment: SentimentType): string {
+  switch (sentiment) {
+    case "positive":
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+    case "neutral":
+      return "bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300";
+    case "negative":
+      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+    case "concerned":
+      return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400";
+  }
+}
+
+function formatSentiment(sentiment: SentimentType): string {
+  return sentiment.charAt(0).toUpperCase() + sentiment.slice(1);
+}
+
+function MoodSection({
+  moodAnalysis,
+  callId,
+  hasTranscripts,
+}: {
+  moodAnalysis: MoodAnalysis | null;
+  callId: string;
+  hasTranscripts: boolean;
+}) {
+  const analyzeMoodMutation = useAnalyzeMoodMutation();
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAnalyzeMood = async () => {
+    setError(null);
+    try {
+      await analyzeMoodMutation.mutateAsync(callId);
+    } catch (e) {
+      const errorMessage =
+        e instanceof Error ? e.message : "Failed to analyze mood";
+      setError(errorMessage);
+    }
+  };
+
+  // If no mood analysis exists, show the analyze button
+  if (!moodAnalysis) {
+    return (
+      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            Mood Analysis
+          </h2>
+          <button
+            onClick={handleAnalyzeMood}
+            disabled={analyzeMoodMutation.isPending || !hasTranscripts}
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {analyzeMoodMutation.isPending ? (
+              <span className="inline-flex items-center gap-1.5">
+                <svg
+                  className="h-4 w-4 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                Analyzing...
+              </span>
+            ) : (
+              "Analyze Mood"
+            )}
+          </button>
+        </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+            <div className="flex items-center gap-2">
+              <svg
+                className="h-4 w-4 text-red-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {!hasTranscripts && (
+          <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
+            Mood analysis requires a transcript. Complete a call first.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // Display existing mood analysis
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            Mood Analysis
+          </h2>
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+            Analyzed {format(new Date(moodAnalysis.analyzed_at), "MMM d, yyyy 'at' h:mm a")}
+          </p>
+        </div>
+        <span
+          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getSentimentBadgeClasses(
+            moodAnalysis.overall_sentiment
+          )}`}
+        >
+          {formatSentiment(moodAnalysis.overall_sentiment)}
+        </span>
+      </div>
+
+      <div className="mt-4 space-y-4">
+        {/* Confidence */}
+        <div>
+          <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Confidence
+          </h3>
+          <div className="mt-1 flex items-center gap-2">
+            <div className="h-2 flex-1 rounded-full bg-zinc-200 dark:bg-zinc-700">
+              <div
+                className="h-2 rounded-full bg-indigo-600"
+                style={{ width: `${Math.round(moodAnalysis.confidence * 100)}%` }}
+              />
+            </div>
+            <span className="text-sm text-zinc-600 dark:text-zinc-400">
+              {Math.round(moodAnalysis.confidence * 100)}%
+            </span>
+          </div>
+        </div>
+
+        {/* Flags */}
+        {moodAnalysis.flags.length > 0 && (
+          <div>
+            <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Flags
+            </h3>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {moodAnalysis.flags.map((flag, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                >
+                  <svg
+                    className="h-3 w-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                  {flag}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Notes */}
+        {moodAnalysis.notes && (
+          <div>
+            <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Analysis Notes
+            </h3>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+              {moodAnalysis.notes}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function CallInfoCard({ call }: { call: CallWithDetails }) {
@@ -443,6 +650,12 @@ export default function CallDetailPage() {
       <CallInfoCard call={call} />
 
       {call.summary && <SummarySection summary={call.summary} />}
+
+      <MoodSection
+        moodAnalysis={call.mood_analysis}
+        callId={call.id}
+        hasTranscripts={call.transcripts.length > 0}
+      />
 
       <TranscriptSection transcripts={call.transcripts} />
     </div>

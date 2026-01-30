@@ -7,6 +7,7 @@ import { apiClient } from "./client";
 
 export type CallStatus = "scheduled" | "in_progress" | "completed" | "failed";
 export type Speaker = "agent" | "user";
+export type SentimentType = "positive" | "neutral" | "negative" | "concerned";
 
 export interface Call {
   id: string;
@@ -41,9 +42,20 @@ export interface Summary {
   updated_at: string;
 }
 
+export interface MoodAnalysis {
+  id: string;
+  call_id: string;
+  overall_sentiment: SentimentType;
+  confidence: number;
+  flags: string[];
+  notes: string | null;
+  analyzed_at: string;
+}
+
 export interface CallWithDetails extends Call {
   transcripts: Transcript[];
   summary: Summary | null;
+  mood_analysis: MoodAnalysis | null;
 }
 
 // =============================================================================
@@ -209,6 +221,26 @@ export function usePostToSlackMutation() {
     mutationFn: postSummaryToSlack,
     onSuccess: (data) => {
       // Invalidate the call detail query to refresh the summary
+      queryClient.invalidateQueries({ queryKey: callsKeys.detail(data.call_id) });
+    },
+  });
+}
+
+// =============================================================================
+// Mood Analysis API Functions
+// =============================================================================
+
+async function analyzeMood(callId: string): Promise<MoodAnalysis> {
+  const response = await apiClient.post<MoodAnalysis>(`/calls/${callId}/analyze-mood`);
+  return response.data;
+}
+
+export function useAnalyzeMoodMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: analyzeMood,
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: callsKeys.detail(data.call_id) });
     },
   });
