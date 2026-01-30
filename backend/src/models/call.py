@@ -12,6 +12,7 @@ from .base import Base
 
 if TYPE_CHECKING:
     from .memory import ConversationMemory
+    from .mood import MoodAnalysis
     from .summary import Summary
     from .transcript import Transcript
     from .user import User
@@ -84,6 +85,12 @@ class Call(Base):
     memories: Mapped[list["ConversationMemory"]] = relationship(
         "ConversationMemory",
         back_populates="source_call",
+    )
+    mood_analysis: Mapped["MoodAnalysis | None"] = relationship(
+        "MoodAnalysis",
+        back_populates="call",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

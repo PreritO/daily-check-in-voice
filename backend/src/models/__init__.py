@@ -3,6 +3,7 @@
 from .base import Base
 from .call import Call, CallStatus
 from .memory import ConversationMemory, MemoryType
+from .mood import MoodAnalysis, SentimentType
 from .preferences import CallDurationPreference, CommunicationStyle, UserPreferences
 from .schedule import Schedule
 from .summary import Summary
@@ -17,7 +18,9 @@ __all__ = [
     "CommunicationStyle",
     "ConversationMemory",
     "MemoryType",
+    "MoodAnalysis",
     "Schedule",
+    "SentimentType",
     "Speaker",
     "Summary",
     "Transcript",
