@@ -1,12 +1,16 @@
-"""Memory extraction service using Anthropic Claude API."""
+"""Memory extraction and retrieval service using Anthropic Claude API."""
 
 import json
 import os
+import re
 from dataclasses import dataclass
+from datetime import date
 from uuid import UUID
 
 import anthropic
 import structlog
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import ConversationMemory, MemoryType, Transcript
 
@@ -213,3 +217,195 @@ async def extract_memories(
     except anthropic.APIStatusError as e:
         log.error("anthropic_api_status_error", status_code=e.status_code, error=str(e))
         raise
+
+
+def _is_date_relevant(memory: ConversationMemory, ref_date: date) -> bool:
+    """Check if an EVENT memory content mentions a date matching the reference date.
+
+    This parses the memory content for date patterns (birthdays, anniversaries,
+    specific dates) and checks if they match the reference date's month and day.
+
+    Args:
+        memory: The ConversationMemory to check.
+        ref_date: The reference date to check against (typically today).
+
+    Returns:
+        True if the memory content mentions a date matching ref_date, False otherwise.
+    """
+    if memory.memory_type != MemoryType.EVENT:
+        return False
+
+    content_lower = memory.content.lower()
+
+    # Month names and abbreviations
+    month_names = [
+        "january", "february", "march", "april", "may", "june",
+        "july", "august", "september", "october", "november", "december",
+    ]
+    month_abbrevs = [
+        "jan", "feb", "mar", "apr", "may", "jun",
+        "jul", "aug", "sep", "oct", "nov", "dec",
+    ]
+
+    ref_month_name = month_names[ref_date.month - 1]
+    ref_month_abbrev = month_abbrevs[ref_date.month - 1]
+    ref_day = ref_date.day
+
+    # Check for birthday/anniversary mentions with matching month
+    has_event_keyword = "birthday" in content_lower or "anniversary" in content_lower
+    has_matching_month = ref_month_name in content_lower or ref_month_abbrev in content_lower
+    if has_event_keyword and has_matching_month:
+        # Check for day number near the month
+        day_pattern = rf"\b{ref_day}(?:st|nd|rd|th)?\b"
+        if re.search(day_pattern, content_lower):
+            return True
+
+    # Check for specific date patterns like "January 29", "Jan 29", "1/29", "01-29"
+    date_patterns = [
+        rf"{ref_month_name}\s+{ref_day}(?:st|nd|rd|th)?",  # January 29, January 29th
+        rf"{ref_month_abbrev}\.?\s+{ref_day}(?:st|nd|rd|th)?",  # Jan 29, Jan. 29th
+        rf"\b{ref_date.month}/{ref_day}\b",  # 1/29
+        rf"\b0?{ref_date.month}-0?{ref_day}\b",  # 1-29 or 01-29
+    ]
+
+    return any(re.search(pattern, content_lower) for pattern in date_patterns)
+
+
+def _format_context_string(
+    important: list[ConversationMemory],
+    recent: list[ConversationMemory],
+    date_relevant: list[ConversationMemory],
+) -> str:
+    """Format memories into an LLM-friendly context string.
+
+    Args:
+        important: List of top important memories.
+        recent: List of recent memories (already deduplicated from important).
+        date_relevant: List of date-relevant EVENT memories.
+
+    Returns:
+        Formatted string with sections for each memory category.
+    """
+    sections: list[str] = []
+
+    # Key information section
+    if important:
+        lines = ["Key information about this user:"]
+        for mem in important:
+            lines.append(f"- {mem.content}")
+        sections.append("\n".join(lines))
+
+    # Recent context section
+    if recent:
+        lines = ["Recent context:"]
+        for mem in recent:
+            lines.append(f"- {mem.content}")
+        sections.append("\n".join(lines))
+
+    # Date-relevant section
+    if date_relevant:
+        lines = ["Relevant for today:"]
+        for mem in date_relevant:
+            lines.append(f"- {mem.content}")
+        sections.append("\n".join(lines))
+
+    return "\n\n".join(sections)
+
+
+async def get_user_context(
+    user_id: UUID,
+    db: AsyncSession,
+    reference_date: date | None = None,
+) -> str:
+    """Retrieve and format user memories for agent context injection.
+
+    This function retrieves the most important and recent memories for a user,
+    along with any date-relevant event memories, and formats them into a string
+    suitable for LLM prompt injection.
+
+    Args:
+        user_id: The UUID of the user to retrieve memories for.
+        db: The async database session.
+        reference_date: The reference date for checking date relevance.
+                       Defaults to today if not provided.
+
+    Returns:
+        A formatted string containing user context from memories.
+        Returns empty string if no memories exist or on database error.
+    """
+    log = logger.bind(user_id=str(user_id))
+    log.debug("retrieving_user_context")
+
+    if reference_date is None:
+        reference_date = date.today()
+
+    try:
+        # Retrieve top 10 most important memories
+        important_result = await db.execute(
+            select(ConversationMemory)
+            .where(ConversationMemory.user_id == user_id)
+            .order_by(ConversationMemory.importance.desc())
+            .limit(10)
+        )
+        important_memories = list(important_result.scalars().all())
+        important_ids = {mem.id for mem in important_memories}
+
+        log.debug("retrieved_important_memories", count=len(important_memories))
+
+        # Retrieve last 5 recent memories (excluding those already in important)
+        recent_query = (
+            select(ConversationMemory)
+            .where(ConversationMemory.user_id == user_id)
+            .order_by(ConversationMemory.created_at.desc())
+            .limit(5)
+        )
+        if important_ids:
+            recent_query = recent_query.where(
+                ConversationMemory.id.notin_(important_ids)
+            )
+        recent_result = await db.execute(recent_query)
+        recent_memories = list(recent_result.scalars().all())
+
+        log.debug("retrieved_recent_memories", count=len(recent_memories))
+
+        # Find date-relevant EVENT memories
+        # We check all EVENT memories to find any that mention today's date
+        all_event_result = await db.execute(
+            select(ConversationMemory)
+            .where(ConversationMemory.user_id == user_id)
+            .where(ConversationMemory.memory_type == MemoryType.EVENT)
+        )
+        all_events = list(all_event_result.scalars().all())
+
+        date_relevant_memories = [
+            mem for mem in all_events if _is_date_relevant(mem, reference_date)
+        ]
+
+        # Deduplicate: remove date-relevant memories already in important or recent
+        already_shown_ids = important_ids | {mem.id for mem in recent_memories}
+        date_relevant_memories = [
+            mem for mem in date_relevant_memories if mem.id not in already_shown_ids
+        ]
+
+        log.debug("retrieved_date_relevant_memories", count=len(date_relevant_memories))
+
+        # Format and return
+        context = _format_context_string(
+            important=important_memories,
+            recent=recent_memories,
+            date_relevant=date_relevant_memories,
+        )
+
+        log.info(
+            "user_context_generated",
+            important_count=len(important_memories),
+            recent_count=len(recent_memories),
+            date_relevant_count=len(date_relevant_memories),
+            context_length=len(context),
+        )
+
+        return context
+
+    except Exception as e:
+        log.error("failed_to_retrieve_user_context", error=str(e))
+        return ""  # Graceful degradation - return empty context
