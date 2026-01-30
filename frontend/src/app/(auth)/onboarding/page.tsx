@@ -55,20 +55,20 @@ interface ProfileStepProps {
 
 function ProfileStep({ data, onUpdate, errors }: ProfileStepProps) {
   return (
-    <div className="space-y-4">
-      <div className="text-center mb-6">
-        <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+    <div className="space-y-5">
+      <div className="text-center mb-8">
+        <h2 className="font-serif text-2xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
           Welcome! Let us get to know you
         </h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Enter your name and phone number for daily check-in calls
+        <p className="mt-2 text-base text-[#A89B86] dark:text-[#B8A99A]">
+          Enter your name and phone number for daily wellness calls
         </p>
       </div>
 
       <div>
         <label
           htmlFor="name"
-          className="mb-1 block text-sm font-medium text-zinc-900 dark:text-zinc-50"
+          className="mb-2 block text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]"
         >
           Name
         </label>
@@ -77,18 +77,18 @@ function ProfileStep({ data, onUpdate, errors }: ProfileStepProps) {
           type="text"
           value={data.name}
           onChange={(e) => onUpdate({ name: e.target.value })}
-          className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:placeholder-zinc-500"
+          className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] placeholder-[#A89B86] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0] dark:placeholder-[#B8A99A]"
           placeholder="Your name"
         />
         {errors.name && (
-          <p className="mt-1 text-sm text-red-500">{errors.name}</p>
+          <p className="mt-2 text-base text-[#F5A9A9]">{errors.name}</p>
         )}
       </div>
 
       <div>
         <label
           htmlFor="phoneNumber"
-          className="mb-1 block text-sm font-medium text-zinc-900 dark:text-zinc-50"
+          className="mb-2 block text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]"
         >
           Phone Number
         </label>
@@ -97,14 +97,14 @@ function ProfileStep({ data, onUpdate, errors }: ProfileStepProps) {
           type="tel"
           value={data.phoneNumber}
           onChange={(e) => onUpdate({ phoneNumber: e.target.value })}
-          className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:placeholder-zinc-500"
+          className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] placeholder-[#A89B86] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0] dark:placeholder-[#B8A99A]"
           placeholder="+12025551234"
         />
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-[#A89B86] dark:text-[#B8A99A]">
           E.164 format: +[country code][number] (e.g., +12025551234)
         </p>
         {errors.phoneNumber && (
-          <p className="mt-1 text-sm text-red-500">{errors.phoneNumber}</p>
+          <p className="mt-2 text-base text-[#F5A9A9]">{errors.phoneNumber}</p>
         )}
       </div>
     </div>
@@ -118,20 +118,20 @@ interface TimezoneStepProps {
 
 function TimezoneStep({ data, onUpdate }: TimezoneStepProps) {
   return (
-    <div className="space-y-4">
-      <div className="text-center mb-6">
-        <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+    <div className="space-y-5">
+      <div className="text-center mb-8">
+        <h2 className="font-serif text-2xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
           Select Your Timezone
         </h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          We will schedule your check-in calls based on your local time
+        <p className="mt-2 text-base text-[#A89B86] dark:text-[#B8A99A]">
+          We will schedule your wellness calls based on your local time
         </p>
       </div>
 
       <div>
         <label
           htmlFor="timezone"
-          className="mb-1 block text-sm font-medium text-zinc-900 dark:text-zinc-50"
+          className="mb-2 block text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]"
         >
           Timezone
         </label>
@@ -139,7 +139,7 @@ function TimezoneStep({ data, onUpdate }: TimezoneStepProps) {
           id="timezone"
           value={data.timezone}
           onChange={(e) => onUpdate({ timezone: e.target.value })}
-          className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+          className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
         >
           {TIMEZONES.map((tz) => (
             <option key={tz.value} value={tz.value}>
@@ -169,20 +169,20 @@ function ScheduleStep({ data, onUpdate, errors }: ScheduleStepProps) {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="text-center mb-6">
-        <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+    <div className="space-y-5">
+      <div className="text-center mb-8">
+        <h2 className="font-serif text-2xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
           Set Your First Call Schedule
         </h2>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Choose when you would like to receive your daily check-in calls
+        <p className="mt-2 text-base text-[#A89B86] dark:text-[#B8A99A]">
+          Choose when you would like to receive your daily wellness calls
         </p>
       </div>
 
       <div>
         <label
           htmlFor="scheduleTime"
-          className="mb-1 block text-sm font-medium text-zinc-900 dark:text-zinc-50"
+          className="mb-2 block text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]"
         >
           Call Time
         </label>
@@ -191,24 +191,24 @@ function ScheduleStep({ data, onUpdate, errors }: ScheduleStepProps) {
           type="time"
           value={data.scheduleTime}
           onChange={(e) => onUpdate({ scheduleTime: e.target.value })}
-          className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+          className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
         />
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-zinc-900 dark:text-zinc-50">
+        <label className="mb-3 block text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]">
           Days of the Week
         </label>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-3">
           {WEEKDAYS.map((day) => (
             <button
               key={day.value}
               type="button"
               onClick={() => toggleDay(day.value)}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              className={`rounded-xl px-4 py-3 text-base font-medium shadow-sm transition-all duration-200 ${
                 data.scheduleDays.includes(day.value)
-                  ? "bg-blue-600 text-white"
-                  : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600"
+                  ? "bg-[#E8A0BF] text-white hover:bg-[#D88FAE]"
+                  : "bg-[#E8E5EB] text-[#4A4543] hover:bg-[#DEDDDB] dark:bg-[#3D3935] dark:text-[#B8A99A] dark:hover:bg-[#4A4543]"
               }`}
             >
               {day.label}
@@ -216,7 +216,7 @@ function ScheduleStep({ data, onUpdate, errors }: ScheduleStepProps) {
           ))}
         </div>
         {errors.schedule && (
-          <p className="mt-2 text-sm text-red-500">{errors.schedule}</p>
+          <p className="mt-3 text-base text-[#F5A9A9]">{errors.schedule}</p>
         )}
       </div>
     </div>
@@ -233,17 +233,17 @@ interface StepIndicatorProps {
 
 function StepIndicator({ currentStep }: StepIndicatorProps) {
   return (
-    <div className="mb-8">
+    <div className="mb-10">
       <div className="flex items-center justify-center">
         {STEPS.map((step, index) => (
           <div key={step.id} className="flex items-center">
             <div
-              className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+              className={`flex h-10 w-10 items-center justify-center rounded-full text-base font-medium shadow-sm transition-all duration-200 ${
                 step.id < currentStep
-                  ? "bg-blue-600 text-white"
+                  ? "bg-[#A8D5BA] text-white"
                   : step.id === currentStep
-                    ? "bg-blue-600 text-white"
-                    : "bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400"
+                    ? "bg-[#E8A0BF] text-white"
+                    : "bg-[#E8E5EB] text-[#A89B86] dark:bg-[#3D3935] dark:text-[#B8A99A]"
               }`}
             >
               {step.id < currentStep ? (
@@ -265,18 +265,18 @@ function StepIndicator({ currentStep }: StepIndicatorProps) {
             </div>
             {index < STEPS.length - 1 && (
               <div
-                className={`mx-2 h-0.5 w-12 ${
+                className={`mx-3 h-1 w-16 rounded-full transition-all duration-200 ${
                   step.id < currentStep
-                    ? "bg-blue-600"
-                    : "bg-zinc-200 dark:bg-zinc-700"
+                    ? "bg-[#A8D5BA]"
+                    : "bg-[#E8E5EB] dark:bg-[#3D3935]"
                 }`}
               />
             )}
           </div>
         ))}
       </div>
-      <div className="mt-2 flex justify-center">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <div className="mt-3 flex justify-center">
+        <p className="text-base text-[#A89B86] dark:text-[#B8A99A]">
           Step {currentStep} of {STEPS.length}: {STEPS[currentStep - 1].name}
         </p>
       </div>
@@ -410,8 +410,8 @@ export default function OnboardingPage() {
   // Show loading state while auth is initializing
   if (isAuthLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-zinc-200 border-t-blue-600" />
+      <div className="flex items-center justify-center py-16">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#E8E5EB] border-t-[#E8A0BF]" />
       </div>
     );
   }
@@ -421,7 +421,7 @@ export default function OnboardingPage() {
       <StepIndicator currentStep={currentStep} />
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+        <div className="mb-5 rounded-xl border border-[#F5A9A9] bg-[#F5A9A9]/10 p-4 text-base text-[#C77070] dark:border-[#F5A9A9]/50 dark:bg-[#F5A9A9]/5 dark:text-[#F5A9A9]">
           {error}
         </div>
       )}
@@ -436,12 +436,12 @@ export default function OnboardingPage() {
         <ScheduleStep data={data} onUpdate={updateData} errors={errors} />
       )}
 
-      <div className="mt-8 flex justify-between">
+      <div className="mt-10 flex justify-between">
         <button
           type="button"
           onClick={handleBack}
           disabled={currentStep === 1}
-          className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900 disabled:invisible dark:text-zinc-400 dark:hover:text-zinc-200"
+          className="rounded-xl px-6 py-3 text-base font-medium text-[#A89B86] transition-all duration-200 hover:text-[#4A4543] disabled:invisible dark:text-[#B8A99A] dark:hover:text-[#F5F3F0]"
         >
           Back
         </button>
@@ -450,7 +450,7 @@ export default function OnboardingPage() {
           <button
             type="button"
             onClick={handleNext}
-            className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-900"
+            className="rounded-xl bg-[#E8A0BF] px-8 py-3 text-base font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#D88FAE] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#E8A0BF] focus:ring-offset-2 dark:focus:ring-offset-[#363230]"
           >
             Next
           </button>
@@ -459,7 +459,7 @@ export default function OnboardingPage() {
             type="button"
             onClick={handleComplete}
             disabled={isSubmitting}
-            className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-zinc-900"
+            className="rounded-xl bg-[#E8A0BF] px-8 py-3 text-base font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#D88FAE] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#E8A0BF] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-[#363230]"
           >
             {isSubmitting ? "Setting up..." : "Complete Setup"}
           </button>

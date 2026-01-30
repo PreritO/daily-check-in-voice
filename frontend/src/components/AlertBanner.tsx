@@ -24,18 +24,18 @@ function getAlertTypeIcon(alertType: AlertType): React.ReactNode {
 function getAlertTypeClasses(alertType: AlertType): string {
   switch (alertType) {
     case "mood_concern":
-      return "border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-900/20";
+      return "border-[#F5D89A] bg-[#FFF9E6] dark:border-[#F5D89A]/50 dark:bg-[#F5D89A]/10";
     case "missed_calls":
-      return "border-blue-200 bg-blue-50 dark:border-blue-900/50 dark:bg-blue-900/20";
+      return "border-[#F9E4EC] bg-[#F9E4EC]/50 dark:border-[#E8A0BF]/50 dark:bg-[#E8A0BF]/10";
   }
 }
 
 function getAlertIconClasses(alertType: AlertType): string {
   switch (alertType) {
     case "mood_concern":
-      return "text-amber-600 dark:text-amber-400";
+      return "text-[#B8A060] dark:text-[#F5D89A]";
     case "missed_calls":
-      return "text-blue-600 dark:text-blue-400";
+      return "text-[#C07A9D] dark:text-[#E8A0BF]";
   }
 }
 
@@ -52,7 +52,7 @@ function AlertItem({
 
   return (
     <div
-      className={`rounded-lg border p-4 ${getAlertTypeClasses(alert.alert_type)}`}
+      className={`rounded-xl border p-4 ${getAlertTypeClasses(alert.alert_type)}`}
     >
       <div className="flex items-start gap-3">
         <div className={`mt-0.5 flex-shrink-0 ${getAlertIconClasses(alert.alert_type)}`}>
@@ -60,21 +60,21 @@ function AlertItem({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+            <h3 className="text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]">
               {alert.title}
             </h3>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+            <span className="text-xs text-[#A89B86] dark:text-[#B8A99A] whitespace-nowrap">
               {timeAgo}
             </span>
           </div>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+          <p className="mt-1 text-sm text-[#A89B86] dark:text-[#B8A99A]">
             {alert.message}
           </p>
           <div className="mt-3 flex items-center gap-3">
             {alert.call_id && (
               <Link
                 href={`/calls/${alert.call_id}`}
-                className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                className="text-sm font-medium text-[#E8A0BF] hover:text-[#D88FAE]"
               >
                 View call
               </Link>
@@ -82,7 +82,7 @@ function AlertItem({
             <button
               onClick={onAcknowledge}
               disabled={isAcknowledging}
-              className="text-sm font-medium text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 disabled:opacity-50"
+              className="text-sm font-medium text-[#A89B86] hover:text-[#4A4543] dark:text-[#B8A99A] dark:hover:text-[#F5F3F0] disabled:opacity-50"
             >
               {isAcknowledging ? "Dismissing..." : "Dismiss"}
             </button>

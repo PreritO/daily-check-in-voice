@@ -116,11 +116,16 @@ async def _get_period_counts(
     month_start = today_local.replace(day=1)
 
     # Convert to UTC datetimes for comparison with DB timestamps
-    week_start_utc = datetime.combine(week_start, datetime.min.time(), tzinfo=user_tz).astimezone(
-        ZoneInfo("UTC")
+    # Then remove tzinfo since DB stores TIMESTAMP WITHOUT TIME ZONE
+    week_start_utc = (
+        datetime.combine(week_start, datetime.min.time(), tzinfo=user_tz)
+        .astimezone(ZoneInfo("UTC"))
+        .replace(tzinfo=None)
     )
-    month_start_utc = datetime.combine(month_start, datetime.min.time(), tzinfo=user_tz).astimezone(
-        ZoneInfo("UTC")
+    month_start_utc = (
+        datetime.combine(month_start, datetime.min.time(), tzinfo=user_tz)
+        .astimezone(ZoneInfo("UTC"))
+        .replace(tzinfo=None)
     )
 
     # Get week count

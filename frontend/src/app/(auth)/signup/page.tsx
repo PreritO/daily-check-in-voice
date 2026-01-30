@@ -50,26 +50,28 @@ export default function SignupPage() {
   if (success) {
     return (
       <div className="text-center">
-        <div className="mb-4 flex justify-center">
-          <svg
-            className="h-12 w-12 text-green-500"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
+        <div className="mb-5 flex justify-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#E8F5E9] shadow-sm">
+            <svg
+              className="h-9 w-9 text-[#A8D5BA]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
         </div>
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+        <h1 className="font-serif text-3xl font-bold text-[#4A4543] dark:text-[#F5F3F0]">
           Account created!
         </h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-3 text-base text-[#A89B86] dark:text-[#B8A99A]">
           Redirecting you to complete setup...
         </p>
       </div>
@@ -78,34 +80,36 @@ export default function SignupPage() {
 
   return (
     <div>
-      <div className="mb-6 text-center">
-        <div className="mb-4 flex justify-center">
-          <svg
-            className="h-12 w-12 text-zinc-900 dark:text-zinc-50"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-            />
-          </svg>
+      <div className="mb-8 text-center">
+        <div className="mb-5 flex justify-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F9E4EC] shadow-sm">
+            <svg
+              className="h-9 w-9 text-[#E8A0BF]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+              />
+            </svg>
+          </div>
         </div>
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-          Create an account
+        <h1 className="font-serif text-3xl font-bold text-[#4A4543] dark:text-[#F5F3F0]">
+          Create your Miro account
         </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Get started with Daily Check-In Agent
+        <p className="mt-2 text-base text-[#A89B86] dark:text-[#B8A99A]">
+          Your daily wellness companion awaits
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+          <div className="rounded-xl border border-[#F5A9A9] bg-[#F5A9A9]/10 p-4 text-base text-[#C77070] dark:border-[#F5A9A9]/50 dark:bg-[#F5A9A9]/5 dark:text-[#F5A9A9]">
             {error}
           </div>
         )}
@@ -113,7 +117,7 @@ export default function SignupPage() {
         <div>
           <label
             htmlFor="name"
-            className="mb-1 block text-sm font-medium text-zinc-900 dark:text-zinc-50"
+            className="mb-2 block text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]"
           >
             Name
           </label>
@@ -124,7 +128,7 @@ export default function SignupPage() {
             onChange={(e) => setName(e.target.value)}
             required
             autoComplete="name"
-            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:placeholder-zinc-500"
+            className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] placeholder-[#A89B86] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0] dark:placeholder-[#B8A99A]"
             placeholder="Your name"
           />
         </div>
@@ -132,7 +136,7 @@ export default function SignupPage() {
         <div>
           <label
             htmlFor="email"
-            className="mb-1 block text-sm font-medium text-zinc-900 dark:text-zinc-50"
+            className="mb-2 block text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]"
           >
             Email
           </label>
@@ -143,7 +147,7 @@ export default function SignupPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
-            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:placeholder-zinc-500"
+            className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] placeholder-[#A89B86] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0] dark:placeholder-[#B8A99A]"
             placeholder="you@example.com"
           />
         </div>
@@ -151,7 +155,7 @@ export default function SignupPage() {
         <div>
           <label
             htmlFor="password"
-            className="mb-1 block text-sm font-medium text-zinc-900 dark:text-zinc-50"
+            className="mb-2 block text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]"
           >
             Password
           </label>
@@ -162,7 +166,7 @@ export default function SignupPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="new-password"
-            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:placeholder-zinc-500"
+            className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] placeholder-[#A89B86] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0] dark:placeholder-[#B8A99A]"
             placeholder="At least 6 characters"
           />
         </div>
@@ -170,17 +174,17 @@ export default function SignupPage() {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-zinc-900"
+          className="w-full rounded-xl bg-[#E8A0BF] px-6 py-3 text-base font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#D88FAE] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#E8A0BF] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-[#363230]"
         >
           {isLoading ? "Creating account..." : "Create account"}
         </button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="mt-8 text-center text-base text-[#A89B86] dark:text-[#B8A99A]">
         Already have an account?{" "}
         <Link
           href="/login"
-          className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+          className="font-medium text-[#E8A0BF] transition-colors duration-200 hover:text-[#D88FAE]"
         >
           Sign in
         </Link>

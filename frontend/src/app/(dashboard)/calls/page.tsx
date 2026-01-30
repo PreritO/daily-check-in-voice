@@ -7,22 +7,22 @@ import { formatDistanceToNow, format, differenceInMinutes } from "date-fns";
 function getStatusBadgeClasses(status: CallStatus): string {
   switch (status) {
     case "completed":
-      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+      return "bg-[#E8F5E9] text-[#5A8F6B] dark:bg-[#A8D5BA]/20 dark:text-[#A8D5BA]";
     case "in_progress":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+      return "bg-[#F9E4EC] text-[#C07A9D] dark:bg-[#E8A0BF]/20 dark:text-[#E8A0BF]";
     case "scheduled":
-      return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
+      return "bg-[#FFF9E6] text-[#B8A060] dark:bg-[#F5D89A]/20 dark:text-[#F5D89A]";
     case "failed":
-      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+      return "bg-[#F5A9A9]/20 text-[#C77070] dark:bg-[#F5A9A9]/10 dark:text-[#F5A9A9]";
   }
 }
 
 function getDirectionBadgeClasses(direction: CallDirection): string {
   switch (direction) {
     case "inbound":
-      return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
+      return "bg-[#E8E5EB] text-[#6B5B7A] dark:bg-[#E8E5EB]/20 dark:text-[#E8E5EB]";
     case "outbound":
-      return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400";
+      return "bg-[#F9E4EC] text-[#C07A9D] dark:bg-[#F9E4EC]/20 dark:text-[#F9E4EC]";
   }
 }
 
@@ -67,38 +67,38 @@ function CallListItem({ call }: { call: Call }) {
   return (
     <Link
       href={`/calls/${call.id}`}
-      className="block rounded-lg border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/50"
+      className="card-hover block rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm transition-all duration-200 hover:border-[#E8A0BF]/50 hover:bg-[#FDFBF7] dark:border-[#4A4543] dark:bg-[#363230] dark:hover:border-[#E8A0BF]/30 dark:hover:bg-[#3D3935]"
     >
       <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
+        <div className="space-y-2">
+          <div className="flex items-center gap-4">
             <span
-              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadgeClasses(
+              className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${getStatusBadgeClasses(
                 call.status
               )}`}
             >
               {formatStatus(call.status)}
             </span>
             <span
-              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getDirectionBadgeClasses(
+              className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${getDirectionBadgeClasses(
                 call.direction
               )}`}
             >
               {formatDirection(call.direction)}
             </span>
-            <span className="text-sm text-zinc-500 dark:text-zinc-400">
+            <span className="text-base text-[#A89B86] dark:text-[#B8A99A]">
               {formatRelativeTime(call)}
             </span>
           </div>
-          <p className="text-sm text-zinc-700 dark:text-zinc-300">
+          <p className="text-base text-[#4A4543] dark:text-[#F5F3F0]">
             {formatCallDate(call)}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          <p className="font-serif text-lg font-medium text-[#4A4543] dark:text-[#F5F3F0]">
             {formatDuration(call)}
           </p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">duration</p>
+          <p className="text-sm text-[#A89B86] dark:text-[#B8A99A]">duration</p>
         </div>
       </div>
     </Link>
@@ -107,9 +107,9 @@ function CallListItem({ call }: { call: Call }) {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 py-12 dark:border-zinc-700">
+    <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#DEDDDB] py-16 dark:border-[#4A4543]">
       <svg
-        className="h-12 w-12 text-zinc-400 dark:text-zinc-600"
+        className="h-14 w-14 text-[#A89B86] dark:text-[#B8A99A]"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -122,11 +122,11 @@ function EmptyState() {
           d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
         />
       </svg>
-      <h3 className="mt-4 text-lg font-medium text-zinc-900 dark:text-zinc-100">
+      <h3 className="mt-5 font-serif text-xl font-medium text-[#4A4543] dark:text-[#F5F3F0]">
         No calls yet
       </h3>
-      <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-        Your call history will appear here once you have your first standup.
+      <p className="mt-2 text-base text-[#A89B86] dark:text-[#B8A99A]">
+        Your call history will appear here once you have your first wellness call.
       </p>
     </div>
   );
@@ -134,23 +134,23 @@ function EmptyState() {
 
 function LoadingState() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="animate-pulse rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
+          className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-5 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]"
         >
           <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="h-5 w-20 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-                <div className="h-4 w-24 rounded bg-zinc-200 dark:bg-zinc-700" />
+            <div className="space-y-3">
+              <div className="flex items-center gap-4">
+                <div className="h-6 w-24 rounded-full bg-[#E8E5EB] dark:bg-[#3D3935]" />
+                <div className="h-5 w-28 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
               </div>
-              <div className="h-4 w-40 rounded bg-zinc-200 dark:bg-zinc-700" />
+              <div className="h-5 w-48 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
             </div>
             <div className="text-right">
-              <div className="h-5 w-12 rounded bg-zinc-200 dark:bg-zinc-700" />
-              <div className="mt-1 h-3 w-14 rounded bg-zinc-200 dark:bg-zinc-700" />
+              <div className="h-6 w-16 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
+              <div className="mt-2 h-4 w-16 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
             </div>
           </div>
         </div>
@@ -161,10 +161,10 @@ function LoadingState() {
 
 function ErrorState({ error }: { error: Error }) {
   return (
-    <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+    <div className="rounded-2xl border border-[#F5A9A9] bg-[#F5A9A9]/10 p-6 shadow-sm dark:border-[#F5A9A9]/50 dark:bg-[#F5A9A9]/5">
       <div className="flex">
         <svg
-          className="h-5 w-5 text-red-400"
+          className="h-6 w-6 text-[#C77070] dark:text-[#F5A9A9]"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -177,11 +177,11 @@ function ErrorState({ error }: { error: Error }) {
             d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <div className="ml-3">
-          <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+        <div className="ml-4">
+          <h3 className="font-serif text-lg font-medium text-[#C77070] dark:text-[#F5A9A9]">
             Failed to load calls
           </h3>
-          <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+          <p className="mt-1 text-base text-[#C77070] dark:text-[#F5A9A9]">
             {error.message}
           </p>
         </div>
@@ -194,9 +194,9 @@ export default function CallHistoryPage() {
   const { data: calls, isLoading, error } = useCallsQuery();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+        <h1 className="font-serif text-3xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
           Call History
         </h1>
       </div>
@@ -206,7 +206,7 @@ export default function CallHistoryPage() {
       ) : error ? (
         <ErrorState error={error as Error} />
       ) : calls && calls.length > 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {calls.map((call) => (
             <CallListItem key={call.id} call={call} />
           ))}

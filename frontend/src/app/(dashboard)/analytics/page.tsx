@@ -39,13 +39,13 @@ function formatDuration(minutes: number): string {
 function getSentimentColor(sentiment: Sentiment): string {
   switch (sentiment) {
     case "positive":
-      return "#22c55e";
+      return "#A8D5BA";
     case "neutral":
-      return "#71717a";
+      return "#A89B86";
     case "negative":
-      return "#ef4444";
+      return "#F5A9A9";
     case "concerned":
-      return "#f59e0b";
+      return "#F5D89A";
   }
 }
 
@@ -62,7 +62,7 @@ function StatCard({
   value,
   subtitle,
   icon,
-  iconBgClass = "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400",
+  iconBgClass = "bg-[#F9E4EC] text-[#E8A0BF] dark:bg-[#E8A0BF]/20",
 }: {
   title: string;
   value: string | number;
@@ -71,22 +71,22 @@ function StatCard({
   iconBgClass?: string;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="flex items-center gap-4">
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+      <div className="flex items-center gap-5">
         <div
-          className={`flex h-12 w-12 items-center justify-center rounded-lg ${iconBgClass}`}
+          className={`flex h-14 w-14 items-center justify-center rounded-xl shadow-sm ${iconBgClass}`}
         >
           {icon}
         </div>
         <div>
-          <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+          <p className="text-sm font-medium text-[#A89B86] dark:text-[#B8A99A]">
             {title}
           </p>
-          <p className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+          <p className="font-serif text-3xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
             {value}
           </p>
           {subtitle && (
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="text-sm text-[#A89B86] dark:text-[#B8A99A]">
               {subtitle}
             </p>
           )}
@@ -111,26 +111,26 @@ function MoodTrendChart({ data }: { data: MoodTrendItem[] }) {
 
   if (chartData.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center text-zinc-500 dark:text-zinc-400">
+      <div className="flex h-72 items-center justify-center text-base text-[#A89B86] dark:text-[#B8A99A]">
         No mood data available yet
       </div>
     );
   }
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
+    <ResponsiveContainer width="100%" height={320}>
       <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
         <XAxis
           dataKey="date"
-          tick={{ fill: "#71717a", fontSize: 12 }}
-          axisLine={{ stroke: "#e4e4e7" }}
-          tickLine={{ stroke: "#e4e4e7" }}
+          tick={{ fill: "#A89B86", fontSize: 13 }}
+          axisLine={{ stroke: "#DEDDDB" }}
+          tickLine={{ stroke: "#DEDDDB" }}
         />
         <YAxis
           domain={[0, 100]}
-          tick={{ fill: "#71717a", fontSize: 12 }}
-          axisLine={{ stroke: "#e4e4e7" }}
-          tickLine={{ stroke: "#e4e4e7" }}
+          tick={{ fill: "#A89B86", fontSize: 13 }}
+          axisLine={{ stroke: "#DEDDDB" }}
+          tickLine={{ stroke: "#DEDDDB" }}
           tickFormatter={(value) => `${value}%`}
         />
         <Tooltip
@@ -138,11 +138,11 @@ function MoodTrendChart({ data }: { data: MoodTrendItem[] }) {
             if (active && payload && payload.length) {
               const data = payload[0].payload;
               return (
-                <div className="rounded-lg border border-zinc-200 bg-white p-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
-                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                <div className="rounded-xl border border-[#DEDDDB] bg-white p-4 shadow-lg dark:border-[#4A4543] dark:bg-[#363230]">
+                  <p className="text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]">
                     {data.fullDate}
                   </p>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  <p className="text-base text-[#A89B86] dark:text-[#B8A99A]">
                     Mood:{" "}
                     <span
                       style={{ color: getSentimentColor(data.sentiment) }}
@@ -151,7 +151,7 @@ function MoodTrendChart({ data }: { data: MoodTrendItem[] }) {
                       {getSentimentLabel(data.sentiment)}
                     </span>
                   </p>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  <p className="text-base text-[#A89B86] dark:text-[#B8A99A]">
                     Confidence: {data.confidence}%
                   </p>
                 </div>
@@ -162,15 +162,15 @@ function MoodTrendChart({ data }: { data: MoodTrendItem[] }) {
         />
         <Legend
           content={() => (
-            <div className="mt-4 flex flex-wrap justify-center gap-4">
+            <div className="mt-5 flex flex-wrap justify-center gap-5">
               {(["positive", "neutral", "negative", "concerned"] as Sentiment[]).map(
                 (sentiment) => (
                   <div key={sentiment} className="flex items-center gap-2">
                     <div
-                      className="h-3 w-3 rounded"
+                      className="h-4 w-4 rounded"
                       style={{ backgroundColor: getSentimentColor(sentiment) }}
                     />
-                    <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                    <span className="text-base text-[#A89B86] dark:text-[#B8A99A]">
                       {getSentimentLabel(sentiment)}
                     </span>
                   </div>
@@ -179,7 +179,7 @@ function MoodTrendChart({ data }: { data: MoodTrendItem[] }) {
             </div>
           )}
         />
-        <Bar dataKey="confidence" radius={[4, 4, 0, 0]}>
+        <Bar dataKey="confidence" radius={[6, 6, 0, 0]}>
           {chartData.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={getSentimentColor(entry.sentiment)} />
           ))}
@@ -191,27 +191,27 @@ function MoodTrendChart({ data }: { data: MoodTrendItem[] }) {
 
 function LoadingState() {
   return (
-    <div className="space-y-6">
-      <div className="h-8 w-48 animate-pulse rounded bg-zinc-200 dark:bg-zinc-700" />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="space-y-8">
+      <div className="h-10 w-56 animate-pulse rounded-lg bg-[#E8E5EB] dark:bg-[#3D3935]" />
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {[1, 2, 3, 4, 5].map((i) => (
           <div
             key={i}
-            className="animate-pulse rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900"
+            className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]"
           >
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-lg bg-zinc-200 dark:bg-zinc-700" />
+            <div className="flex items-center gap-5">
+              <div className="h-14 w-14 rounded-xl bg-[#E8E5EB] dark:bg-[#3D3935]" />
               <div className="space-y-2">
-                <div className="h-4 w-24 rounded bg-zinc-200 dark:bg-zinc-700" />
-                <div className="h-6 w-16 rounded bg-zinc-200 dark:bg-zinc-700" />
+                <div className="h-4 w-28 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
+                <div className="h-8 w-20 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
               </div>
             </div>
           </div>
         ))}
       </div>
-      <div className="animate-pulse rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="h-6 w-32 rounded bg-zinc-200 dark:bg-zinc-700" />
-        <div className="mt-4 h-64 rounded bg-zinc-200 dark:bg-zinc-700" />
+      <div className="animate-pulse rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+        <div className="h-7 w-36 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
+        <div className="mt-5 h-72 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
       </div>
     </div>
   );
@@ -219,14 +219,14 @@ function LoadingState() {
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+    <div className="space-y-8">
+      <h1 className="font-serif text-3xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
         Analytics
       </h1>
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 dark:border-red-900 dark:bg-red-900/20">
-        <div className="flex items-center gap-3">
+      <div className="rounded-2xl border border-[#F5A9A9] bg-[#F5A9A9]/10 p-6 shadow-sm dark:border-[#F5A9A9]/50 dark:bg-[#F5A9A9]/5">
+        <div className="flex items-center gap-4">
           <svg
-            className="h-5 w-5 text-red-600 dark:text-red-400"
+            className="h-6 w-6 text-[#C77070] dark:text-[#F5A9A9]"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -240,10 +240,10 @@ function ErrorState({ message }: { message: string }) {
             />
           </svg>
           <div>
-            <p className="font-medium text-red-800 dark:text-red-200">
+            <p className="font-serif text-lg font-medium text-[#C77070] dark:text-[#F5A9A9]">
               Failed to load analytics
             </p>
-            <p className="text-sm text-red-600 dark:text-red-400">{message}</p>
+            <p className="text-base text-[#C77070] dark:text-[#F5A9A9]">{message}</p>
           </div>
         </div>
       </div>
@@ -253,14 +253,14 @@ function ErrorState({ message }: { message: string }) {
 
 function EmptyState() {
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+    <div className="space-y-8">
+      <h1 className="font-serif text-3xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
         Analytics
       </h1>
-      <div className="rounded-lg border border-zinc-200 bg-white p-12 text-center dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
+      <div className="rounded-2xl border border-[#DEDDDB] bg-white p-16 text-center shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#E8E5EB] dark:bg-[#3D3935]">
           <svg
-            className="h-8 w-8 text-zinc-400"
+            className="h-10 w-10 text-[#A89B86]"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -274,11 +274,11 @@ function EmptyState() {
             />
           </svg>
         </div>
-        <h2 className="mt-4 text-lg font-medium text-zinc-900 dark:text-zinc-50">
+        <h2 className="mt-6 font-serif text-xl font-medium text-[#4A4543] dark:text-[#F5F3F0]">
           No analytics yet
         </h2>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-          Complete your first call to see your analytics!
+        <p className="mt-2 text-base text-[#A89B86] dark:text-[#B8A99A]">
+          Complete your first wellness call to see your analytics!
         </p>
       </div>
     </div>
@@ -307,19 +307,19 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+    <div className="space-y-8">
+      <h1 className="font-serif text-3xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
         Analytics
       </h1>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           title="Total Calls"
           value={analytics.total_calls}
           icon={
             <svg
-              className="h-6 w-6"
+              className="h-7 w-7"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -341,7 +341,7 @@ export default function AnalyticsPage() {
           subtitle="per call"
           icon={
             <svg
-              className="h-6 w-6"
+              className="h-7 w-7"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -361,11 +361,11 @@ export default function AnalyticsPage() {
           title="Current Streak"
           value={`${analytics.streak_days} days`}
           icon={
-            <span className="text-2xl" role="img" aria-label="fire">
-              🔥
+            <span className="text-3xl" role="img" aria-label="fire">
+              {String.fromCodePoint(0x1F525)}
             </span>
           }
-          iconBgClass="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400"
+          iconBgClass="bg-[#FFF9E6] text-[#F5D89A] dark:bg-[#F5D89A]/20"
         />
 
         <StatCard
@@ -373,7 +373,7 @@ export default function AnalyticsPage() {
           value={analytics.calls_this_week}
           icon={
             <svg
-              className="h-6 w-6"
+              className="h-7 w-7"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -387,6 +387,7 @@ export default function AnalyticsPage() {
               />
             </svg>
           }
+          iconBgClass="bg-[#E8F5E9] text-[#A8D5BA] dark:bg-[#A8D5BA]/20"
         />
 
         <StatCard
@@ -394,7 +395,7 @@ export default function AnalyticsPage() {
           value={analytics.calls_this_month}
           icon={
             <svg
-              className="h-6 w-6"
+              className="h-7 w-7"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -408,18 +409,19 @@ export default function AnalyticsPage() {
               />
             </svg>
           }
+          iconBgClass="bg-[#E8E5EB] text-[#6B5B7A] dark:bg-[#E8E5EB]/20"
         />
       </div>
 
       {/* Mood Trend Chart */}
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#4A4543] dark:bg-[#363230]">
+        <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
           Mood Trend
         </h2>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          Your mood across recent check-ins
+        <p className="mt-1 text-base text-[#A89B86] dark:text-[#B8A99A]">
+          Your mood across recent wellness calls
         </p>
-        <div className="mt-4">
+        <div className="mt-5">
           <MoodTrendChart data={analytics.mood_trend} />
         </div>
       </div>
