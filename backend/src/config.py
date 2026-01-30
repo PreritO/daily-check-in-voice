@@ -50,6 +50,13 @@ class Settings:
     NOTION_API_KEY: str = os.getenv("NOTION_API_KEY", "")
     NOTION_DATABASE_ID: str = os.getenv("NOTION_DATABASE_ID", "")
 
+    # Twilio
+    TWILIO_AUTH_TOKEN: str = os.getenv("TWILIO_AUTH_TOKEN", "")
+    TWILIO_WEBHOOK_URL: str = os.getenv("TWILIO_WEBHOOK_URL", "")
+
+    # LiveKit SIP
+    LIVEKIT_SIP_DOMAIN: str = os.getenv("LIVEKIT_SIP_DOMAIN", "")
+
     # App
     APP_ENV: str = os.getenv("APP_ENV", "development")
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
