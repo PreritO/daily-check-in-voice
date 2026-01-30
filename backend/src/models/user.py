@@ -11,6 +11,7 @@ from .base import Base
 
 if TYPE_CHECKING:
     from .call import Call
+    from .memory import ConversationMemory
     from .preferences import UserPreferences
     from .schedule import Schedule
 
@@ -74,6 +75,11 @@ class User(Base):
         "UserPreferences",
         back_populates="user",
         uselist=False,
+        cascade="all, delete-orphan",
+    )
+    memories: Mapped[list["ConversationMemory"]] = relationship(
+        "ConversationMemory",
+        back_populates="user",
         cascade="all, delete-orphan",
     )
 
