@@ -648,3 +648,26 @@ All 26 user stories have been implemented:
 - US-023 to US-026: LiveKit agent and manual call trigger
 
 The V0 core feature set is complete.
+
+---
+
+# V1 - Meela Parity Features
+Started: After V0 completion
+
+## V1 Goals
+- User authentication (Supabase Auth)
+- User onboarding wizard
+- Memory/personalization (remember past conversations)
+- Mood/alert detection (flag concerns)
+- APScheduler for automated calls
+- Analytics dashboard
+- User preferences
+- Twilio webhook for inbound calls
+
+## Additional V1 Patterns
+- Supabase Auth JWT validation in backend
+- @supabase/auth-helpers-nextjs for frontend auth
+- Alembic migrations continue numbering (002_, 003_, etc.)
+- Services follow existing async patterns in services/
+
+---

@@ -1,391 +1,414 @@
 {
-  "branchName": "feature/v0-core",
+  "branchName": "feature/v1-meela-parity",
   "userStories": [
     {
-      "id": "US-001",
-      "title": "Create User database model",
-      "description": "Create SQLAlchemy User model in backend/src/models/user.py with fields: id (UUID primary key), email (unique string, indexed), name (string), timezone (string, default 'UTC'), phone_number (string, nullable), created_at (datetime with timezone), updated_at (datetime with timezone, auto-update on change).",
+      "id": "US-101",
+      "title": "Add Supabase Auth to backend",
+      "description": "Integrate Supabase Auth for user authentication in the backend. Create auth middleware that validates JWT tokens from Supabase. Add current_user dependency for protected routes. Update User model to link with Supabase auth.users via auth_id field.",
       "acceptanceCriteria": [
-        "File backend/src/models/user.py exists",
-        "User class inherits from Base",
-        "All fields have proper Python type hints",
-        "Email field has unique=True and index=True",
-        "Model is imported and exported in backend/src/models/__init__.py",
-        "uv run ruff check src/ passes"
+        "File backend/src/api/auth.py exists with get_current_user dependency",
+        "Auth middleware validates Supabase JWT tokens",
+        "User model has auth_id field (UUID, nullable for migration)",
+        "New alembic migration adds auth_id column",
+        "Protected routes return 401 without valid token",
+        "uv run ruff check src/ passes",
+        "uv run pytest tests/ passes"
       ],
       "priority": 1,
-      "passes": true
+      "passes": false
     },
     {
-      "id": "US-002",
-      "title": "Create Call database model",
-      "description": "Create SQLAlchemy Call model in backend/src/models/call.py with fields: id (UUID), user_id (FK to User, indexed), status (Enum: scheduled, in_progress, completed, failed), scheduled_at (datetime nullable), started_at (datetime nullable), ended_at (datetime nullable), created_at (datetime), updated_at (datetime). Include relationship to User.",
+      "id": "US-102",
+      "title": "Add Supabase Auth to frontend",
+      "description": "Integrate Supabase Auth in the frontend using @supabase/auth-helpers-nextjs. Create auth context provider, login page, signup page, and logout functionality. Protect dashboard routes with auth middleware.",
       "acceptanceCriteria": [
-        "File backend/src/models/call.py exists",
-        "Call class inherits from Base",
-        "CallStatus enum defined with all status values",
-        "Foreign key relationship to User model",
-        "Relationship back_populates configured on both models",
-        "Model exported in backend/src/models/__init__.py",
-        "uv run ruff check src/ passes"
+        "File frontend/src/lib/auth.tsx exists with auth provider",
+        "File frontend/src/app/(auth)/login/page.tsx exists",
+        "File frontend/src/app/(auth)/signup/page.tsx exists",
+        "Dashboard routes redirect to login if not authenticated",
+        "Auth state persists across page refreshes",
+        "npm run build passes"
       ],
       "priority": 2,
-      "passes": true
+      "passes": false
     },
     {
-      "id": "US-003",
-      "title": "Create Transcript database model",
-      "description": "Create SQLAlchemy Transcript model in backend/src/models/transcript.py with fields: id (UUID), call_id (FK to Call, indexed), speaker (Enum: agent, user), content (Text), timestamp_ms (Integer - milliseconds from call start), created_at (datetime). Include relationship to Call.",
+      "id": "US-103",
+      "title": "Create user onboarding wizard",
+      "description": "Create a multi-step onboarding flow after signup: Step 1 - Enter name and phone number, Step 2 - Select timezone, Step 3 - Set first call schedule. Store progress and redirect to dashboard on completion.",
       "acceptanceCriteria": [
-        "File backend/src/models/transcript.py exists",
-        "Transcript class inherits from Base",
-        "Speaker enum defined with 'agent' and 'user' values",
-        "Foreign key relationship to Call model",
-        "Model exported in backend/src/models/__init__.py",
-        "uv run ruff check src/ passes"
+        "File frontend/src/app/(auth)/onboarding/page.tsx exists",
+        "3-step wizard with progress indicator",
+        "Phone number validation (E.164 format)",
+        "Timezone selector with common timezones",
+        "Schedule setup with day/time picker",
+        "Creates user record and schedule on completion",
+        "npm run build passes"
       ],
       "priority": 3,
-      "passes": true
+      "passes": false
     },
     {
-      "id": "US-004",
-      "title": "Create Summary database model",
-      "description": "Create SQLAlchemy Summary model in backend/src/models/summary.py with fields: id (UUID), call_id (FK to Call, unique - one summary per call), yesterday (Text - what was done yesterday), today (Text - plans for today), blockers (Text nullable - any blockers), raw_summary (Text - full AI-generated summary), posted_to_slack (boolean default false), slack_message_id (string nullable), created_at (datetime).",
+      "id": "US-104",
+      "title": "Create UserPreferences model",
+      "description": "Create SQLAlchemy UserPreferences model in backend/src/models/preferences.py with fields: id, user_id (FK unique), conversation_topics (JSON array), interests (JSON array), communication_style (enum: casual, formal, friendly), call_duration_preference (enum: short, medium, long), created_at, updated_at.",
       "acceptanceCriteria": [
-        "File backend/src/models/summary.py exists",
-        "Summary class inherits from Base",
-        "Foreign key to Call with unique constraint (one summary per call)",
-        "All text fields properly typed",
-        "Model exported in backend/src/models/__init__.py",
+        "File backend/src/models/preferences.py exists",
+        "UserPreferences class with all fields",
+        "Foreign key to User with unique constraint",
+        "Enums for communication_style and call_duration_preference",
+        "Model exported in __init__.py",
+        "Alembic migration created",
         "uv run ruff check src/ passes"
       ],
       "priority": 4,
-      "passes": true
+      "passes": false
     },
     {
-      "id": "US-005",
-      "title": "Create Schedule database model",
-      "description": "Create SQLAlchemy Schedule model in backend/src/models/schedule.py with fields: id (UUID), user_id (FK to User), enabled (boolean default true), cron_expression (string - e.g. '0 9 * * 1-5' for weekdays 9am), next_run_at (datetime nullable), created_at (datetime), updated_at (datetime).",
+      "id": "US-105",
+      "title": "Create UserPreferences API endpoints",
+      "description": "Create CRUD endpoints for user preferences in backend/src/api/routes/preferences.py: GET /preferences (get current user's preferences), PUT /preferences (create or update), DELETE /preferences. Preferences are per-user, not a collection.",
       "acceptanceCriteria": [
-        "File backend/src/models/schedule.py exists",
-        "Schedule class inherits from Base",
-        "Foreign key relationship to User",
-        "cron_expression field for flexible scheduling",
-        "Model exported in backend/src/models/__init__.py",
-        "uv run ruff check src/ passes"
-      ],
-      "priority": 5,
-      "passes": true
-    },
-    {
-      "id": "US-006",
-      "title": "Create Alembic migration for all models",
-      "description": "Generate Alembic migration that creates all tables (users, calls, transcripts, summaries, schedules) with proper relationships, indexes, and constraints. The migration should be reversible.",
-      "acceptanceCriteria": [
-        "Migration file exists in backend/alembic/versions/",
-        "Migration creates all 5 tables",
-        "Foreign keys are properly defined",
-        "Indexes created on user_id columns and email",
-        "uv run alembic upgrade head succeeds (test with Supabase)",
-        "uv run alembic downgrade -1 succeeds"
-      ],
-      "priority": 6,
-      "passes": true
-    },
-    {
-      "id": "US-007",
-      "title": "Create Pydantic schemas for API",
-      "description": "Create Pydantic schemas in backend/src/api/schemas.py for all models: UserCreate, UserRead, UserUpdate, CallCreate, CallRead, CallUpdate, TranscriptRead, SummaryRead, ScheduleCreate, ScheduleRead, ScheduleUpdate. Use proper typing and field validation.",
-      "acceptanceCriteria": [
-        "File backend/src/api/schemas.py exists",
-        "All Create/Read/Update schemas defined",
-        "UUID fields use proper Pydantic UUID type",
-        "Datetime fields properly typed",
-        "Enums properly referenced",
-        "uv run ruff check src/ passes"
-      ],
-      "priority": 7,
-      "passes": true
-    },
-    {
-      "id": "US-008",
-      "title": "Create Users API endpoints",
-      "description": "Create CRUD endpoints for users in backend/src/api/routes/users.py: GET /users (list), GET /users/{id} (get one), POST /users (create), PATCH /users/{id} (update), DELETE /users/{id} (delete). Use async SQLAlchemy sessions and return proper Pydantic schemas.",
-      "acceptanceCriteria": [
-        "File backend/src/api/routes/users.py exists",
-        "All 5 CRUD endpoints implemented",
-        "Proper HTTP status codes (200, 201, 404, etc)",
-        "Async database operations",
-        "Router registered in backend/src/api/routes/__init__.py",
-        "uv run ruff check src/ passes"
-      ],
-      "priority": 8,
-      "passes": true
-    },
-    {
-      "id": "US-009",
-      "title": "Create Calls API endpoints",
-      "description": "Create CRUD endpoints for calls in backend/src/api/routes/calls.py: GET /calls (list, with user_id filter), GET /calls/{id} (get one with transcripts and summary), POST /calls (create), PATCH /calls/{id} (update status), DELETE /calls/{id}. Include nested transcript and summary data in responses.",
-      "acceptanceCriteria": [
-        "File backend/src/api/routes/calls.py exists",
-        "All CRUD endpoints implemented",
-        "GET /calls supports ?user_id= query param",
-        "GET /calls/{id} includes transcripts and summary",
-        "Router registered in backend/src/api/routes/__init__.py",
-        "uv run ruff check src/ passes"
-      ],
-      "priority": 9,
-      "passes": true
-    },
-    {
-      "id": "US-010",
-      "title": "Create Schedules API endpoints",
-      "description": "Create CRUD endpoints for schedules in backend/src/api/routes/schedules.py: GET /schedules (list, with user_id filter), GET /schedules/{id}, POST /schedules (create), PATCH /schedules/{id} (update), DELETE /schedules/{id}.",
-      "acceptanceCriteria": [
-        "File backend/src/api/routes/schedules.py exists",
-        "All CRUD endpoints implemented",
-        "GET /schedules supports ?user_id= query param",
-        "Router registered in backend/src/api/routes/__init__.py",
-        "uv run ruff check src/ passes"
-      ],
-      "priority": 10,
-      "passes": true
-    },
-    {
-      "id": "US-011",
-      "title": "Write API integration tests",
-      "description": "Create integration tests in backend/tests/test_api.py that test the users, calls, and schedules endpoints. Use pytest-asyncio and create fixtures for test database setup. Tests should create, read, update, and delete records.",
-      "acceptanceCriteria": [
-        "File backend/tests/test_api.py exists",
-        "Tests for users CRUD operations",
-        "Tests for calls CRUD operations",
-        "Tests for schedules CRUD operations",
-        "uv run pytest tests/ -v passes all tests"
-      ],
-      "priority": 11,
-      "passes": true
-    },
-    {
-      "id": "US-012",
-      "title": "Set up React Query provider in frontend",
-      "description": "Configure TanStack React Query in the frontend. Create a QueryClientProvider wrapper in frontend/src/lib/query-client.ts and wrap the app in frontend/src/app/layout.tsx. Configure default options for stale time and retry behavior.",
-      "acceptanceCriteria": [
-        "File frontend/src/lib/query-client.ts exists with QueryClient config",
-        "QueryClientProvider wraps the app in layout.tsx",
-        "Default staleTime and retry options configured",
-        "npm run build passes"
-      ],
-      "priority": 12,
-      "passes": true
-    },
-    {
-      "id": "US-013",
-      "title": "Create dashboard layout shell",
-      "description": "Create a dashboard layout in frontend/src/app/(dashboard)/layout.tsx with a sidebar navigation (Home, Call History, Schedule, Settings) and main content area. Use Tailwind CSS for styling. The sidebar should be responsive (collapsible on mobile).",
-      "acceptanceCriteria": [
-        "File frontend/src/app/(dashboard)/layout.tsx exists",
-        "Sidebar with navigation links",
-        "Main content area",
-        "Responsive design (mobile-friendly)",
-        "npm run build passes"
-      ],
-      "priority": 13,
-      "passes": true
-    },
-    {
-      "id": "US-014",
-      "title": "Create call history page",
-      "description": "Create the call history page at frontend/src/app/(dashboard)/calls/page.tsx. Display a list of calls with status, date, and duration. Include empty state when no calls exist. Create API hooks in frontend/src/lib/api/calls.ts using React Query.",
-      "acceptanceCriteria": [
-        "File frontend/src/app/(dashboard)/calls/page.tsx exists",
-        "File frontend/src/lib/api/calls.ts exists with useCallsQuery hook",
-        "Call list displays status, date, duration",
-        "Empty state shown when no calls",
-        "Loading state while fetching",
-        "npm run build passes"
-      ],
-      "priority": 14,
-      "passes": true
-    },
-    {
-      "id": "US-015",
-      "title": "Create call detail page",
-      "description": "Create call detail page at frontend/src/app/(dashboard)/calls/[id]/page.tsx. Show call info, transcript (if available), and summary (if available). Use React Query to fetch call with nested data.",
-      "acceptanceCriteria": [
-        "File frontend/src/app/(dashboard)/calls/[id]/page.tsx exists",
-        "Displays call status and timing info",
-        "Shows transcript entries in conversation format",
-        "Shows summary if available",
-        "Loading and error states handled",
-        "npm run build passes"
-      ],
-      "priority": 15,
-      "passes": true
-    },
-    {
-      "id": "US-016",
-      "title": "Create schedule management page",
-      "description": "Create schedule page at frontend/src/app/(dashboard)/schedule/page.tsx. Allow users to view and edit their call schedule. Include a form to set schedule time and days of week. Create API hooks in frontend/src/lib/api/schedules.ts.",
-      "acceptanceCriteria": [
-        "File frontend/src/app/(dashboard)/schedule/page.tsx exists",
-        "File frontend/src/lib/api/schedules.ts exists",
-        "Form to set schedule time",
-        "Toggle for enabling/disabling schedule",
-        "Day of week selection",
-        "npm run build passes"
-      ],
-      "priority": 16,
-      "passes": true
-    },
-    {
-      "id": "US-017",
-      "title": "Create home dashboard page",
-      "description": "Create the home/dashboard page at frontend/src/app/(dashboard)/page.tsx. Show a summary: next scheduled call, recent calls count, quick actions (trigger manual call button placeholder). Redirect from root / to this dashboard.",
-      "acceptanceCriteria": [
-        "File frontend/src/app/(dashboard)/page.tsx exists",
-        "Shows next scheduled call time",
-        "Shows recent calls summary",
-        "Manual call trigger button (placeholder action)",
-        "Root page redirects to dashboard",
-        "npm run build passes"
-      ],
-      "priority": 17,
-      "passes": true
-    },
-    {
-      "id": "US-018",
-      "title": "Create summary generation service",
-      "description": "Create backend/src/services/summary_service.py that uses Anthropic Claude API to generate structured summaries from call transcripts. Extract: yesterday's work, today's plans, blockers. Use structlog for logging.",
-      "acceptanceCriteria": [
-        "File backend/src/services/summary_service.py exists",
-        "Function generate_summary(transcripts: list[Transcript]) -> Summary",
-        "Uses Anthropic Python SDK",
-        "Extracts yesterday/today/blockers from transcript",
-        "Proper error handling and logging",
-        "uv run ruff check src/ passes"
-      ],
-      "priority": 18,
-      "passes": true
-    },
-    {
-      "id": "US-019",
-      "title": "Create summary API endpoint",
-      "description": "Create endpoint POST /calls/{id}/summarize in backend/src/api/routes/calls.py that generates a summary for a completed call. The endpoint should get transcripts, call summary service, save summary to DB, and return it.",
-      "acceptanceCriteria": [
-        "POST /calls/{id}/summarize endpoint exists",
-        "Returns 400 if call has no transcripts",
-        "Returns 409 if summary already exists",
-        "Saves generated summary to database",
-        "Returns the created summary",
-        "uv run ruff check src/ passes"
-      ],
-      "priority": 19,
-      "passes": true
-    },
-    {
-      "id": "US-020",
-      "title": "Create Slack integration service",
-      "description": "Create backend/src/services/slack_service.py that posts standup summaries to Slack. Use httpx for API calls (not the slack_sdk to keep deps light). Support posting formatted messages with yesterday/today/blockers sections.",
-      "acceptanceCriteria": [
-        "File backend/src/services/slack_service.py exists",
-        "Function post_summary(summary: Summary, user: User) -> str (returns message_id)",
-        "Uses httpx to call Slack API",
-        "Formats message with sections for each standup part",
-        "Handles Slack API errors gracefully",
-        "uv run ruff check src/ passes"
-      ],
-      "priority": 20,
-      "passes": true
-    },
-    {
-      "id": "US-021",
-      "title": "Create Slack posting endpoint",
-      "description": "Create endpoint POST /summaries/{id}/post-to-slack in a new backend/src/api/routes/summaries.py. This posts an existing summary to Slack and updates the summary record with posted_to_slack=True and slack_message_id.",
-      "acceptanceCriteria": [
-        "File backend/src/api/routes/summaries.py exists",
-        "POST /summaries/{id}/post-to-slack endpoint",
-        "Returns 404 if summary not found",
-        "Returns 400 if already posted (optional: allow repost)",
-        "Updates summary record after posting",
+        "File backend/src/api/routes/preferences.py exists",
+        "GET /preferences returns current user's preferences or 404",
+        "PUT /preferences creates or updates (upsert behavior)",
+        "Routes require authentication",
         "Router registered in __init__.py",
         "uv run ruff check src/ passes"
       ],
-      "priority": 21,
-      "passes": true
+      "priority": 5,
+      "passes": false
     },
     {
-      "id": "US-022",
-      "title": "Add Slack posting UI to call detail",
-      "description": "Update frontend/src/app/(dashboard)/calls/[id]/page.tsx to add a 'Post to Slack' button on summaries that haven't been posted. Show success/error feedback. Disable button and show posted status if already posted.",
+      "id": "US-106",
+      "title": "Create ConversationMemory model",
+      "description": "Create SQLAlchemy ConversationMemory model in backend/src/models/memory.py to store important facts from conversations: id, user_id (FK indexed), memory_type (enum: fact, preference, event, relationship), content (text), source_call_id (FK nullable), importance (int 1-10), created_at. This enables personalization.",
       "acceptanceCriteria": [
-        "Post to Slack button on summary section",
-        "Button disabled if already posted",
-        "Shows 'Posted to Slack' badge if posted",
-        "Loading state while posting",
-        "Error handling with user feedback",
+        "File backend/src/models/memory.py exists",
+        "ConversationMemory class with all fields",
+        "MemoryType enum defined",
+        "Foreign keys to User and Call",
+        "Model exported in __init__.py",
+        "Alembic migration created",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 6,
+      "passes": false
+    },
+    {
+      "id": "US-107",
+      "title": "Create memory extraction service",
+      "description": "Create backend/src/services/memory_service.py that uses Claude to extract memorable facts from call transcripts. Extract: personal facts, preferences mentioned, upcoming events, relationships mentioned. Store as ConversationMemory records.",
+      "acceptanceCriteria": [
+        "File backend/src/services/memory_service.py exists",
+        "Function extract_memories(call_id, transcripts) -> list[ConversationMemory]",
+        "Uses Claude to identify key facts",
+        "Categorizes memories by type",
+        "Assigns importance scores",
+        "Service exported in __init__.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 7,
+      "passes": false
+    },
+    {
+      "id": "US-108",
+      "title": "Create memory retrieval for agent context",
+      "description": "Create function in memory_service.py to retrieve relevant memories for a user to include in agent prompts. Get recent memories, high-importance memories, and memories related to current date (birthdays, events). Format for LLM context.",
+      "acceptanceCriteria": [
+        "Function get_user_context(user_id) -> str returns formatted memories",
+        "Retrieves top 10 most important memories",
+        "Retrieves last 5 recent memories",
+        "Checks for date-relevant memories (birthdays, events)",
+        "Returns formatted string for LLM prompt injection",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 8,
+      "passes": false
+    },
+    {
+      "id": "US-109",
+      "title": "Create MoodAnalysis model",
+      "description": "Create SQLAlchemy MoodAnalysis model in backend/src/models/mood.py: id, call_id (FK unique), overall_sentiment (enum: positive, neutral, negative, concerned), confidence (float 0-1), flags (JSON array of concern types), notes (text), analyzed_at (datetime). One analysis per call.",
+      "acceptanceCriteria": [
+        "File backend/src/models/mood.py exists",
+        "MoodAnalysis class with all fields",
+        "SentimentType enum defined",
+        "Foreign key to Call with unique constraint",
+        "Model exported in __init__.py",
+        "Alembic migration created",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 9,
+      "passes": false
+    },
+    {
+      "id": "US-110",
+      "title": "Create mood analysis service",
+      "description": "Create backend/src/services/mood_service.py that uses Claude to analyze call transcripts for mood and concerns. Detect: confusion, distress, loneliness, health concerns, unusual behavior. Return structured analysis with confidence scores.",
+      "acceptanceCriteria": [
+        "File backend/src/services/mood_service.py exists",
+        "Function analyze_mood(call_id, transcripts) -> MoodAnalysis",
+        "Uses Claude to detect sentiment and concerns",
+        "Returns structured MoodAnalysis object",
+        "Flags array contains specific concern types",
+        "Service exported in __init__.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 10,
+      "passes": false
+    },
+    {
+      "id": "US-111",
+      "title": "Create mood analysis API endpoint",
+      "description": "Add endpoint POST /calls/{id}/analyze-mood in calls router that runs mood analysis on a completed call. Store result in database. Return the analysis. Also add mood data to CallReadWithDetails response.",
+      "acceptanceCriteria": [
+        "POST /calls/{id}/analyze-mood endpoint exists",
+        "Returns 400 if call has no transcripts",
+        "Returns 409 if already analyzed",
+        "Saves MoodAnalysis to database",
+        "CallReadWithDetails schema includes mood_analysis field",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 11,
+      "passes": false
+    },
+    {
+      "id": "US-112",
+      "title": "Create APScheduler service",
+      "description": "Create backend/src/services/scheduler_service.py that uses APScheduler to manage scheduled calls. On startup, load all enabled schedules and create jobs. Provide functions to add/remove/update scheduled jobs. Jobs should call the trigger endpoint.",
+      "acceptanceCriteria": [
+        "File backend/src/services/scheduler_service.py exists",
+        "AsyncIOScheduler configured with timezone support",
+        "Function start_scheduler() loads existing schedules",
+        "Function add_schedule_job(schedule) creates APScheduler job",
+        "Function remove_schedule_job(schedule_id) removes job",
+        "Jobs trigger calls via internal function (not HTTP)",
+        "Service exported in __init__.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 12,
+      "passes": false
+    },
+    {
+      "id": "US-113",
+      "title": "Integrate scheduler with app lifecycle",
+      "description": "Update backend/src/main.py to start the scheduler on app startup and shut it down gracefully on shutdown. Update schedule CRUD endpoints to also update APScheduler jobs when schedules are created/updated/deleted.",
+      "acceptanceCriteria": [
+        "Scheduler starts on app startup event",
+        "Scheduler shuts down on app shutdown event",
+        "POST /schedules also creates APScheduler job",
+        "PATCH /schedules updates APScheduler job",
+        "DELETE /schedules removes APScheduler job",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 13,
+      "passes": false
+    },
+    {
+      "id": "US-114",
+      "title": "Update voice agent with memory context",
+      "description": "Update backend/src/agent/standup_agent.py to fetch user memories before starting conversation. Include relevant memories in the system prompt so the agent can reference past conversations and personalize the interaction.",
+      "acceptanceCriteria": [
+        "Agent fetches user memories on session start",
+        "System prompt includes personalization section with memories",
+        "Agent can reference user's name, preferences, past topics",
+        "Memory context formatted clearly for LLM",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 14,
+      "passes": false
+    },
+    {
+      "id": "US-115",
+      "title": "Create post-call processing pipeline",
+      "description": "Create backend/src/services/post_call_service.py that runs after a call completes: 1) Generate summary, 2) Extract memories, 3) Analyze mood, 4) Post to Slack if configured. Call this from the agent when conversation ends.",
+      "acceptanceCriteria": [
+        "File backend/src/services/post_call_service.py exists",
+        "Function process_completed_call(call_id) runs full pipeline",
+        "Generates summary via summary_service",
+        "Extracts memories via memory_service",
+        "Analyzes mood via mood_service",
+        "Posts to Slack if user has Slack configured",
+        "Handles errors gracefully (one failure doesn't stop others)",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 15,
+      "passes": false
+    },
+    {
+      "id": "US-116",
+      "title": "Create analytics data aggregation",
+      "description": "Create backend/src/services/analytics_service.py with functions to compute user analytics: total_calls, total_duration_minutes, average_call_duration, calls_this_week, calls_this_month, mood_trend (array of recent sentiments), streak_days (consecutive days with calls).",
+      "acceptanceCriteria": [
+        "File backend/src/services/analytics_service.py exists",
+        "Function get_user_analytics(user_id) returns analytics dict",
+        "Computes all metrics listed in description",
+        "Mood trend includes last 10 calls",
+        "Streak calculation handles timezone correctly",
+        "Service exported in __init__.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 16,
+      "passes": false
+    },
+    {
+      "id": "US-117",
+      "title": "Create analytics API endpoint",
+      "description": "Create GET /users/me/analytics endpoint that returns analytics for the current authenticated user. Include all metrics from analytics_service.",
+      "acceptanceCriteria": [
+        "GET /users/me/analytics endpoint exists",
+        "Requires authentication",
+        "Returns UserAnalytics schema with all metrics",
+        "Schema defined in schemas.py",
+        "uv run ruff check src/ passes"
+      ],
+      "priority": 17,
+      "passes": false
+    },
+    {
+      "id": "US-118",
+      "title": "Create analytics dashboard page",
+      "description": "Create frontend/src/app/(dashboard)/analytics/page.tsx showing user analytics: call stats cards, mood trend chart (simple bar/line), call history timeline, streak display. Use React Query to fetch data.",
+      "acceptanceCriteria": [
+        "File frontend/src/app/(dashboard)/analytics/page.tsx exists",
+        "Shows total calls, average duration, streak",
+        "Displays mood trend visualization",
+        "Shows calls this week/month",
+        "Loading and error states handled",
+        "Added to sidebar navigation",
         "npm run build passes"
+      ],
+      "priority": 18,
+      "passes": false
+    },
+    {
+      "id": "US-119",
+      "title": "Create settings page with preferences",
+      "description": "Create frontend/src/app/(dashboard)/settings/page.tsx with sections: Profile (name, email, phone, timezone), Preferences (topics, interests, communication style), Notifications (Slack toggle), Danger Zone (delete account). Use React Query mutations.",
+      "acceptanceCriteria": [
+        "File frontend/src/app/(dashboard)/settings/page.tsx exists",
+        "Profile section with editable fields",
+        "Preferences section with multi-select for topics/interests",
+        "Communication style dropdown",
+        "Slack integration toggle",
+        "Delete account button with confirmation",
+        "Added to sidebar navigation",
+        "npm run build passes"
+      ],
+      "priority": 19,
+      "passes": false
+    },
+    {
+      "id": "US-120",
+      "title": "Add mood indicator to call detail page",
+      "description": "Update frontend/src/app/(dashboard)/calls/[id]/page.tsx to display mood analysis if available: sentiment badge (colored), confidence percentage, any flags/concerns highlighted, analysis notes. Add 'Analyze Mood' button if not yet analyzed.",
+      "acceptanceCriteria": [
+        "Mood section displays sentiment with color-coded badge",
+        "Shows confidence percentage",
+        "Displays flags as warning badges if present",
+        "Shows analysis notes",
+        "Analyze Mood button triggers POST /calls/{id}/analyze-mood",
+        "npm run build passes"
+      ],
+      "priority": 20,
+      "passes": false
+    },
+    {
+      "id": "US-121",
+      "title": "Add memories tab to call detail page",
+      "description": "Update call detail page to include a 'Memories' tab showing memories extracted from this call. Display memory type badge, content, and importance. Add 'Extract Memories' button if not yet extracted.",
+      "acceptanceCriteria": [
+        "Memories tab/section on call detail page",
+        "Lists memories with type badges",
+        "Shows importance indicator",
+        "Extract Memories button if no memories exist",
+        "npm run build passes"
+      ],
+      "priority": 21,
+      "passes": false
+    },
+    {
+      "id": "US-122",
+      "title": "Create Twilio webhook handler",
+      "description": "Create backend/src/api/routes/webhooks.py with POST /webhooks/twilio/incoming endpoint to handle inbound calls. Validate Twilio signature, create call record, return TwiML to connect to LiveKit room. This enables 24/7 inbound calling.",
+      "acceptanceCriteria": [
+        "File backend/src/api/routes/webhooks.py exists",
+        "POST /webhooks/twilio/incoming endpoint",
+        "Validates Twilio request signature",
+        "Looks up user by phone number",
+        "Creates call record with status in_progress",
+        "Returns TwiML XML to connect to LiveKit SIP",
+        "Router registered in __init__.py",
+        "uv run ruff check src/ passes"
       ],
       "priority": 22,
-      "passes": true
+      "passes": false
     },
     {
-      "id": "US-023",
-      "title": "Create LiveKit agent skeleton",
-      "description": "Create backend/src/agent/standup_agent.py with a basic LiveKit VoicePipelineAgent setup. Import necessary LiveKit components, set up the agent class, but use placeholder/mock STT and TTS for now. The agent should be runnable with 'livekit-agents start'.",
+      "id": "US-123",
+      "title": "Add call direction tracking",
+      "description": "Update Call model to include direction field (enum: inbound, outbound). Update trigger endpoint to set direction=outbound. Update Twilio webhook to set direction=inbound. Update UI to show direction badge on calls.",
       "acceptanceCriteria": [
-        "File backend/src/agent/standup_agent.py exists",
-        "VoicePipelineAgent class created",
-        "Agent can be started (even if just with mocks)",
-        "Basic conversation prompts defined",
-        "Exported from backend/src/agent/__init__.py",
-        "uv run ruff check src/ passes"
-      ],
-      "priority": 23,
-      "passes": true
-    },
-    {
-      "id": "US-024",
-      "title": "Implement standup conversation flow",
-      "description": "Update backend/src/agent/standup_agent.py to implement the full standup conversation flow: greet user, ask about yesterday, ask about today, ask about blockers, thank and end. Store conversation state and transcript entries.",
-      "acceptanceCriteria": [
-        "Agent greets user by name",
-        "Asks 'What did you accomplish yesterday?'",
-        "Asks 'What are you planning to work on today?'",
-        "Asks 'Any blockers or things you need help with?'",
-        "Thanks user and ends call",
-        "Conversation state tracked",
-        "uv run ruff check src/ passes"
-      ],
-      "priority": 24,
-      "passes": true
-    },
-    {
-      "id": "US-025",
-      "title": "Create manual call trigger endpoint",
-      "description": "Create endpoint POST /calls/trigger in backend/src/api/routes/calls.py that creates a new call record, starts the LiveKit agent (or prepares the room), and returns the call ID and connection info. This is for testing the voice agent.",
-      "acceptanceCriteria": [
-        "POST /calls/trigger endpoint exists",
-        "Creates call record with status 'in_progress'",
-        "Creates or returns LiveKit room info",
-        "Returns call_id and connection details",
-        "uv run ruff check src/ passes"
-      ],
-      "priority": 25,
-      "passes": true
-    },
-    {
-      "id": "US-026",
-      "title": "Wire up manual call button in UI",
-      "description": "Update the dashboard home page to make the 'Start Call' button functional. When clicked, it should call POST /calls/trigger and then navigate to a call-in-progress page or show connection info.",
-      "acceptanceCriteria": [
-        "Start Call button calls /calls/trigger",
-        "Shows loading state while triggering",
-        "Navigates to call page or shows room info on success",
-        "Error handling with user feedback",
+        "CallDirection enum added (inbound, outbound)",
+        "Call model has direction field with default outbound",
+        "Alembic migration adds direction column",
+        "Trigger endpoint sets direction=outbound",
+        "Twilio webhook sets direction=inbound",
+        "Call list shows direction badge",
+        "uv run ruff check src/ passes",
         "npm run build passes"
       ],
+      "priority": 23,
+      "passes": false
+    },
+    {
+      "id": "US-124",
+      "title": "Enhance dashboard home with insights",
+      "description": "Update frontend/src/app/(dashboard)/page.tsx to show richer insights: mood trend mini-chart, recent memories carousel, upcoming scheduled call countdown, quick stats (calls this week, streak). Make it feel like a personalized home.",
+      "acceptanceCriteria": [
+        "Dashboard shows mini mood trend (last 5 calls)",
+        "Shows 2-3 recent memories as cards",
+        "Countdown to next scheduled call",
+        "Quick stats row (calls this week, current streak)",
+        "Welcome message with user's name",
+        "npm run build passes"
+      ],
+      "priority": 24,
+      "passes": false
+    },
+    {
+      "id": "US-125",
+      "title": "Add alert notifications for concerning moods",
+      "description": "Create Alert model (id, user_id, call_id, alert_type, message, acknowledged, created_at). When mood analysis flags concerns, create an alert. Show alert banner on dashboard. Allow dismissing alerts.",
+      "acceptanceCriteria": [
+        "File backend/src/models/alert.py exists",
+        "Alert model with all fields",
+        "AlertType enum (mood_concern, missed_calls, etc)",
+        "Mood service creates alerts for negative/concerned sentiment",
+        "GET /alerts endpoint for user's unacknowledged alerts",
+        "PATCH /alerts/{id}/acknowledge endpoint",
+        "Dashboard shows alert banner if unacknowledged alerts exist",
+        "uv run ruff check src/ passes",
+        "npm run build passes"
+      ],
+      "priority": 25,
+      "passes": false
+    },
+    {
+      "id": "US-126",
+      "title": "Write integration tests for new features",
+      "description": "Add integration tests for: auth middleware, preferences CRUD, mood analysis endpoint, analytics endpoint, webhook handler. Ensure all new endpoints have test coverage.",
+      "acceptanceCriteria": [
+        "Tests for auth middleware (valid token, invalid token, missing token)",
+        "Tests for preferences CRUD",
+        "Tests for mood analysis endpoint",
+        "Tests for analytics endpoint",
+        "Tests for Twilio webhook (with mocked signature)",
+        "All tests pass: uv run pytest tests/ -v"
+      ],
       "priority": 26,
-      "passes": true
+      "passes": false
     }
   ]
 }
