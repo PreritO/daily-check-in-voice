@@ -1,7 +1,7 @@
 """Add alerts table.
 
-Revision ID: 007
-Revises: 006
+Revision ID: 007_alerts
+Revises: 006_direction
 Create Date: 2025-01-30 00:00:00.000000
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "007"
-down_revision: str | None = "006"
+revision: str = "007_alerts"
+down_revision: str | None = "006_direction"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -60,7 +60,9 @@ def upgrade() -> None:
     op.create_index(op.f("ix_alerts_user_id"), "alerts", ["user_id"], unique=False)
     op.create_index(op.f("ix_alerts_call_id"), "alerts", ["call_id"], unique=False)
     # Composite index for efficient unacknowledged alert queries
-    op.create_index("ix_alerts_user_acknowledged", "alerts", ["user_id", "acknowledged"], unique=False)
+    op.create_index(
+        "ix_alerts_user_acknowledged", "alerts", ["user_id", "acknowledged"], unique=False
+    )
 
 
 def downgrade() -> None:

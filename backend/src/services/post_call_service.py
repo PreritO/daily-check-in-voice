@@ -249,7 +249,9 @@ async def _run_pipeline_steps(
                     await db.flush()
                     result.alert_created = True
                     result.alert_id = alert.id
-                    log.info("alert_created", alert_id=str(alert.id), alert_type=alert.alert_type.value)
+                    log.info(
+                        "alert_created", alert_id=str(alert.id), alert_type=alert.alert_type.value
+                    )
         except Exception as e:
             error_msg = f"Alert creation failed: {e}"
             log.error("alert_creation_error", error=str(e))

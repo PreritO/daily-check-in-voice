@@ -1,6 +1,5 @@
 """Integration tests for authentication middleware."""
 
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
