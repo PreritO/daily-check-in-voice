@@ -239,12 +239,32 @@ def _is_date_relevant(memory: ConversationMemory, ref_date: date) -> bool:
 
     # Month names and abbreviations
     month_names = [
-        "january", "february", "march", "april", "may", "june",
-        "july", "august", "september", "october", "november", "december",
+        "january",
+        "february",
+        "march",
+        "april",
+        "may",
+        "june",
+        "july",
+        "august",
+        "september",
+        "october",
+        "november",
+        "december",
     ]
     month_abbrevs = [
-        "jan", "feb", "mar", "apr", "may", "jun",
-        "jul", "aug", "sep", "oct", "nov", "dec",
+        "jan",
+        "feb",
+        "mar",
+        "apr",
+        "may",
+        "jun",
+        "jul",
+        "aug",
+        "sep",
+        "oct",
+        "nov",
+        "dec",
     ]
 
     ref_month_name = month_names[ref_date.month - 1]
@@ -360,9 +380,7 @@ async def get_user_context(
             .limit(5)
         )
         if important_ids:
-            recent_query = recent_query.where(
-                ConversationMemory.id.notin_(important_ids)
-            )
+            recent_query = recent_query.where(ConversationMemory.id.notin_(important_ids))
         recent_result = await db.execute(recent_query)
         recent_memories = list(recent_result.scalars().all())
 

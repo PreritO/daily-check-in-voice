@@ -9,6 +9,13 @@ from .memory_service import (
     get_user_context,
 )
 from .mood_service import MoodAnalysisResult, analyze_mood
+from .scheduler_service import (
+    add_schedule_job,
+    get_scheduler,
+    remove_schedule_job,
+    shutdown_scheduler,
+    start_scheduler,
+)
 from .slack_service import SlackPostResult, post_summary
 from .summary_service import StandupSummary, generate_summary
 
@@ -21,18 +28,22 @@ __all__ = [
     "SlackPostResult",
     "StandupSummary",
     "TokenPayload",
+    "add_schedule_job",
     "analyze_mood",
     "create_room_for_call",
     "dispatch_agent_to_room",
     "extract_memories",
     "generate_summary",
+    "get_scheduler",
     "get_user_context",
     "post_summary",
+    "remove_schedule_job",
     "reset_jwks_client",
+    "shutdown_scheduler",
+    "start_scheduler",
     "verify_supabase_token",
 ]
 
 # Services to be implemented:
 # from .call_service import CallService
-# from .scheduler_service import SchedulerService
 # from .notion_service import NotionService
