@@ -1,7 +1,7 @@
 """Pydantic v2 API schemas for the Daily Check-In Agent."""
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
@@ -301,3 +301,36 @@ class PreferencesUpsert(BaseModel):
     call_duration_preference: CallDurationPreference | None = Field(
         default=None, description="Preferred call duration"
     )
+
+
+# =============================================================================
+# Analytics Schemas
+# =============================================================================
+
+
+class MoodTrendItemRead(BaseModel):
+    """Single data point in the user's mood trend."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    call_date: date
+    sentiment: SentimentType
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score 0-1")
+
+
+class UserAnalyticsRead(BaseModel):
+    """Aggregated analytics for a user's call history."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    total_calls: int = Field(..., ge=0, description="Total number of completed calls")
+    total_duration_minutes: float = Field(..., ge=0.0, description="Total call time in minutes")
+    average_call_duration: float = Field(
+        ..., ge=0.0, description="Average call duration in minutes"
+    )
+    calls_this_week: int = Field(..., ge=0, description="Completed calls this week")
+    calls_this_month: int = Field(..., ge=0, description="Completed calls this month")
+    mood_trend: list[MoodTrendItemRead] = Field(
+        default_factory=list, description="Recent mood data points"
+    )
+    streak_days: int = Field(..., ge=0, description="Current consecutive days with calls")

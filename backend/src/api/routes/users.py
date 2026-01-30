@@ -9,9 +9,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_or_create_user
-from src.api.schemas import UserCreate, UserRead, UserUpdate
+from src.api.schemas import MoodTrendItemRead, UserAnalyticsRead, UserCreate, UserRead, UserUpdate
 from src.database import get_db
 from src.models import User
+from src.services.analytics_service import get_user_analytics
 
 logger = structlog.get_logger()
 
@@ -89,6 +90,53 @@ async def update_current_user_profile(
         updated_fields=list(update_data.keys()),
     )
     return current_user
+
+
+@router.get("/me/analytics", response_model=UserAnalyticsRead)
+async def get_current_user_analytics(
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserAnalyticsRead:
+    """Get analytics for the current authenticated user.
+
+    Returns aggregated statistics about the user's call history including:
+    - Total calls and duration
+    - Calls this week and month
+    - Mood trend data points
+    - Current streak of consecutive days with calls
+
+    Args:
+        current_user: The authenticated user from the JWT token.
+        db: Database session.
+
+    Returns:
+        UserAnalyticsRead with all computed analytics metrics.
+    """
+    logger.info("Getting current user analytics", user_id=str(current_user.id))
+
+    analytics = await get_user_analytics(
+        user_id=current_user.id,
+        db=db,
+        user_timezone=current_user.timezone,
+    )
+
+    # Convert dataclass to Pydantic
+    return UserAnalyticsRead(
+        total_calls=analytics.total_calls,
+        total_duration_minutes=analytics.total_duration_minutes,
+        average_call_duration=analytics.average_call_duration,
+        calls_this_week=analytics.calls_this_week,
+        calls_this_month=analytics.calls_this_month,
+        mood_trend=[
+            MoodTrendItemRead(
+                call_date=item.call_date,
+                sentiment=item.sentiment,
+                confidence=item.confidence,
+            )
+            for item in analytics.mood_trend
+        ],
+        streak_days=analytics.streak_days,
+    )
 
 
 @router.get("/", response_model=list[UserRead])
