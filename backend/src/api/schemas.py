@@ -30,6 +30,7 @@ class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    auth_id: str | None
     email: EmailStr
     name: str
     timezone: str

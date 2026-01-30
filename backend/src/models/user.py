@@ -23,6 +23,12 @@ class User(Base):
         primary_key=True,
         server_default=func.gen_random_uuid(),
     )
+    auth_id: Mapped[str | None] = mapped_column(
+        String(36),
+        unique=True,
+        index=True,
+        nullable=True,
+    )
     email: Mapped[str] = mapped_column(
         String(255),
         unique=True,
