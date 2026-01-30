@@ -565,3 +565,31 @@ Started: Thu Jan 29 21:15:04 EST 2026
 - Streak: sort dates descending, count consecutive from most recent, stop on gap
 - Duration: func.extract("epoch", ended_at) - func.extract("epoch", started_at) / 60.0
 ---
+
+## 2026-01-30 - US-117: Create analytics API endpoint
+- **Subagents used**:
+  - architect: Analyzed /me endpoint patterns, schema patterns, analytics_service structure
+  - backend: Implemented MoodTrendItemRead, UserAnalyticsRead schemas and GET /me/analytics endpoint
+  - reviewer: Verified route ordering, authentication, dataclass-to-Pydantic conversion - no critical issues
+- **What was implemented**:
+  - Created MoodTrendItemRead schema with call_date, sentiment, confidence fields
+  - Created UserAnalyticsRead schema with all 7 analytics metrics
+  - Created GET /users/me/analytics endpoint in users.py
+  - Endpoint uses get_or_create_user for authentication (existing pattern)
+  - Converts dataclass from analytics_service to Pydantic response
+  - Route properly ordered before /{user_id} to avoid path conflicts
+- **Files changed**:
+  - backend/src/api/schemas.py (modified - added analytics schemas)
+  - backend/src/api/routes/users.py (modified - added endpoint and imports)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
+- **Learnings for future iterations**:
+  - Route ordering matters: /me/analytics must be before /{user_id} to avoid UUID matching
+  - Use get_or_create_user (not get_current_user) for /me endpoints to support onboarding
+  - Service returns dataclasses, endpoint converts to Pydantic manually
+
+### Analytics Endpoint Patterns
+- GET /users/me/analytics returns UserAnalyticsRead
+- Uses get_or_create_user for authentication (existing /me pattern)
+- Convert service dataclass to Pydantic via explicit mapping in endpoint
+- Place specific routes (/me/analytics) before parameterized routes (/{user_id})
+---
