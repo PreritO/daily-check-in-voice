@@ -16,11 +16,17 @@ from src.api.schemas import (
     CallTriggerRequest,
     CallTriggerResponse,
     CallUpdate,
+    MoodAnalysisRead,
     SummaryRead,
 )
 from src.database import get_db
-from src.models import Call, CallStatus, Summary, User
-from src.services import create_room_for_call, dispatch_agent_to_room, generate_summary
+from src.models import Call, CallStatus, MoodAnalysis, Summary, User
+from src.services import (
+    analyze_mood,
+    create_room_for_call,
+    dispatch_agent_to_room,
+    generate_summary,
+)
 
 logger = structlog.get_logger()
 
@@ -88,6 +94,7 @@ async def get_call(
         .options(
             selectinload(Call.transcripts),
             selectinload(Call.summary),
+            selectinload(Call.mood_analysis),
         )
     )
     call = result.scalar_one_or_none()
@@ -316,6 +323,92 @@ async def summarize_call(
 
     logger.info("Summary generated and saved", call_id=str(call_id), summary_id=str(summary.id))
     return summary
+
+
+@router.post(
+    "/{call_id}/analyze-mood", response_model=MoodAnalysisRead, status_code=status.HTTP_201_CREATED
+)
+async def analyze_call_mood(
+    call_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> MoodAnalysis:
+    """Analyze mood from a call's transcripts.
+
+    Args:
+        call_id: UUID of the call to analyze.
+        db: Database session.
+
+    Returns:
+        The generated mood analysis.
+
+    Raises:
+        HTTPException: 404 if call not found, 400 if no transcripts, 409 if mood_analysis exists.
+    """
+    logger.info("Analyzing mood for call", call_id=str(call_id))
+
+    # Get call with transcripts and mood_analysis
+    result = await db.execute(
+        select(Call)
+        .where(Call.id == call_id)
+        .options(
+            selectinload(Call.transcripts),
+            selectinload(Call.mood_analysis),
+        )
+    )
+    call = result.scalar_one_or_none()
+
+    if call is None:
+        logger.warning("Call not found for mood analysis", call_id=str(call_id))
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Call with id {call_id} not found",
+        )
+
+    # Check if transcripts exist
+    if not call.transcripts:
+        logger.warning("No transcripts for call", call_id=str(call_id))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot analyze mood: call has no transcripts",
+        )
+
+    # Check if mood_analysis already exists
+    if call.mood_analysis is not None:
+        logger.warning("Mood analysis already exists for call", call_id=str(call_id))
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Mood analysis already exists for this call",
+        )
+
+    # Analyze mood using Anthropic Claude
+    try:
+        mood_result = await analyze_mood(call_id, call.transcripts)
+    except ValueError as e:
+        logger.error("Mood analysis failed", call_id=str(call_id), error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to analyze mood: {e}",
+        ) from e
+
+    # Create and save mood analysis to database
+    mood_analysis = MoodAnalysis(
+        call_id=call_id,
+        overall_sentiment=mood_result.overall_sentiment,
+        confidence=mood_result.confidence,
+        flags=mood_result.flags,
+        notes=mood_result.notes,
+    )
+
+    db.add(mood_analysis)
+    await db.flush()
+    await db.refresh(mood_analysis)
+
+    logger.info(
+        "Mood analysis generated and saved",
+        call_id=str(call_id),
+        mood_analysis_id=str(mood_analysis.id),
+    )
+    return mood_analysis
 
 
 @router.post("/trigger", response_model=CallTriggerResponse, status_code=status.HTTP_201_CREATED)

@@ -46,7 +46,7 @@
         "npm run build passes"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-104",
@@ -62,7 +62,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 4,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-105",
@@ -77,7 +77,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 5,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-106",
@@ -93,7 +93,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 6,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-107",
@@ -109,7 +109,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 7,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-108",
@@ -124,7 +124,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 8,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-109",
@@ -140,7 +140,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 9,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-110",
@@ -156,7 +156,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 10,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-111",

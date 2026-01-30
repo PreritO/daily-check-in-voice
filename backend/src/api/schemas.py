@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from src.models import CallStatus, Speaker
+from src.models import CallStatus, SentimentType, Speaker
 from src.models.preferences import CallDurationPreference, CommunicationStyle
 
 # =============================================================================
@@ -133,6 +133,25 @@ class SummaryRead(BaseModel):
 
 
 # =============================================================================
+# Mood Analysis Schemas
+# =============================================================================
+
+
+class MoodAnalysisRead(BaseModel):
+    """Schema for reading mood analysis data."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    call_id: UUID
+    overall_sentiment: SentimentType
+    confidence: float
+    flags: list[str]
+    notes: str | None
+    analyzed_at: datetime
+
+
+# =============================================================================
 # Call Detail Schema (with nested data)
 # =============================================================================
 
@@ -152,6 +171,7 @@ class CallReadWithDetails(BaseModel):
     updated_at: datetime
     transcripts: list[TranscriptRead] = Field(default_factory=list)
     summary: SummaryRead | None = None
+    mood_analysis: MoodAnalysisRead | None = None
 
 
 # =============================================================================

@@ -105,3 +105,266 @@ Started: Thu Jan 29 21:15:04 EST 2026
 - Public routes: /login, /signup, /callback
 - Dashboard layout shows user info and logout button
 ---
+
+## 2026-01-29 - US-103: Create user onboarding wizard
+- **Subagents used**:
+  - architect: Analyzed frontend form patterns, API client patterns, recommended useState approach
+  - frontend: Implemented complete 3-step wizard with all components
+  - reviewer: Identified issues - added loading state, better error handling, useEffect for name sync
+- **What was implemented**:
+  - Created GET /api/users/me and PATCH /api/users/me backend endpoints
+  - Created frontend/src/lib/api/users.ts with React Query hooks
+  - Created 3-step onboarding wizard at frontend/src/app/(auth)/onboarding/page.tsx
+  - Step 1: ProfileStep - name and phone number with E.164 validation
+  - Step 2: TimezoneStep - dropdown with 11 common timezones
+  - Step 3: ScheduleStep - time picker and day of week selector
+  - Progress indicator with checkmarks for completed steps
+  - Updated signup to redirect to /onboarding instead of /
+  - Added loading state for auth check
+  - Improved error handling to show specific API error messages
+  - useEffect to sync name from user metadata when auth loads
+- **Files changed**:
+  - backend/src/api/routes/users.py (modified - added /me endpoints)
+  - frontend/src/lib/api/users.ts (new)
+  - frontend/src/lib/api/index.ts (modified - export users)
+  - frontend/src/app/(auth)/onboarding/page.tsx (new)
+  - frontend/src/app/(auth)/signup/page.tsx (modified - redirect to /onboarding)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓ | npm run build ✓
+- **Learnings for future iterations**:
+  - Use get_or_create_user dependency for /me endpoints to support new user flows
+  - Add isLoading check from useAuth() before rendering forms
+  - Use useEffect to update form state when async data loads, not in useState initializer
+  - Use axios.isAxiosError() to extract specific error messages from API responses
+  - Reviewer caught auth loading race condition that would cause name field to not populate
+
+### Frontend Onboarding Patterns
+- Multi-step wizard state lives in parent component with useState
+- Pass updateData callback to step components for partial state updates
+- Clear specific field errors when that field is updated
+- Use isAuthLoading to show spinner while auth initializes
+- Use useEffect to sync form fields with async data (not useState initializer)
+- Phone validation: E.164 format regex /^\+?[0-9]{10,15}$/
+- Common timezone list includes US timezones first, then international
+---
+
+## 2026-01-29 22:XX - US-104: Create UserPreferences model
+- **Subagents used**:
+  - architect: Analyzed existing model patterns (enums, JSON fields, FK constraints, relationships)
+  - backend: Implemented UserPreferences model with all fields and relationships
+  - reviewer: Found migration server_default mismatch (uppercase vs lowercase enum values), redundant index
+- **What was implemented**:
+  - Created backend/src/models/preferences.py with UserPreferences model
+  - Defined CommunicationStyle enum (casual, formal, friendly)
+  - Defined CallDurationPreference enum (short, medium, long)
+  - Added JSON fields for conversation_topics and interests arrays
+  - Added one-to-one relationship between User and UserPreferences
+  - Created Alembic migration 003_add_user_preferences.py
+  - Exported model and enums in models/__init__.py
+- **Files changed**:
+  - backend/src/models/preferences.py (new)
+  - backend/src/models/user.py (modified - added preferences relationship)
+  - backend/src/models/__init__.py (modified - export UserPreferences, enums)
+  - backend/alembic/versions/003_add_user_preferences.py (new)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
+- **Learnings for future iterations**:
+  - When using native_enum=False, the stored value is enum.value (lowercase), not enum name (uppercase)
+  - Migration server_default must match the enum .value property exactly
+  - unique=True on a column already creates an index in PostgreSQL, no need for index=True
+  - Don't add both UniqueConstraint and unique index - they're redundant
+
+### Model Enum Patterns
+- Define enums as Python enum.Enum classes at top of model file
+- Use lowercase values: `CASUAL = "casual"` (name=uppercase, value=lowercase)
+- Use native_enum=False for portability and human-readable DB values
+- server_default should use the lowercase value: `server_default="friendly"`
+- Enum length should accommodate the longest value: length=20 for safety
+---
+
+## 2026-01-29 - US-105: Create UserPreferences API endpoints
+- **Subagents used**:
+  - architect: Analyzed route patterns, schema patterns, identified upsert approach for PUT endpoint
+  - backend: Implemented preferences.py with GET/PUT/DELETE endpoints
+  - reviewer: Found race condition in upsert, recommended IntegrityError handling
+- **What was implemented**:
+  - Created GET /preferences endpoint (auto-creates defaults if none exist)
+  - Created PUT /preferences endpoint with upsert behavior and IntegrityError handling
+  - Created DELETE /preferences endpoint (reset to defaults, idempotent)
+  - Added PreferencesRead and PreferencesUpsert Pydantic schemas
+  - Registered router in __init__.py with /preferences prefix
+  - All routes require authentication via get_or_create_user
+- **Files changed**:
+  - backend/src/api/routes/preferences.py (new)
+  - backend/src/api/schemas.py (modified - added preference schemas)
+  - backend/src/api/routes/__init__.py (modified - registered router)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
+- **Learnings for future iterations**:
+  - Use IntegrityError handling for race conditions in upsert patterns
+  - When user can only have one record, use upsert (PUT) instead of separate POST/PATCH
+  - Auto-create on GET is better UX than returning 404 for user-specific singleton resources
+  - Always handle concurrent request race conditions when using unique constraints
+
+### API Route Patterns (Singleton Resources)
+- For per-user singleton resources (preferences, settings), don't use {id} in path
+- Use PUT for upsert instead of separate POST/PATCH endpoints
+- Handle IntegrityError for concurrent create race conditions
+- Auto-create on GET for better UX (no 404 for missing preferences)
+---
+
+## 2026-01-29 - US-106: Create ConversationMemory model
+- **Subagents used**:
+  - architect: Analyzed model patterns (UUID PKs, FKs, enums, timestamps, relationships)
+  - backend: Implemented ConversationMemory model with all fields and relationships
+  - reviewer: Found no critical issues, suggested optional improvements (importance default, updated_at)
+- **What was implemented**:
+  - Created MemoryType enum (fact, preference, event, relationship)
+  - Created ConversationMemory model with all required fields
+  - Added bidirectional relationships to User and Call models
+  - Created Alembic migration 004_add_conversation_memory.py
+  - Exported model and enum in __init__.py
+- **Files changed**:
+  - backend/src/models/memory.py (new)
+  - backend/src/models/user.py (modified - added memories relationship)
+  - backend/src/models/call.py (modified - added memories relationship)
+  - backend/src/models/__init__.py (modified - exports)
+  - backend/alembic/versions/004_add_conversation_memory.py (new)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
+- **Learnings for future iterations**:
+  - For nullable FKs use `Mapped[UUID | None]` with `ondelete="SET NULL"`
+  - Use `cascade="all, delete-orphan"` on parent side for required relationships
+  - No cascade on Call→memories since memories should persist (just set source_call_id to NULL)
+  - Consider adding check constraints for bounded integer fields (e.g., importance 1-10)
+
+### ConversationMemory Model Patterns
+- Nullable FK: `Mapped[UUID | None]` + `ondelete="SET NULL"` + `nullable=True`
+- Required FK: `Mapped[UUID]` + `ondelete="CASCADE"` + `nullable=False`
+- One-to-many parent side: `cascade="all, delete-orphan"` for cleanup
+- Optional relationship type: `Mapped["Model | None"]` for nullable FK relationships
+---
+
+## 2026-01-29 - US-107: Create memory extraction service
+- **Subagents used**:
+  - architect: Analyzed existing service patterns (functional-style, dataclasses, structlog, Claude API patterns)
+  - backend: Implemented memory_service.py with extract_memories function
+  - reviewer: Found issues - removed sensitive data from error logs, fixed _clamp_importance type handling, removed unused variable
+- **What was implemented**:
+  - Created ExtractedMemory dataclass (memory_type, content, importance)
+  - Created MemoryExtractionResult dataclass (memories list, raw_response)
+  - Created extract_memories(call_id, user_id, transcripts) -> list[ConversationMemory]
+  - Uses Claude to identify FACT, PREFERENCE, EVENT, RELATIONSHIP memories
+  - Assigns importance scores 1-10 with clamping
+  - Returns unsaved ConversationMemory objects (caller handles persistence)
+  - Follows existing patterns from summary_service.py
+- **Files changed**:
+  - backend/src/services/memory_service.py (new)
+  - backend/src/services/__init__.py (modified - export service functions)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
+- **Learnings for future iterations**:
+  - Existing services use sync Anthropic client in async functions (pattern to maintain consistency)
+  - Don't log sensitive response content in error messages
+  - Use `int | float | str` type hint for flexible parsing of LLM outputs
+  - Return unsaved model objects, let caller handle DB persistence
+  - Memory type enum names are uppercase (FACT, PREFERENCE, EVENT, RELATIONSHIP)
+
+### Memory Service Patterns
+- Service returns unsaved model objects, caller handles DB persistence
+- Use dataclasses for intermediate results (ExtractedMemory, MemoryExtractionResult)
+- Parse LLM JSON response with error handling and sensible defaults
+- Use _clamp_importance() to handle non-integer LLM outputs
+- MemoryType enum: FACT, PREFERENCE, EVENT, RELATIONSHIP
+---
+
+## 2026-01-29 - US-108: Create memory retrieval for agent context
+- **Subagents used**:
+  - architect: Analyzed database query patterns, date relevance detection strategies, string formatting
+  - backend: Implemented get_user_context() with queries and helper functions
+  - reviewer: Found critical SQLAlchemy bug (True literal in .where()), flawed date relevance logic (was checking created_at instead of content patterns)
+- **What was implemented**:
+  - Created get_user_context(user_id, db, reference_date) -> str function
+  - Retrieves top 10 important memories (by importance desc)
+  - Retrieves last 5 recent memories (by created_at desc, deduplicated from important)
+  - Checks for date-relevant EVENT memories by parsing content for date patterns
+  - _is_date_relevant(): Parses memory content for birthday/anniversary mentions and date patterns
+  - _format_context_string(): Formats memories into LLM-friendly sections
+  - Added error handling with graceful degradation to empty string
+  - Exported get_user_context in __init__.py
+- **Files changed**:
+  - backend/src/services/memory_service.py (modified - added 3 functions)
+  - backend/src/services/__init__.py (modified - already had export from US-107)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
+- **Learnings for future iterations**:
+  - Don't use `True` literal in SQLAlchemy .where() clause - build query conditionally instead
+  - Date-relevant memories should check content patterns, not created_at timestamps
+  - Use regex for flexible date pattern matching (month names, abbreviations, numeric formats)
+  - Add graceful error handling (try/except) for retrieval functions to avoid breaking agent
+  - Reviewer caught critical SQLAlchemy bug before commit
+
+### Memory Retrieval Patterns
+- Build queries conditionally: `if ids: query = query.where(...notin_())`
+- Don't use `True` literal in .where() - use sqlalchemy.true() or conditional query building
+- Date pattern matching: Use regex for "January 29", "Jan 29", "1/29", "01-29" formats
+- For date-relevant events, parse content text - don't rely on created_at timestamp
+- Graceful degradation: Return empty string on error instead of raising exception
+---
+
+## 2026-01-30 - US-109: Create MoodAnalysis model
+- **Subagents used**:
+  - architect: Analyzed model patterns (enums, FK with unique constraint, JSON fields, relationships)
+  - backend: Implemented MoodAnalysis model with all fields and migration
+  - reviewer: No critical issues found; suggested optional confidence validation (not required)
+- **What was implemented**:
+  - Created SentimentType enum (positive, neutral, negative, concerned)
+  - Created MoodAnalysis model with all required fields
+  - Added bidirectional one-to-one relationship between Call and MoodAnalysis
+  - Created Alembic migration 005_add_mood_analysis.py
+  - Exported model and enum in __init__.py
+- **Files changed**:
+  - backend/src/models/mood.py (new)
+  - backend/src/models/call.py (modified - added mood_analysis relationship)
+  - backend/src/models/__init__.py (modified - exports)
+  - backend/alembic/versions/005_add_mood_analysis.py (new)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
+- **Learnings for future iterations**:
+  - For one-to-one FK relationships, use `unique=True, index=True` on child side
+  - Import JSON from sqlalchemy (not from sqlalchemy.types)
+  - Float column: `Mapped[float] = mapped_column(Float, nullable=False)`
+  - Ruff auto-fix with `--fix` is safe for import sorting issues (I001)
+  - Table name for models should be plural (mood_analyses not mood_analysis)
+
+### MoodAnalysis Model Patterns
+- One-to-one with Call: `unique=True, index=True, ondelete="CASCADE"` on FK
+- Parent side: `uselist=False, cascade="all, delete-orphan"`
+- JSON array field: `Mapped[list[str]]` with `server_default="[]"`
+- analyzed_at with auto-timestamp: `server_default=func.now()`
+---
+
+## 2026-01-30 - US-110: Create mood analysis service
+- **Subagents used**:
+  - architect: Analyzed service patterns (memory_service.py, summary_service.py), dataclass returns, Claude API patterns
+  - backend: Implemented mood_service.py with all helper functions and analyze_mood function
+  - reviewer: Found empty content guard issue, sync vs async client pattern (kept sync for consistency)
+- **What was implemented**:
+  - Created MoodAnalysisResult dataclass (overall_sentiment, confidence, flags, notes)
+  - Created MOOD_SYSTEM_PROMPT with sentiment types and flag definitions
+  - Created MOOD_USER_PROMPT_TEMPLATE for JSON response format
+  - Created helper functions: _format_transcript, _parse_sentiment_type, _clamp_confidence, _validate_flags
+  - Created async analyze_mood(call_id, transcripts) -> MoodAnalysisResult
+  - Added guard for empty message.content response
+  - Exported MoodAnalysisResult and analyze_mood in __init__.py
+- **Files changed**:
+  - backend/src/services/mood_service.py (new)
+  - backend/src/services/__init__.py (modified - added exports)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
+- **Learnings for future iterations**:
+  - All services use sync Anthropic client (pattern for consistency, noted for future async refactor)
+  - Add guard for empty message.content to prevent IndexError
+  - VALID_FLAGS as a set enables O(1) lookup for validation
+  - Return dataclass result, caller handles persistence (same as memory_service pattern)
+  - Reviewer caught the empty content edge case before commit
+
+### Mood Service Patterns
+- Return MoodAnalysisResult dataclass, caller creates MoodAnalysis ORM object
+- Use VALID_FLAGS set for O(1) flag validation
+- _clamp_confidence handles float/int/str with try/except defaulting to 0.5
+- _parse_sentiment_type maps uppercase strings to SentimentType enum, defaults to NEUTRAL
+- Guard for empty message.content before indexing message.content[0].text
+---
