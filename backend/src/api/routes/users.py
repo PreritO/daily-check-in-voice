@@ -303,18 +303,35 @@ async def update_user(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: UUID,
+    current_user: User = Depends(get_or_create_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """Delete a user.
 
+    Users can only delete their own account for security.
+
     Args:
         user_id: UUID of the user to delete.
+        current_user: The authenticated user from the JWT token.
         db: Database session.
 
     Raises:
+        HTTPException: 403 if trying to delete another user's account.
         HTTPException: 404 if user not found.
     """
-    logger.info("Deleting user", user_id=str(user_id))
+    logger.info("Deleting user", user_id=str(user_id), current_user_id=str(current_user.id))
+
+    # Security: Users can only delete their own account
+    if user_id != current_user.id:
+        logger.warning(
+            "User attempted to delete another user's account",
+            user_id=str(user_id),
+            current_user_id=str(current_user.id),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own account",
+        )
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()

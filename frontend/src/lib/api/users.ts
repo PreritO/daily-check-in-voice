@@ -65,6 +65,26 @@ export function useUpdateUserMutation() {
 }
 
 // =============================================================================
+// Delete User
+// =============================================================================
+
+export async function deleteUser(userId: string): Promise<void> {
+  await apiClient.delete(`/users/${userId}`);
+}
+
+export function useDeleteUserMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteUser,
+    onSuccess: () => {
+      // Clear user data from cache
+      queryClient.removeQueries({ queryKey: userKeys.all });
+    },
+  });
+}
+
+// =============================================================================
 // Phone Validation Helper
 // =============================================================================
 

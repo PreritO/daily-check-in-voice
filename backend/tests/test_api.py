@@ -146,20 +146,30 @@ class TestUsersAPI:
         user = response.json()
         assert user["name"] == "Test User"  # Unchanged
 
-    async def test_delete_user_success(self, client: AsyncClient, test_user: User) -> None:
-        """Test deleting a user."""
-        response = await client.delete(f"/api/users/{test_user.id}")
+    async def test_delete_user_success(
+        self, authenticated_client: AsyncClient, test_user: User
+    ) -> None:
+        """Test deleting a user (own account)."""
+        response = await authenticated_client.delete(f"/api/users/{test_user.id}")
         assert response.status_code == 204
 
-        # Verify user is deleted
-        response = await client.get(f"/api/users/{test_user.id}")
+        # Verify user is deleted - use regular client since user is gone
+        response = await authenticated_client.get(f"/api/users/{test_user.id}")
         assert response.status_code == 404
 
-    async def test_delete_user_not_found(self, client: AsyncClient) -> None:
-        """Test deleting a non-existent user returns 404."""
-        non_existent_id = uuid.uuid4()
-        response = await client.delete(f"/api/users/{non_existent_id}")
-        assert response.status_code == 404
+    async def test_delete_user_forbidden(
+        self, authenticated_client: AsyncClient, test_user_2: User
+    ) -> None:
+        """Test deleting another user's account returns 403."""
+        # authenticated_client is logged in as test_user, trying to delete test_user_2
+        response = await authenticated_client.delete(f"/api/users/{test_user_2.id}")
+        assert response.status_code == 403
+        assert "You can only delete your own account" in response.json()["detail"]
+
+    async def test_delete_user_unauthenticated(self, client: AsyncClient, test_user: User) -> None:
+        """Test deleting a user without authentication returns 401."""
+        response = await client.delete(f"/api/users/{test_user.id}")
+        assert response.status_code == 401
 
 
 # =============================================================================

@@ -9,6 +9,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from src.api.dependencies import get_or_create_user
 from src.database import get_db
 from src.main import app
 from src.models import Base, Call, CallStatus, Schedule, User
@@ -157,3 +158,41 @@ async def test_schedule(test_session: AsyncSession, test_user: User) -> Schedule
     await test_session.commit()
     await test_session.refresh(schedule)
     return schedule
+
+
+# =============================================================================
+# Authenticated client fixtures
+# =============================================================================
+
+
+@pytest.fixture
+async def authenticated_client(
+    test_session: AsyncSession, test_user: User
+) -> AsyncGenerator[AsyncClient, None]:
+    """Create an async HTTP client that bypasses authentication.
+
+    This fixture mocks the get_or_create_user dependency to return the test_user
+    without requiring actual JWT token validation.
+    """
+
+    async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
+        try:
+            yield test_session
+            await test_session.commit()
+        except Exception:
+            await test_session.rollback()
+            raise
+
+    async def mock_get_or_create_user() -> User:
+        return test_user
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_or_create_user] = mock_get_or_create_user
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as ac:
+        yield ac
+
+    app.dependency_overrides.clear()
