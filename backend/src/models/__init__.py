@@ -4,6 +4,7 @@ from .alert import Alert, AlertType
 from .base import Base
 from .call import Call, CallDirection, CallStatus
 from .cronometer_credential import CronometerCredential
+from .food_log import FoodLog
 from .memory import ConversationMemory, MemoryType
 from .mood import MoodAnalysis, SentimentType
 from .preferences import CallDurationPreference, CommunicationStyle, ThemeMode, UserPreferences
@@ -23,6 +24,7 @@ __all__ = [
     "CommunicationStyle",
     "ConversationMemory",
     "CronometerCredential",
+    "FoodLog",
     "MemoryType",
     "MoodAnalysis",
     "Schedule",

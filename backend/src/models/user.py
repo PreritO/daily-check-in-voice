@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from .alert import Alert
     from .call import Call
     from .cronometer_credential import CronometerCredential
+    from .food_log import FoodLog
     from .memory import ConversationMemory
     from .preferences import UserPreferences
     from .schedule import Schedule
@@ -93,6 +94,11 @@ class User(Base):
         "CronometerCredential",
         back_populates="user",
         uselist=False,
+        cascade="all, delete-orphan",
+    )
+    food_logs: Mapped[list["FoodLog"]] = relationship(
+        "FoodLog",
+        back_populates="user",
         cascade="all, delete-orphan",
     )
 
