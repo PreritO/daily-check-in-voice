@@ -436,3 +436,35 @@ Started: Thu Jan 29 21:15:04 EST 2026
 - Single commit at end of transaction, use flush() for intermediate IDs
 - contextlib.suppress() for safe rollback and cleanup operations
 ---
+
+## 2026-01-30 - US-113: Integrate scheduler with app lifecycle
+- **Subagents used**:
+  - architect: Analyzed main.py lifecycle patterns, scheduler_service.py functions, schedules.py CRUD endpoints
+  - backend: Implemented startup/shutdown in main.py, scheduler integration in schedules.py CRUD
+  - simplifier: Not needed - implementation was straightforward
+  - reviewer: Identified pre-existing issues (missing auth, deprecated on_event), verified all acceptance criteria met
+- **What was implemented**:
+  - Added scheduler startup/shutdown calls to FastAPI lifecycle events in main.py
+  - POST /schedules creates APScheduler job if schedule.enabled is True
+  - PATCH /schedules updates/removes job when cron_expression or enabled changes
+  - DELETE /schedules removes APScheduler job before deleting from DB
+  - Jobs update schedule.next_run_at from APScheduler's next_run_time
+  - All scheduler operations have error handling (log but don't fail main operation)
+- **Files changed**:
+  - backend/src/main.py (modified - added start_scheduler/shutdown_scheduler calls)
+  - backend/src/api/routes/schedules.py (modified - added scheduler job management to CRUD)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
+- **Learnings for future iterations**:
+  - @app.on_event is deprecated in favor of lifespan context managers (noted but keeping pattern for consistency)
+  - Scheduler operations should not fail the main DB operation - use try/except with logging
+  - When updating scheduler jobs, check scheduler_fields_changed to avoid unnecessary job updates
+  - Fetch user timezone before calling add_schedule_job() since schedule only stores user_id
+  - Use replace_existing=True in APScheduler for idempotent job creation/updates
+
+### Scheduler Integration Patterns
+- Startup: `await start_scheduler()` in app startup event (handles loading existing schedules)
+- Shutdown: `await shutdown_scheduler()` in app shutdown event (graceful job termination)
+- CRUD integration: Wrap scheduler calls in try/except, log errors but don't fail the operation
+- Job ID format: `schedule_{schedule_id}` - used by get_job(), remove_schedule_job()
+- Always update next_run_at after adding/updating a job for UI display
+---
