@@ -152,7 +152,11 @@ async def create_schedule(
                 if scheduler:
                     job = scheduler.get_job(f"schedule_{schedule.id}")
                     if job and job.next_run_time:
-                        schedule.next_run_at = job.next_run_time
+                        # Convert to naive datetime for DB storage
+                        next_run = job.next_run_time
+                        if next_run.tzinfo is not None:
+                            next_run = next_run.replace(tzinfo=None)
+                        schedule.next_run_at = next_run
                         await db.flush()
                         await db.refresh(schedule)
                 logger.info(
@@ -243,7 +247,11 @@ async def update_schedule(
                     if scheduler:
                         job = scheduler.get_job(f"schedule_{schedule.id}")
                         if job and job.next_run_time:
-                            schedule.next_run_at = job.next_run_time
+                            # Convert to naive datetime for DB storage
+                            next_run = job.next_run_time
+                            if next_run.tzinfo is not None:
+                                next_run = next_run.replace(tzinfo=None)
+                            schedule.next_run_at = next_run
                             await db.flush()
                             await db.refresh(schedule)
                     logger.info(

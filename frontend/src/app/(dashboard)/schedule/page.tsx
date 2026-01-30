@@ -12,9 +12,7 @@ import {
   WEEKDAYS,
   type Schedule,
 } from "@/lib/api/schedules";
-
-// Temporary user ID until auth is implemented
-const TEMP_USER_ID = "00000000-0000-0000-0000-000000000001";
+import { useCurrentUserQuery } from "@/lib/api/users";
 
 interface ScheduleFormData {
   hour: number;
@@ -178,11 +176,11 @@ function ScheduleForm({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-4">
+      <div className="flex justify-end gap-3">
         <button
           type="submit"
           disabled={isLoading || formData.daysOfWeek.length === 0}
-          className="flex-1 rounded-xl bg-[#E8A0BF] px-6 py-3 text-base font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#D88FAE] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex w-auto items-center justify-center rounded-xl bg-[#E8A0BF] px-6 py-2.5 text-base font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#D88FAE] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isLoading ? "Saving..." : schedule ? "Update Schedule" : "Create Schedule"}
         </button>
@@ -190,7 +188,7 @@ function ScheduleForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-[#DEDDDB] px-6 py-3 text-base font-medium text-[#4A4543] shadow-sm transition-all duration-200 hover:bg-[#E8E5EB] hover:shadow-md dark:border-[#3D3935] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
+            className="inline-flex w-auto items-center justify-center rounded-xl border border-[#DEDDDB] px-6 py-2.5 text-base font-medium text-[#4A4543] shadow-sm transition-all duration-200 hover:bg-[#E8E5EB] hover:shadow-md dark:border-[#3D3935] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
           >
             Cancel
           </button>
@@ -334,6 +332,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 }
 
 export default function SchedulePage() {
+  const { data: user } = useCurrentUserQuery();
   const { data: schedules, isLoading } = useSchedulesQuery();
   const createMutation = useCreateScheduleMutation();
   const updateMutation = useUpdateScheduleMutation();
@@ -347,10 +346,11 @@ export default function SchedulePage() {
     : null;
 
   const handleCreate = (data: ScheduleFormData) => {
+    if (!user?.id) return;
     const cronExpression = buildCronExpression(data.hour, data.minute, data.daysOfWeek);
     createMutation.mutate(
       {
-        user_id: TEMP_USER_ID,
+        user_id: user.id,
         cron_expression: cronExpression,
         enabled: data.enabled,
       },
@@ -401,30 +401,34 @@ export default function SchedulePage() {
       </div>
 
       {isCreating && (
-        <div className="rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
-          <h2 className="mb-5 font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
-            Create New Schedule
-          </h2>
-          <ScheduleForm
-            schedule={null}
-            onSave={handleCreate}
-            onCancel={() => setIsCreating(false)}
-            isLoading={createMutation.isPending}
-          />
+        <div className="mx-auto max-w-2xl">
+          <div className="rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+            <h2 className="mb-5 font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+              Create New Schedule
+            </h2>
+            <ScheduleForm
+              schedule={null}
+              onSave={handleCreate}
+              onCancel={() => setIsCreating(false)}
+              isLoading={createMutation.isPending}
+            />
+          </div>
         </div>
       )}
 
       {editingSchedule && (
-        <div className="rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
-          <h2 className="mb-5 font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
-            Edit Schedule
-          </h2>
-          <ScheduleForm
-            schedule={editingSchedule}
-            onSave={handleUpdate}
-            onCancel={() => setEditingId(null)}
-            isLoading={updateMutation.isPending}
-          />
+        <div className="mx-auto max-w-2xl">
+          <div className="rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+            <h2 className="mb-5 font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+              Edit Schedule
+            </h2>
+            <ScheduleForm
+              schedule={editingSchedule}
+              onSave={handleUpdate}
+              onCancel={() => setEditingId(null)}
+              isLoading={updateMutation.isPending}
+            />
+          </div>
         </div>
       )}
 
