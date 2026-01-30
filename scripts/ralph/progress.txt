@@ -368,3 +368,32 @@ Started: Thu Jan 29 21:15:04 EST 2026
 - _parse_sentiment_type maps uppercase strings to SentimentType enum, defaults to NEUTRAL
 - Guard for empty message.content before indexing message.content[0].text
 ---
+
+## 2026-01-30 - US-111: Create mood analysis API endpoint
+- **Subagents used**:
+  - architect: Analyzed calls router patterns (summarize_call endpoint), schema patterns, error handling patterns
+  - backend: Implemented endpoint following exact summarize_call pattern
+  - reviewer: Identified sync Anthropic client issue (noted as existing pattern), error handling consistency
+- **What was implemented**:
+  - Created MoodAnalysisRead Pydantic schema with all mood fields
+  - Added mood_analysis field to CallReadWithDetails schema
+  - Created POST /calls/{id}/analyze-mood endpoint in calls router
+  - Added selectinload(Call.mood_analysis) to get_call endpoint
+  - Returns 400 if no transcripts, 404 if call not found, 409 if already analyzed
+  - Uses analyze_mood service to generate analysis, saves to database
+- **Files changed**:
+  - backend/src/api/schemas.py (modified - added MoodAnalysisRead, updated CallReadWithDetails)
+  - backend/src/api/routes/calls.py (modified - added imports, endpoint, updated get_call)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
+- **Learnings for future iterations**:
+  - Follow existing endpoint patterns exactly (summarize_call) for consistency
+  - Sync Anthropic client usage is intentional pattern - documented in US-107, US-110
+  - Action endpoints pattern: /{resource_id}/action-name with POST, returns 201 on success
+  - Always add selectinload for new relationships to detail endpoints
+
+### Mood Analysis Endpoint Patterns
+- Action endpoint: POST /{call_id}/analyze-mood returns 201 with MoodAnalysisRead
+- Validation order: 1) call exists (404), 2) has transcripts (400), 3) not already analyzed (409)
+- Service returns dataclass result, endpoint creates ORM object and persists
+- Eager load mood_analysis in get_call with selectinload
+---
