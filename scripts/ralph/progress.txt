@@ -498,3 +498,38 @@ Started: Thu Jan 29 21:15:04 EST 2026
 - Graceful degradation: return ("there", "", None) on any error in fetch_agent_context
 - Log has_memory_context=bool(memory_context) for debugging
 ---
+
+## 2026-01-30 - US-115: Create post-call processing pipeline
+- **Subagents used**:
+  - architect: Analyzed service patterns (summary_service, memory_service, mood_service, slack_service), DB session handling
+  - backend: Implemented PostCallResult dataclass and process_completed_call function
+  - reviewer: Found duplicate memory extraction bug, missing rollback handling - both fixed
+- **What was implemented**:
+  - Created PostCallResult dataclass to track status of each pipeline step
+  - Created process_completed_call(call_id, db) that runs full pipeline:
+    1. Fetches call with selectinload for user, transcripts, summary, mood_analysis
+    2. Generates summary if not already generated
+    3. Extracts memories if not already extracted (added idempotency check)
+    4. Analyzes mood if not already analyzed
+    5. Posts to Slack if summary exists and not already posted
+  - Each step wrapped in try/except for graceful error handling
+  - Added rollback handling via _run_pipeline_steps helper function
+  - Exported PostCallResult and process_completed_call in __init__.py
+- **Files changed**:
+  - backend/src/services/post_call_service.py (new)
+  - backend/src/services/__init__.py (modified - exports)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
+- **Learnings for future iterations**:
+  - Always check for existing records before creating (idempotency) - reviewer caught duplicate memories bug
+  - Wrap pipeline operations in try/except with rollback for unexpected errors
+  - Use select(func.count()).select_from(Model).where() for existence checks
+  - Use helper function pattern to enable proper rollback handling in main function
+  - Slack posting uses global env vars (SLACK_BOT_TOKEN, SLACK_CHANNEL_ID), per-user config is future enhancement
+
+### Post-Call Processing Patterns
+- PostCallResult dataclass tracks: summary_generated, memories_extracted, mood_analyzed, slack_posted, errors
+- Check existing records before creating: summary via call.summary, mood via call.mood_analysis, memories via count query
+- Each step: try/except with error collection, use db.flush() after each step
+- Commit at end of pipeline, rollback on unexpected error
+- post_summary handles Slack not configured gracefully (returns SlackPostResult with success=False)
+---
