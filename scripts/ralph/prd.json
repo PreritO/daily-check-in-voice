@@ -15,7 +15,7 @@
         "uv run pytest tests/ passes"
       ],
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-102",
@@ -30,7 +30,7 @@
         "npm run build passes"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-103",
@@ -46,7 +46,7 @@
         "npm run build passes"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-104",
@@ -62,7 +62,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 4,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-105",
@@ -77,7 +77,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 5,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-106",
@@ -93,7 +93,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 6,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-107",
@@ -109,7 +109,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 7,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-108",
@@ -124,7 +124,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 8,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-109",
@@ -140,7 +140,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 9,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-110",
@@ -156,7 +156,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 10,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-111",
@@ -171,7 +171,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 11,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-112",
@@ -188,7 +188,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 12,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-113",
@@ -203,7 +203,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 13,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-114",
@@ -217,7 +217,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 14,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-115",
@@ -234,7 +234,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 15,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-116",
@@ -250,7 +250,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 16,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-117",
@@ -264,7 +264,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 17,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-118",
@@ -280,7 +280,7 @@
         "npm run build passes"
       ],
       "priority": 18,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-119",
@@ -297,7 +297,7 @@
         "npm run build passes"
       ],
       "priority": 19,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-120",
@@ -312,7 +312,7 @@
         "npm run build passes"
       ],
       "priority": 20,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-121",
@@ -326,7 +326,7 @@
         "npm run build passes"
       ],
       "priority": 21,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-122",
@@ -343,7 +343,7 @@
         "uv run ruff check src/ passes"
       ],
       "priority": 22,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-123",
@@ -360,7 +360,7 @@
         "npm run build passes"
       ],
       "priority": 23,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-124",
@@ -375,7 +375,7 @@
         "npm run build passes"
       ],
       "priority": 24,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-125",
@@ -387,13 +387,13 @@
         "AlertType enum (mood_concern, missed_calls, etc)",
         "Mood service creates alerts for negative/concerned sentiment",
         "GET /alerts endpoint for user's unacknowledged alerts",
-        "PATCH /alerts/{id}/acknowledge endpoint",
+        "POST /alerts/{id}/acknowledge endpoint",
         "Dashboard shows alert banner if unacknowledged alerts exist",
         "uv run ruff check src/ passes",
         "npm run build passes"
       ],
       "priority": 25,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-126",
@@ -408,7 +408,7 @@
         "All tests pass: uv run pytest tests/ -v"
       ],
       "priority": 26,
-      "passes": false
+      "passes": true
     }
   ]
 }

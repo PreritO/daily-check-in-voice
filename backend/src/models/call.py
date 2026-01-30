@@ -11,6 +11,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base
 
 if TYPE_CHECKING:
+    from .alert import Alert
+    from .memory import ConversationMemory
+    from .mood import MoodAnalysis
     from .summary import Summary
     from .transcript import Transcript
     from .user import User
@@ -23,6 +26,13 @@ class CallStatus(enum.Enum):
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     FAILED = "failed"
+
+
+class CallDirection(enum.Enum):
+    """Enumeration of call directions."""
+
+    INBOUND = "inbound"
+    OUTBOUND = "outbound"
 
 
 class Call(Base):
@@ -42,6 +52,11 @@ class Call(Base):
     status: Mapped[CallStatus] = mapped_column(
         Enum(CallStatus, native_enum=False, length=20),
         default=CallStatus.SCHEDULED,
+        nullable=False,
+    )
+    direction: Mapped[CallDirection] = mapped_column(
+        Enum(CallDirection, native_enum=False, length=20),
+        default=CallDirection.OUTBOUND,
         nullable=False,
     )
     scheduled_at: Mapped[datetime | None] = mapped_column(
@@ -79,6 +94,20 @@ class Call(Base):
         back_populates="call",
         uselist=False,
         cascade="all, delete-orphan",
+    )
+    memories: Mapped[list["ConversationMemory"]] = relationship(
+        "ConversationMemory",
+        back_populates="source_call",
+    )
+    mood_analysis: Mapped["MoodAnalysis | None"] = relationship(
+        "MoodAnalysis",
+        back_populates="call",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    alerts: Mapped[list["Alert"]] = relationship(
+        "Alert",
+        back_populates="call",
     )
 
     def __repr__(self) -> str:

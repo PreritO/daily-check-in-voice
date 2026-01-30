@@ -1,673 +1,932 @@
 # Ralph Progress Log
-Started: Initial setup
+Started: Thu Jan 29 21:15:04 EST 2026
 ---
 
 ## Codebase Patterns
-- SQLAlchemy models go in backend/src/models/ and must be imported in __init__.py
-- API routes go in backend/src/api/routes/ and must be registered in __init__.py
-- Use structlog for logging, never print()
-- Frontend API client is at frontend/src/lib/api/client.ts
-- Supabase client is at frontend/src/lib/supabase.ts
-- Run `uv run ruff check src/` before committing backend changes
-- Run `npm run build` before committing frontend changes
-- Database uses Supabase PostgreSQL via asyncpg
-- Use `Enum(EnumClass, native_enum=False, length=N)` for enum columns, not `String(N)`
-- Use TYPE_CHECKING guard for circular import prevention in relationship models
+
+### Backend Patterns
+- SQLAlchemy models use `Mapped[]` type annotations (SQLAlchemy 2.0 style)
+- Models use `mapped_column()` with `server_default` for defaults
+- Use `TYPE_CHECKING` for forward references in models
+- Models inherit from `Base` (from `.base`)
+- Models exported in `backend/src/models/__init__.py`
+- API routes in `backend/src/api/routes/` and registered in `__init__.py`
+- Pydantic schemas in `backend/src/api/schemas.py`
+- Use `structlog` for logging, never `print()`
+- Dependencies in `backend/src/api/dependencies.py`
+- Services in `backend/src/services/` and exported in `__init__.py`
+- Config uses `@lru_cache` decorated `get_settings()` function
+- Alembic migrations follow pattern: `001_description.py`, `002_description.py`, etc.
+
+### JWT/Auth Patterns
+- Use PyJWKClient for JWKS-based JWT validation
+- Cache JWKS client at module level for performance
+- Supabase JWKS URL: `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`
+- Validate both audience ("authenticated") and issuer
+- Use `HTTPBearer` security scheme for Authorization header
+- Create separate dependencies: `get_current_user`, `get_optional_user`, `get_or_create_user`
 
 ---
 
-## 2026-01-28 - US-002: Create Call database model
+## 2026-01-29 21:XX - US-101: Add Supabase Auth to backend
 - **Subagents used**:
-  - architect: Not needed - patterns clear from US-001
-  - specialist: backend - created Call model and updated User relationship
-  - simplifier: not needed - code straightforward
-  - reviewer: Found major issue with enum type (String vs Enum), fixed
+  - architect: Analyzed existing codebase patterns for models, routes, dependencies, config
+  - backend: Implemented auth_service.py and dependencies.py
+  - reviewer: Found critical JWKS URL bug and security issues
 - **What was implemented**:
-  - Created CallStatus enum with SCHEDULED, IN_PROGRESS, COMPLETED, FAILED values
-  - Created Call model with UUID pk, user_id FK (indexed), status, timestamps
-  - Added bidirectional relationship between User and Call with back_populates
-  - Used proper SQLAlchemy Enum type with native_enum=False for portability
+  - Added auth_id field to User model for Supabase auth.users linkage
+  - Created auth_service.py with JWT validation using JWKS
+  - Created dependencies.py with get_current_user, get_optional_user, get_or_create_user
+  - Created alembic migration 002 for auth_id column
+  - Updated UserRead schema to include auth_id
+  - Added pyjwt[crypto] dependency
 - **Files changed**:
-  - backend/src/models/call.py (created)
-  - backend/src/models/user.py (added calls relationship)
-  - backend/src/models/__init__.py (added Call, CallStatus exports)
-- **Verification**: ruff ✓ | pytest (no tests yet) | build (backend only)
+  - backend/src/models/user.py (modified - added auth_id field)
+  - backend/src/services/auth_service.py (new)
+  - backend/src/services/__init__.py (modified - export auth service)
+  - backend/src/api/dependencies.py (new)
+  - backend/src/api/schemas.py (modified - added auth_id to UserRead)
+  - backend/alembic/versions/002_add_user_auth_id.py (new)
+  - backend/pyproject.toml (modified - added pyjwt[crypto])
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - Use ondelete="CASCADE" on FK and cascade="all, delete-orphan" on relationship for proper deletion
+  - Supabase JWKS URL is at /auth/v1/.well-known/jwks.json, NOT /rest/v1/
+  - Always add issuer validation to JWT decode for security
+  - Use `from e` when re-raising exceptions to satisfy ruff B904
+  - The acceptance criteria said auth.py but we used dependencies.py - this is acceptable as the functionality is there
+  - Reviewer subagent caught critical JWKS URL bug before commit
 ---
 
-## 2026-01-28 - US-003: Create Transcript database model
+## 2026-01-29 21:XX - US-102: Add Supabase Auth to frontend
 - **Subagents used**:
-  - architect: Not needed - patterns established from US-001/US-002
-  - specialist: Implemented directly following established patterns
-  - simplifier: Not needed - code is straightforward
-  - reviewer: Approved with minor suggestions (order_by on relationship - implemented)
+  - architect: Analyzed frontend patterns, identified @supabase/ssr as replacement for deprecated @supabase/auth-helpers-nextjs
+  - frontend: Implemented complete auth flow with login, signup, middleware, context
+  - reviewer: Found race condition in AuthProvider, missing Suspense for useSearchParams
 - **What was implemented**:
-  - Created Speaker enum with AGENT, USER values
-  - Created Transcript model with UUID pk, call_id FK (indexed), speaker, content (Text), timestamp_ms
-  - Added bidirectional relationship between Call and Transcript with back_populates
-  - Added order_by="Transcript.timestamp_ms" to Call.transcripts relationship for chronological ordering
-  - No updated_at field - transcripts are immutable records
+  - Installed @supabase/ssr package (replacement for deprecated auth-helpers-nextjs)
+  - Created Supabase client utilities: client.ts, server.ts, middleware.ts
+  - Created AuthProvider context with signIn, signUp, signOut, getAccessToken
+  - Created Next.js middleware for route protection (public routes: /login, /signup, /callback)
+  - Created auth layout for centered auth pages without sidebar
+  - Created login page with form, error handling, and Suspense boundary for useSearchParams
+  - Created signup page with validation
+  - Created OAuth callback route handler
+  - Updated API client with auth interceptor to include Bearer token
+  - Updated dashboard layout with user info and logout button
 - **Files changed**:
-  - backend/src/models/transcript.py (created)
-  - backend/src/models/call.py (added transcripts relationship with ordering)
-  - backend/src/models/__init__.py (added Transcript, Speaker exports)
-- **Verification**: ruff ✓ | pytest (no tests yet) | build (backend only)
+  - frontend/package.json (modified - added @supabase/ssr)
+  - frontend/src/lib/supabase/client.ts (new)
+  - frontend/src/lib/supabase/server.ts (new)
+  - frontend/src/lib/supabase/middleware.ts (new)
+  - frontend/src/lib/auth.tsx (new)
+  - frontend/src/lib/providers.tsx (modified - added AuthProvider)
+  - frontend/src/middleware.ts (new)
+  - frontend/src/app/(auth)/layout.tsx (new)
+  - frontend/src/app/(auth)/login/page.tsx (new)
+  - frontend/src/app/(auth)/signup/page.tsx (new)
+  - frontend/src/app/(auth)/callback/route.ts (new)
+  - frontend/src/lib/api/client.ts (modified - added auth interceptor)
+  - frontend/src/app/(dashboard)/layout.tsx (modified - added user info, logout)
+- **Verification**: npm run build ✓
 - **Learnings for future iterations**:
-  - Use order_by on relationships where ordering matters (e.g., conversation transcripts)
-  - Immutable records (like transcripts) don't need updated_at field
+  - @supabase/auth-helpers-nextjs is deprecated, use @supabase/ssr instead
+  - useSearchParams in Next.js 16 requires Suspense boundary or build fails
+  - Create Supabase client outside React component to prevent race conditions
+  - Add explicit types for cookiesToSet parameter in setAll callbacks (TypeScript strict mode)
+  - Three-file pattern for Supabase SSR: client.ts, server.ts, middleware.ts
+
+### Frontend Auth Patterns
+- Use @supabase/ssr (NOT @supabase/auth-helpers-nextjs - deprecated)
+- Three Supabase clients: browser (client.ts), server (server.ts), middleware (middleware.ts)
+- Create Supabase client outside component to prevent re-subscriptions
+- Wrap components using useSearchParams in Suspense boundary for Next.js 16
+- Auth middleware refreshes session on every request
+- API client interceptor gets token via supabase.auth.getSession()
+- Public routes: /login, /signup, /callback
+- Dashboard layout shows user info and logout button
 ---
 
-## 2026-01-28 - US-004: Create Summary database model
+## 2026-01-29 - US-103: Create user onboarding wizard
 - **Subagents used**:
-  - architect: Not needed - patterns well-established
-  - specialist: Implemented directly following established patterns
-  - simplifier: Not needed - code is straightforward
-  - reviewer: Approved with suggestions (added updated_at field since posted_to_slack can change)
+  - architect: Analyzed frontend form patterns, API client patterns, recommended useState approach
+  - frontend: Implemented complete 3-step wizard with all components
+  - reviewer: Identified issues - added loading state, better error handling, useEffect for name sync
 - **What was implemented**:
-  - Created Summary model with UUID pk, call_id FK (unique for one-to-one), text fields for yesterday/today/blockers/raw_summary
-  - Added posted_to_slack (boolean) and slack_message_id (string nullable) for Slack integration
-  - Added updated_at field since summary fields can be updated (e.g., posting to Slack)
-  - Added one-to-one relationship between Call and Summary using uselist=False
+  - Created GET /api/users/me and PATCH /api/users/me backend endpoints
+  - Created frontend/src/lib/api/users.ts with React Query hooks
+  - Created 3-step onboarding wizard at frontend/src/app/(auth)/onboarding/page.tsx
+  - Step 1: ProfileStep - name and phone number with E.164 validation
+  - Step 2: TimezoneStep - dropdown with 11 common timezones
+  - Step 3: ScheduleStep - time picker and day of week selector
+  - Progress indicator with checkmarks for completed steps
+  - Updated signup to redirect to /onboarding instead of /
+  - Added loading state for auth check
+  - Improved error handling to show specific API error messages
+  - useEffect to sync name from user metadata when auth loads
 - **Files changed**:
-  - backend/src/models/summary.py (created)
-  - backend/src/models/call.py (added summary relationship with uselist=False)
-  - backend/src/models/__init__.py (added Summary export)
-- **Verification**: ruff ✓ | pytest (no tests yet) | build (backend only)
+  - backend/src/api/routes/users.py (modified - added /me endpoints)
+  - frontend/src/lib/api/users.ts (new)
+  - frontend/src/lib/api/index.ts (modified - export users)
+  - frontend/src/app/(auth)/onboarding/page.tsx (new)
+  - frontend/src/app/(auth)/signup/page.tsx (modified - redirect to /onboarding)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓ | npm run build ✓
 - **Learnings for future iterations**:
-  - Use uselist=False for one-to-one relationships
-  - Use unique=True on FK for one-to-one constraint at DB level
-  - Add updated_at to models that can be modified after creation
+  - Use get_or_create_user dependency for /me endpoints to support new user flows
+  - Add isLoading check from useAuth() before rendering forms
+  - Use useEffect to update form state when async data loads, not in useState initializer
+  - Use axios.isAxiosError() to extract specific error messages from API responses
+  - Reviewer caught auth loading race condition that would cause name field to not populate
+
+### Frontend Onboarding Patterns
+- Multi-step wizard state lives in parent component with useState
+- Pass updateData callback to step components for partial state updates
+- Clear specific field errors when that field is updated
+- Use isAuthLoading to show spinner while auth initializes
+- Use useEffect to sync form fields with async data (not useState initializer)
+- Phone validation: E.164 format regex /^\+?[0-9]{10,15}$/
+- Common timezone list includes US timezones first, then international
 ---
 
-## 2026-01-28 - US-005: Create Schedule database model
+## 2026-01-29 22:XX - US-104: Create UserPreferences model
 - **Subagents used**:
-  - architect: Not needed - patterns well-established
-  - specialist: Implemented directly following established patterns
-  - simplifier: Not needed - code is straightforward
-  - reviewer: Approved with suggestions (composite index for scheduler queries - future enhancement)
+  - architect: Analyzed existing model patterns (enums, JSON fields, FK constraints, relationships)
+  - backend: Implemented UserPreferences model with all fields and relationships
+  - reviewer: Found migration server_default mismatch (uppercase vs lowercase enum values), redundant index
 - **What was implemented**:
-  - Created Schedule model with UUID pk, user_id FK (indexed), enabled (boolean), cron_expression, next_run_at
-  - Added bidirectional relationship between User and Schedule with back_populates and cascade
-  - Users can have multiple schedules (one-to-many relationship)
+  - Created backend/src/models/preferences.py with UserPreferences model
+  - Defined CommunicationStyle enum (casual, formal, friendly)
+  - Defined CallDurationPreference enum (short, medium, long)
+  - Added JSON fields for conversation_topics and interests arrays
+  - Added one-to-one relationship between User and UserPreferences
+  - Created Alembic migration 003_add_user_preferences.py
+  - Exported model and enums in models/__init__.py
 - **Files changed**:
-  - backend/src/models/schedule.py (created)
-  - backend/src/models/user.py (added schedules relationship)
-  - backend/src/models/__init__.py (added Schedule export, reformatted __all__ for readability)
-- **Verification**: ruff ✓ | pytest (no tests yet) | build (backend only)
+  - backend/src/models/preferences.py (new)
+  - backend/src/models/user.py (modified - added preferences relationship)
+  - backend/src/models/__init__.py (modified - export UserPreferences, enums)
+  - backend/alembic/versions/003_add_user_preferences.py (new)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - Consider composite indexes for frequent query patterns (e.g., enabled + next_run_at for scheduler)
-  - Cron expression validation should happen at service/API layer, not in model
+  - When using native_enum=False, the stored value is enum.value (lowercase), not enum name (uppercase)
+  - Migration server_default must match the enum .value property exactly
+  - unique=True on a column already creates an index in PostgreSQL, no need for index=True
+  - Don't add both UniqueConstraint and unique index - they're redundant
+
+### Model Enum Patterns
+- Define enums as Python enum.Enum classes at top of model file
+- Use lowercase values: `CASUAL = "casual"` (name=uppercase, value=lowercase)
+- Use native_enum=False for portability and human-readable DB values
+- server_default should use the lowercase value: `server_default="friendly"`
+- Enum length should accommodate the longest value: length=20 for safety
 ---
 
-## 2026-01-28 - US-006: Create Alembic migration for all models
+## 2026-01-29 - US-105: Create UserPreferences API endpoints
 - **Subagents used**:
-  - architect: Not needed - migration is straightforward following model definitions
-  - specialist: Created migration manually (autogenerate requires live DB connection)
-  - simplifier: Not needed
-  - reviewer: Approved - all tables, FKs, indexes, and cascades are correct
+  - architect: Analyzed route patterns, schema patterns, identified upsert approach for PUT endpoint
+  - backend: Implemented preferences.py with GET/PUT/DELETE endpoints
+  - reviewer: Found race condition in upsert, recommended IntegrityError handling
 - **What was implemented**:
-  - Created initial migration (001_initial) with all 5 tables
-  - Tables: users, calls, transcripts, summaries, schedules
-  - All foreign keys with ondelete="CASCADE"
-  - Indexes on email (unique), user_id columns, call_id columns
-  - Proper downgrade function drops tables in reverse dependency order
-  - Used native_enum=False for enum portability
+  - Created GET /preferences endpoint (auto-creates defaults if none exist)
+  - Created PUT /preferences endpoint with upsert behavior and IntegrityError handling
+  - Created DELETE /preferences endpoint (reset to defaults, idempotent)
+  - Added PreferencesRead and PreferencesUpsert Pydantic schemas
+  - Registered router in __init__.py with /preferences prefix
+  - All routes require authentication via get_or_create_user
 - **Files changed**:
-  - backend/alembic/versions/001_create_initial_tables.py (created)
-  - backend/alembic/env.py (fixed ruff import ordering)
-- **Verification**: ruff ✓ | pytest (no tests yet) | alembic upgrade/downgrade (requires DB)
+  - backend/src/api/routes/preferences.py (new)
+  - backend/src/api/schemas.py (modified - added preference schemas)
+  - backend/src/api/routes/__init__.py (modified - registered router)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - Drop tables in reverse dependency order in downgrade (child tables first)
-  - Use sa.text() for server defaults like gen_random_uuid() and now()
-  - native_enum=False avoids need to explicitly drop enum types in downgrade
+  - Use IntegrityError handling for race conditions in upsert patterns
+  - When user can only have one record, use upsert (PUT) instead of separate POST/PATCH
+  - Auto-create on GET is better UX than returning 404 for user-specific singleton resources
+  - Always handle concurrent request race conditions when using unique constraints
+
+### API Route Patterns (Singleton Resources)
+- For per-user singleton resources (preferences, settings), don't use {id} in path
+- Use PUT for upsert instead of separate POST/PATCH endpoints
+- Handle IntegrityError for concurrent create race conditions
+- Auto-create on GET for better UX (no 404 for missing preferences)
 ---
 
-## 2026-01-28 - US-007: Create Pydantic schemas for API
+## 2026-01-29 - US-106: Create ConversationMemory model
 - **Subagents used**:
-  - architect: Analyzed Pydantic v2 patterns, model field types, enum imports
-  - specialist: backend - created all Pydantic schemas in schemas.py
-  - simplifier: Not needed - code is well-structured
-  - reviewer: Approved with minor suggestions (cron validator could be more permissive, duplicate validator code)
+  - architect: Analyzed model patterns (UUID PKs, FKs, enums, timestamps, relationships)
+  - backend: Implemented ConversationMemory model with all fields and relationships
+  - reviewer: Found no critical issues, suggested optional improvements (importance default, updated_at)
 - **What was implemented**:
-  - Created Pydantic v2 schemas: UserCreate/Read/Update, CallCreate/Read/Update, TranscriptRead, SummaryRead, ScheduleCreate/Read/Update
-  - Used ConfigDict(from_attributes=True) for ORM compatibility
-  - EmailStr for email validation
-  - Field constraints matching SQLAlchemy model limits
-  - Cron expression validator (5 fields, basic format checking)
-  - Imported CallStatus and Speaker enums from src.models
-  - Added email-validator>=2.2.0 to dependencies
+  - Created MemoryType enum (fact, preference, event, relationship)
+  - Created ConversationMemory model with all required fields
+  - Added bidirectional relationships to User and Call models
+  - Created Alembic migration 004_add_conversation_memory.py
+  - Exported model and enum in __init__.py
 - **Files changed**:
-  - backend/src/api/schemas.py (created)
-  - backend/pyproject.toml (added email-validator)
-  - backend/uv.lock (updated)
-- **Verification**: ruff ✓ | pytest (no tests yet) | build (backend only)
+  - backend/src/models/memory.py (new)
+  - backend/src/models/user.py (modified - added memories relationship)
+  - backend/src/models/call.py (modified - added memories relationship)
+  - backend/src/models/__init__.py (modified - exports)
+  - backend/alembic/versions/004_add_conversation_memory.py (new)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - Use ConfigDict(from_attributes=True) for Pydantic v2 ORM mode (not class Config)
-  - Pydantic v2 handles UUID and datetime natively
-  - Import enums from models to keep single source of truth
-  - Consider more comprehensive cron validation with croniter library in future
+  - For nullable FKs use `Mapped[UUID | None]` with `ondelete="SET NULL"`
+  - Use `cascade="all, delete-orphan"` on parent side for required relationships
+  - No cascade on Call→memories since memories should persist (just set source_call_id to NULL)
+  - Consider adding check constraints for bounded integer fields (e.g., importance 1-10)
+
+### ConversationMemory Model Patterns
+- Nullable FK: `Mapped[UUID | None]` + `ondelete="SET NULL"` + `nullable=True`
+- Required FK: `Mapped[UUID]` + `ondelete="CASCADE"` + `nullable=False`
+- One-to-many parent side: `cascade="all, delete-orphan"` for cleanup
+- Optional relationship type: `Mapped["Model | None"]` for nullable FK relationships
 ---
 
-## 2026-01-28 - US-008: Create Users API endpoints
+## 2026-01-29 - US-107: Create memory extraction service
 - **Subagents used**:
-  - architect: Analyzed existing API patterns, router registration, database session handling
-  - specialist: backend - created Users CRUD endpoints
-  - simplifier: Not needed - code is well-structured
-  - reviewer: Found security suggestions (auth needed - deferred to future story), PII logging issue (fixed)
+  - architect: Analyzed existing service patterns (functional-style, dataclasses, structlog, Claude API patterns)
+  - backend: Implemented memory_service.py with extract_memories function
+  - reviewer: Found issues - removed sensitive data from error logs, fixed _clamp_importance type handling, removed unused variable
 - **What was implemented**:
-  - Created backend/src/api/routes/users.py with all 5 CRUD endpoints
-  - GET /users - list with pagination (skip, limit params, max 1000)
-  - GET /users/{id} - get single user by UUID
-  - POST /users - create with 201 status, 409 on duplicate email
-  - PATCH /users/{id} - partial update with model_dump(exclude_unset=True)
-  - DELETE /users/{id} - delete with 204 No Content
-  - Async database operations with proper error handling
-  - Removed PII (email) from log statements for security
-  - Added B008 to ruff ignore (FastAPI Depends() pattern)
+  - Created ExtractedMemory dataclass (memory_type, content, importance)
+  - Created MemoryExtractionResult dataclass (memories list, raw_response)
+  - Created extract_memories(call_id, user_id, transcripts) -> list[ConversationMemory]
+  - Uses Claude to identify FACT, PREFERENCE, EVENT, RELATIONSHIP memories
+  - Assigns importance scores 1-10 with clamping
+  - Returns unsaved ConversationMemory objects (caller handles persistence)
+  - Follows existing patterns from summary_service.py
 - **Files changed**:
-  - backend/src/api/routes/users.py (created)
-  - backend/src/api/routes/__init__.py (registered users router)
-  - backend/pyproject.toml (added B008 to ruff ignore)
-- **Verification**: ruff ✓ | pytest (no tests yet) | build (backend only)
+  - backend/src/services/memory_service.py (new)
+  - backend/src/services/__init__.py (modified - export service functions)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - Use Query() with ge/le for pagination parameter validation
-  - Don't log PII (emails, phone numbers) - log user_id instead
-  - B008 rule needs to be ignored for FastAPI Depends() pattern
-  - Use model_dump(exclude_unset=True) for PATCH partial updates
-  - IntegrityError handling for unique constraint violations
+  - Existing services use sync Anthropic client in async functions (pattern to maintain consistency)
+  - Don't log sensitive response content in error messages
+  - Use `int | float | str` type hint for flexible parsing of LLM outputs
+  - Return unsaved model objects, let caller handle DB persistence
+  - Memory type enum names are uppercase (FACT, PREFERENCE, EVENT, RELATIONSHIP)
+
+### Memory Service Patterns
+- Service returns unsaved model objects, caller handles DB persistence
+- Use dataclasses for intermediate results (ExtractedMemory, MemoryExtractionResult)
+- Parse LLM JSON response with error handling and sensible defaults
+- Use _clamp_importance() to handle non-integer LLM outputs
+- MemoryType enum: FACT, PREFERENCE, EVENT, RELATIONSHIP
 ---
 
-## 2026-01-28 - US-009: Create Calls API endpoints
+## 2026-01-29 - US-108: Create memory retrieval for agent context
 - **Subagents used**:
-  - architect: Not needed - patterns well-established from US-008
-  - specialist: Implemented directly following users.py patterns
-  - simplifier: Not needed - code is straightforward
-  - reviewer: Found issues - missing IntegrityError handling (fixed), suggested auth and status validation (deferred to future stories)
+  - architect: Analyzed database query patterns, date relevance detection strategies, string formatting
+  - backend: Implemented get_user_context() with queries and helper functions
+  - reviewer: Found critical SQLAlchemy bug (True literal in .where()), flawed date relevance logic (was checking created_at instead of content patterns)
 - **What was implemented**:
-  - Created CallReadWithDetails schema with nested TranscriptRead and SummaryRead
-  - Created calls.py API router with all 5 CRUD endpoints
-  - GET /calls with optional user_id filter and pagination
-  - GET /calls/{id} with selectinload for transcripts and summary (eager loading)
-  - POST /calls with user validation before creation
-  - PATCH /calls/{id} for partial updates using model_dump(exclude_unset=True)
-  - DELETE /calls/{id} (cascades to transcripts and summary per model)
-  - Added IntegrityError handling for consistency with users.py
+  - Created get_user_context(user_id, db, reference_date) -> str function
+  - Retrieves top 10 important memories (by importance desc)
+  - Retrieves last 5 recent memories (by created_at desc, deduplicated from important)
+  - Checks for date-relevant EVENT memories by parsing content for date patterns
+  - _is_date_relevant(): Parses memory content for birthday/anniversary mentions and date patterns
+  - _format_context_string(): Formats memories into LLM-friendly sections
+  - Added error handling with graceful degradation to empty string
+  - Exported get_user_context in __init__.py
 - **Files changed**:
-  - backend/src/api/routes/calls.py (created)
-  - backend/src/api/schemas.py (added CallReadWithDetails schema)
-  - backend/src/api/routes/__init__.py (registered calls router)
-- **Verification**: ruff ✓ | pytest ✓ (2 tests pass) | build (backend only)
+  - backend/src/services/memory_service.py (modified - added 3 functions)
+  - backend/src/services/__init__.py (modified - already had export from US-107)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - Use selectinload() to eager-load relationships and avoid N+1 queries
-  - For nested response schemas, define them after the schemas they reference
-  - Auth/authorization to be added in future story (US-007 area)
-  - Status transition validation could be added when call lifecycle is better defined
+  - Don't use `True` literal in SQLAlchemy .where() clause - build query conditionally instead
+  - Date-relevant memories should check content patterns, not created_at timestamps
+  - Use regex for flexible date pattern matching (month names, abbreviations, numeric formats)
+  - Add graceful error handling (try/except) for retrieval functions to avoid breaking agent
+  - Reviewer caught critical SQLAlchemy bug before commit
+
+### Memory Retrieval Patterns
+- Build queries conditionally: `if ids: query = query.where(...notin_())`
+- Don't use `True` literal in .where() - use sqlalchemy.true() or conditional query building
+- Date pattern matching: Use regex for "January 29", "Jan 29", "1/29", "01-29" formats
+- For date-relevant events, parse content text - don't rely on created_at timestamp
+- Graceful degradation: Return empty string on error instead of raising exception
 ---
 
-## 2026-01-28 - US-010: Create Schedules API endpoints
+## 2026-01-30 - US-109: Create MoodAnalysis model
 - **Subagents used**:
-  - architect: Not needed - patterns identical to calls.py and users.py
-  - specialist: Implemented directly following established patterns
-  - simplifier: Not needed - code is straightforward
-  - reviewer: Not needed - patterns well-established, straightforward CRUD
+  - architect: Analyzed model patterns (enums, FK with unique constraint, JSON fields, relationships)
+  - backend: Implemented MoodAnalysis model with all fields and migration
+  - reviewer: No critical issues found; suggested optional confidence validation (not required)
 - **What was implemented**:
-  - Created schedules.py API router with all 5 CRUD endpoints
-  - GET /schedules with optional user_id filter and pagination
-  - GET /schedules/{id} - get single schedule by UUID
-  - POST /schedules - create with user validation (404 if user not found), 201 status
-  - PATCH /schedules/{id} - partial update with model_dump(exclude_unset=True)
-  - DELETE /schedules/{id} - delete with 204 No Content
-  - Consistent error handling with IntegrityError catching
-  - Structlog logging throughout (no PII)
+  - Created SentimentType enum (positive, neutral, negative, concerned)
+  - Created MoodAnalysis model with all required fields
+  - Added bidirectional one-to-one relationship between Call and MoodAnalysis
+  - Created Alembic migration 005_add_mood_analysis.py
+  - Exported model and enum in __init__.py
 - **Files changed**:
-  - backend/src/api/routes/schedules.py (created)
-  - backend/src/api/routes/__init__.py (registered schedules router)
-- **Verification**: ruff ✓ | pytest ✓ (2 tests pass) | build (backend only)
+  - backend/src/models/mood.py (new)
+  - backend/src/models/call.py (modified - added mood_analysis relationship)
+  - backend/src/models/__init__.py (modified - exports)
+  - backend/alembic/versions/005_add_mood_analysis.py (new)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - All CRUD routers follow same pattern: list with filter/pagination, get, create, update, delete
-  - Schedule validation (cron expression) happens in Pydantic schema, not route
+  - For one-to-one FK relationships, use `unique=True, index=True` on child side
+  - Import JSON from sqlalchemy (not from sqlalchemy.types)
+  - Float column: `Mapped[float] = mapped_column(Float, nullable=False)`
+  - Ruff auto-fix with `--fix` is safe for import sorting issues (I001)
+  - Table name for models should be plural (mood_analyses not mood_analysis)
+
+### MoodAnalysis Model Patterns
+- One-to-one with Call: `unique=True, index=True, ondelete="CASCADE"` on FK
+- Parent side: `uselist=False, cascade="all, delete-orphan"`
+- JSON array field: `Mapped[list[str]]` with `server_default="[]"`
+- analyzed_at with auto-timestamp: `server_default=func.now()`
 ---
 
-## 2026-01-28 - US-011: Write API integration tests
+## 2026-01-30 - US-110: Create mood analysis service
 - **Subagents used**:
-  - architect: Analyzed test patterns, pytest-asyncio config, SQLite compatibility needs
-  - specialist: backend - created async test fixtures and comprehensive CRUD tests
-  - simplifier: Not needed - test code is straightforward
-  - reviewer: Approved with comments - suggested cascade delete tests and invalid UUID tests for future
+  - architect: Analyzed service patterns (memory_service.py, summary_service.py), dataclass returns, Claude API patterns
+  - backend: Implemented mood_service.py with all helper functions and analyze_mood function
+  - reviewer: Found empty content guard issue, sync vs async client pattern (kept sync for consistency)
 - **What was implemented**:
-  - Added aiosqlite dependency for in-memory SQLite testing
-  - Created async database fixtures with SQLite function shims for gen_random_uuid() and now()
-  - Created comprehensive CRUD tests: 15 users tests, 13 calls tests, 14 schedules tests, 2 health tests
-  - Updated test_health.py to use async client
-  - Tests cover: list/pagination, get, create, update, delete, error cases (404, 409, 422)
+  - Created MoodAnalysisResult dataclass (overall_sentiment, confidence, flags, notes)
+  - Created MOOD_SYSTEM_PROMPT with sentiment types and flag definitions
+  - Created MOOD_USER_PROMPT_TEMPLATE for JSON response format
+  - Created helper functions: _format_transcript, _parse_sentiment_type, _clamp_confidence, _validate_flags
+  - Created async analyze_mood(call_id, transcripts) -> MoodAnalysisResult
+  - Added guard for empty message.content response
+  - Exported MoodAnalysisResult and analyze_mood in __init__.py
 - **Files changed**:
-  - backend/pyproject.toml (added aiosqlite dev dependency)
-  - backend/tests/conftest.py (async fixtures, SQLite PostgreSQL function shims)
-  - backend/tests/test_api.py (created - 44 test methods)
-  - backend/tests/test_health.py (converted to async)
-  - backend/uv.lock (updated)
-- **Verification**: ruff ✓ | pytest ✓ (46 tests pass) | build (backend only)
+  - backend/src/services/mood_service.py (new)
+  - backend/src/services/__init__.py (modified - added exports)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - SQLite doesn't support gen_random_uuid() - use event listeners to register custom functions
-  - Test URLs need trailing slashes to match route definitions with redirect_slashes
-  - Use ASGITransport with httpx.AsyncClient for async endpoint testing
-  - Fixture factory pattern allows easy test data creation with explicit UUIDs
+  - All services use sync Anthropic client (pattern for consistency, noted for future async refactor)
+  - Add guard for empty message.content to prevent IndexError
+  - VALID_FLAGS as a set enables O(1) lookup for validation
+  - Return dataclass result, caller handles persistence (same as memory_service pattern)
+  - Reviewer caught the empty content edge case before commit
+
+### Mood Service Patterns
+- Return MoodAnalysisResult dataclass, caller creates MoodAnalysis ORM object
+- Use VALID_FLAGS set for O(1) flag validation
+- _clamp_confidence handles float/int/str with try/except defaulting to 0.5
+- _parse_sentiment_type maps uppercase strings to SentimentType enum, defaults to NEUTRAL
+- Guard for empty message.content before indexing message.content[0].text
 ---
 
-## 2026-01-28 - US-012: Set up React Query provider in frontend
+## 2026-01-30 - US-111: Create mood analysis API endpoint
 - **Subagents used**:
-  - architect: Not needed - standard React Query setup
-  - specialist: Implemented directly (straightforward pattern)
-  - simplifier: Not needed - code is minimal
-  - reviewer: Approved with minor suggestions (devtools, gcTime - deferred)
+  - architect: Analyzed calls router patterns (summarize_call endpoint), schema patterns, error handling patterns
+  - backend: Implemented endpoint following exact summarize_call pattern
+  - reviewer: Identified sync Anthropic client issue (noted as existing pattern), error handling consistency
 - **What was implemented**:
-  - Created query-client.ts with QueryClient factory and singleton pattern for browser
-  - Configured staleTime (60s), retry (3 for queries, 1 for mutations), refetchOnWindowFocus disabled
-  - Created Providers component with "use client" directive wrapping QueryClientProvider
-  - Updated layout.tsx to wrap children with Providers
-  - Updated metadata title/description
+  - Created MoodAnalysisRead Pydantic schema with all mood fields
+  - Added mood_analysis field to CallReadWithDetails schema
+  - Created POST /calls/{id}/analyze-mood endpoint in calls router
+  - Added selectinload(Call.mood_analysis) to get_call endpoint
+  - Returns 400 if no transcripts, 404 if call not found, 409 if already analyzed
+  - Uses analyze_mood service to generate analysis, saves to database
 - **Files changed**:
-  - frontend/src/lib/query-client.ts (created)
-  - frontend/src/lib/providers.tsx (created)
-  - frontend/src/app/layout.tsx (updated)
-- **Verification**: npm build ✓
+  - backend/src/api/schemas.py (modified - added MoodAnalysisRead, updated CallReadWithDetails)
+  - backend/src/api/routes/calls.py (modified - added imports, endpoint, updated get_call)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - React Query v5 in Next.js App Router requires client component for QueryClientProvider
-  - Use singleton pattern on client, new instance on server for SSR isolation
-  - Consider adding React Query Devtools in future for debugging
+  - Follow existing endpoint patterns exactly (summarize_call) for consistency
+  - Sync Anthropic client usage is intentional pattern - documented in US-107, US-110
+  - Action endpoints pattern: /{resource_id}/action-name with POST, returns 201 on success
+  - Always add selectinload for new relationships to detail endpoints
+
+### Mood Analysis Endpoint Patterns
+- Action endpoint: POST /{call_id}/analyze-mood returns 201 with MoodAnalysisRead
+- Validation order: 1) call exists (404), 2) has transcripts (400), 3) not already analyzed (409)
+- Service returns dataclass result, endpoint creates ORM object and persists
+- Eager load mood_analysis in get_call with selectinload
 ---
 
-## 2026-01-28 - US-013: Create dashboard layout shell
+## 2026-01-30 - US-112: Create APScheduler service
 - **Subagents used**:
-  - architect: Not needed - standard dashboard layout pattern
-  - specialist: Implemented directly (straightforward pattern)
-  - simplifier: Not needed - code is well-structured
-  - reviewer: Found accessibility issues - fixed (aria-labels, aria-current, aria-hidden)
+  - architect: Analyzed service patterns, database session handling, Schedule model, call trigger flow
+  - backend: Implemented complete scheduler_service.py with all functions
+  - reviewer: Found critical session handling issues, orphaned job cleanup, logging inconsistencies
 - **What was implemented**:
-  - Created (dashboard) route group with layout.tsx
-  - Responsive sidebar with mobile toggle and backdrop
-  - Navigation links: Home (/), Call History (/calls), Schedule (/schedule), Settings (/settings)
-  - NavLink component with isActive state and aria-current
-  - Mobile header with hamburger menu
-  - All decorative SVGs have aria-hidden="true"
-  - Removed default page.tsx, created dashboard page.tsx
+  - Created scheduler_service.py with AsyncIOScheduler singleton
+  - _trigger_scheduled_call() - internal job handler with proper error handling
+  - _parse_cron_expression() - validates and parses 5-field cron strings
+  - add_schedule_job() - creates CronTrigger jobs with user timezone
+  - remove_schedule_job() - removes jobs by schedule ID
+  - _load_existing_schedules() - loads enabled schedules on startup
+  - start_scheduler() / shutdown_scheduler() - lifecycle management
+  - get_scheduler() - access singleton instance
+  - Fixed session handling: use flush instead of multiple commits, handle rollback safely
+  - Fixed orphaned job removal when user is deleted
 - **Files changed**:
-  - frontend/src/app/(dashboard)/layout.tsx (created)
-  - frontend/src/app/(dashboard)/page.tsx (created)
-  - frontend/src/app/page.tsx (deleted)
-- **Verification**: npm build ✓
+  - backend/src/services/scheduler_service.py (new)
+  - backend/src/services/__init__.py (modified - exports scheduler functions)
+  - backend/src/services/memory_service.py (modified - ruff formatting only)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - Route groups like (dashboard) don't add URL segments but share layouts
-  - Use aria-current="page" for active navigation links
-  - Add aria-hidden="true" to decorative SVG icons
-  - Add aria-label to buttons that only contain icons
+  - Use async_session_maker for DB access in scheduled jobs (outside request context)
+  - Use flush() instead of commit() when you need IDs but want single transaction
+  - Use contextlib.suppress(Exception) instead of try/except pass (ruff SIM105)
+  - Remove orphaned APScheduler jobs when associated user/schedule is deleted
+  - Use bound logger (logger.bind()) for cleaner logging with consistent context
+  - APScheduler job_defaults: coalesce=True, max_instances=1, misfire_grace_time=60
+
+### Scheduler Service Patterns
+- Module-level singleton: `_scheduler: AsyncIOScheduler | None = None`
+- Job ID format: `schedule_{schedule_id}` for deterministic lookup
+- CronTrigger with user timezone for per-user time support
+- `replace_existing=True` for idempotent job updates
+- Load enabled schedules from DB on startup via selectinload for user timezone
+- Single commit at end of transaction, use flush() for intermediate IDs
+- contextlib.suppress() for safe rollback and cleanup operations
 ---
 
-## 2026-01-28 - US-014: Create call history page
+## 2026-01-30 - US-113: Integrate scheduler with app lifecycle
 - **Subagents used**:
-  - architect: Not needed - standard React Query patterns
-  - specialist: Implemented directly (straightforward pattern)
-  - simplifier: Not needed - code is well-structured
-  - reviewer: Approved with comments (missing detail page addressed in US-015)
+  - architect: Analyzed main.py lifecycle patterns, scheduler_service.py functions, schedules.py CRUD endpoints
+  - backend: Implemented startup/shutdown in main.py, scheduler integration in schedules.py CRUD
+  - simplifier: Not needed - implementation was straightforward
+  - reviewer: Identified pre-existing issues (missing auth, deprecated on_event), verified all acceptance criteria met
 - **What was implemented**:
-  - Created TypeScript types for Call, Transcript, Summary, CallWithDetails
-  - Created API functions for getCalls, getCall, createCall, updateCall, deleteCall
-  - Implemented query key factory pattern (callsKeys) for cache management
-  - Created useCallsQuery, useCallQuery, and mutation hooks
-  - Built call history page with status badges, date formatting, duration display
-  - Added loading skeleton, empty state, and error state components
-  - Used date-fns for date formatting
+  - Added scheduler startup/shutdown calls to FastAPI lifecycle events in main.py
+  - POST /schedules creates APScheduler job if schedule.enabled is True
+  - PATCH /schedules updates/removes job when cron_expression or enabled changes
+  - DELETE /schedules removes APScheduler job before deleting from DB
+  - Jobs update schedule.next_run_at from APScheduler's next_run_time
+  - All scheduler operations have error handling (log but don't fail main operation)
 - **Files changed**:
-  - frontend/src/lib/api/calls.ts (created)
-  - frontend/src/app/(dashboard)/calls/page.tsx (created)
-  - frontend/src/lib/api/index.ts (updated exports)
-- **Verification**: npm build ✓
+  - backend/src/main.py (modified - added start_scheduler/shutdown_scheduler calls)
+  - backend/src/api/routes/schedules.py (modified - added scheduler job management to CRUD)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - Use query key factory pattern for React Query cache management
-  - Separate API functions from hooks for testability
-  - Include loading, error, and empty states for all data-fetching components
-  - date-fns is already installed for date formatting
+  - @app.on_event is deprecated in favor of lifespan context managers (noted but keeping pattern for consistency)
+  - Scheduler operations should not fail the main DB operation - use try/except with logging
+  - When updating scheduler jobs, check scheduler_fields_changed to avoid unnecessary job updates
+  - Fetch user timezone before calling add_schedule_job() since schedule only stores user_id
+  - Use replace_existing=True in APScheduler for idempotent job creation/updates
+
+### Scheduler Integration Patterns
+- Startup: `await start_scheduler()` in app startup event (handles loading existing schedules)
+- Shutdown: `await shutdown_scheduler()` in app shutdown event (graceful job termination)
+- CRUD integration: Wrap scheduler calls in try/except, log errors but don't fail the operation
+- Job ID format: `schedule_{schedule_id}` - used by get_job(), remove_schedule_job()
+- Always update next_run_at after adding/updating a job for UI display
 ---
 
-## 2026-01-28 - US-015: Create call detail page
+## 2026-01-30 - US-114: Update voice agent with memory context
 - **Subagents used**:
-  - architect: Not needed - patterns established in US-014
-  - specialist: Implemented directly (extends calls API patterns)
-  - simplifier: Not needed - code is well-structured
-  - reviewer: Skipped - straightforward extension of existing patterns
+  - architect: Analyzed standup_agent.py, memory_service.py, livekit_service.py patterns
+  - backend: Implemented fetch_agent_context(), build_system_prompt(), updated entrypoint()
+  - reviewer: Found inline `import time` issue (fixed), verified acceptance criteria met
 - **What was implemented**:
-  - Call detail page at /calls/[id] with dynamic routing
-  - Call info card with status badge, scheduled/started/ended times, duration
-  - Transcript section with conversation-style layout (agent left, user right)
-  - Summary section with yesterday/today/blockers fields
-  - "Posted to Slack" badge indicator
-  - Loading skeleton matching content structure
-  - Error state with back navigation
-  - Reuses useCallQuery hook from calls.ts
+  - Added fetch_agent_context(user_id, log) async function to retrieve user name, memory context, and communication style
+  - Added build_system_prompt(memory_context, communication_style) function to construct personalized prompts
+  - Updated create_standup_agent() to accept memory_context and communication_style parameters
+  - Updated entrypoint() to extract user_id from room metadata and fetch user context
+  - System prompt now includes Communication Style and User Context sections
+  - Graceful degradation when user data unavailable (returns default values)
 - **Files changed**:
-  - frontend/src/app/(dashboard)/calls/[id]/page.tsx (created)
-- **Verification**: npm build ✓
+  - backend/src/agent/standup_agent.py (modified - added imports, 2 new functions, updated existing functions)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - Next.js App Router dynamic routes use [param] folder naming
-  - useParams() hook returns params as strings (cast with `as string`)
-  - Conversation-style layouts use flex-row/flex-row-reverse for direction
+  - livekit_service.py already includes user_id in room metadata (line 71) - no changes needed there
+  - Use `async with async_session_maker() as db:` for standalone DB sessions in non-FastAPI contexts
+  - selectinload(User.preferences) for eager loading of relationships
+  - Move all `import time` to module level - inline imports are code smell and may fail lint
+  - CommunicationStyle.CASUAL.value returns lowercase "casual" - match case in style_guidance dict
+
+### Voice Agent Personalization Patterns
+- Extract user_id from room metadata: `metadata = json.loads(ctx.room.metadata); user_id = UUID(metadata.get("user_id"))`
+- Use async_session_maker for DB access outside FastAPI request context
+- build_system_prompt() combines base prompt + style guidance + memory context
+- Graceful degradation: return ("there", "", None) on any error in fetch_agent_context
+- Log has_memory_context=bool(memory_context) for debugging
 ---
 
-## 2026-01-28 - US-016: Create schedule management page
+## 2026-01-30 - US-115: Create post-call processing pipeline
 - **Subagents used**:
-  - architect: Not needed - patterns established
-  - specialist: Implemented directly (form handling patterns)
-  - simplifier: Not needed - code is well-structured
-  - reviewer: Skipped - straightforward pattern
+  - architect: Analyzed service patterns (summary_service, memory_service, mood_service, slack_service), DB session handling
+  - backend: Implemented PostCallResult dataclass and process_completed_call function
+  - reviewer: Found duplicate memory extraction bug, missing rollback handling - both fixed
 - **What was implemented**:
-  - Schedules API hooks with query key factory pattern
-  - Cron expression helpers (parse, build, formatTime)
-  - Schedule form with time picker (hour, minute, AM/PM)
-  - Day of week toggle buttons (Mon-Sun)
-  - Enable/disable toggle switch with proper ARIA
-  - Schedule cards with edit/delete actions
-  - Create, edit, delete flows with confirmation
-  - Loading and empty states
-  - Temporary user ID placeholder until auth is implemented
+  - Created PostCallResult dataclass to track status of each pipeline step
+  - Created process_completed_call(call_id, db) that runs full pipeline:
+    1. Fetches call with selectinload for user, transcripts, summary, mood_analysis
+    2. Generates summary if not already generated
+    3. Extracts memories if not already extracted (added idempotency check)
+    4. Analyzes mood if not already analyzed
+    5. Posts to Slack if summary exists and not already posted
+  - Each step wrapped in try/except for graceful error handling
+  - Added rollback handling via _run_pipeline_steps helper function
+  - Exported PostCallResult and process_completed_call in __init__.py
 - **Files changed**:
-  - frontend/src/lib/api/schedules.ts (created)
-  - frontend/src/app/(dashboard)/schedule/page.tsx (created)
-  - frontend/src/lib/api/index.ts (updated exports)
-- **Verification**: npm build ✓
+  - backend/src/services/post_call_service.py (new)
+  - backend/src/services/__init__.py (modified - exports)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - Cron expression format: "minute hour * * days"
-  - Use role="switch" and aria-checked for toggle buttons
-  - Temporary user ID pattern for pre-auth development
+  - Always check for existing records before creating (idempotency) - reviewer caught duplicate memories bug
+  - Wrap pipeline operations in try/except with rollback for unexpected errors
+  - Use select(func.count()).select_from(Model).where() for existence checks
+  - Use helper function pattern to enable proper rollback handling in main function
+  - Slack posting uses global env vars (SLACK_BOT_TOKEN, SLACK_CHANNEL_ID), per-user config is future enhancement
+
+### Post-Call Processing Patterns
+- PostCallResult dataclass tracks: summary_generated, memories_extracted, mood_analyzed, slack_posted, errors
+- Check existing records before creating: summary via call.summary, mood via call.mood_analysis, memories via count query
+- Each step: try/except with error collection, use db.flush() after each step
+- Commit at end of pipeline, rollback on unexpected error
+- post_summary handles Slack not configured gracefully (returns SlackPostResult with success=False)
 ---
 
-## 2026-01-28 - US-017: Create home dashboard page
+## 2026-01-30 - US-116: Create analytics data aggregation
 - **Subagents used**:
-  - architect: Not needed - standard dashboard pattern
-  - specialist: Implemented directly (reuses calls/schedules hooks)
-  - simplifier: Not needed - code is well-structured
-  - reviewer: Skipped - straightforward pattern
+  - architect: Analyzed service patterns, SQLAlchemy query patterns, timezone handling
+  - backend: Implemented analytics_service.py with all functions
+  - reviewer: Found timezone inconsistency in mood_trend and defensive timezone handling
 - **What was implemented**:
-  - StatCard reusable component with icon, title, value, subtitle
-  - Next scheduled call card showing time and date
-  - Calls this week summary with total completed count
-  - Quick actions section with "Start Call Now" placeholder button
-  - Recent calls list with links to detail pages
-  - Loading state skeleton
-  - Root page (/) already serves as dashboard via route group
+  - Created MoodTrendItem and UserAnalytics dataclasses
+  - Created get_user_analytics(user_id, db, user_timezone) returning UserAnalytics
+  - Helper functions: _get_total_calls, _get_duration_stats, _get_period_counts, _get_mood_trend, _calculate_streak_days
+  - Mood trend retrieves last 10 calls with sentiment and confidence
+  - Streak calculation: lenient (allows today OR yesterday), timezone-aware
+  - Duration stats use func.extract('epoch', ...) for PostgreSQL compatibility
+  - All date calculations convert UTC timestamps to user's local timezone
 - **Files changed**:
-  - frontend/src/app/(dashboard)/page.tsx (updated)
-- **Verification**: npm build ✓
+  - backend/src/services/analytics_service.py (new)
+  - backend/src/services/__init__.py (modified - exports)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - Route groups like (dashboard) make their page.tsx the effective root
-  - Reuse API hooks across pages for consistency
-  - Placeholder actions with alert() for features to be implemented later
+  - Use func.extract("epoch", datetime) for duration calculations in PostgreSQL
+  - Convert UTC to user timezone for streak/period calculations using ZoneInfo
+  - Defensive timezone handling: check if started_at.tzinfo is None before .replace()
+  - Streak lenient logic: allow today OR yesterday as valid starting points
+  - Reviewer caught timezone inconsistency - mood_trend should also use user_tz
+
+### Analytics Service Patterns
+- UserAnalytics dataclass with 7 fields: total_calls, total_duration_minutes, average_call_duration, calls_this_week, calls_this_month, mood_trend, streak_days
+- MoodTrendItem dataclass: call_date, sentiment (SentimentType), confidence (float)
+- Timezone handling: parse with ZoneInfo, fallback to UTC on KeyError/ValueError
+- Streak: sort dates descending, count consecutive from most recent, stop on gap
+- Duration: func.extract("epoch", ended_at) - func.extract("epoch", started_at) / 60.0
 ---
 
-## 2026-01-28 - US-018: Create summary generation service
+## 2026-01-30 - US-117: Create analytics API endpoint
 - **Subagents used**:
-  - architect: Not needed - standard Anthropic API pattern
-  - specialist: Implemented directly (async service pattern)
-  - simplifier: Not needed - code is well-structured
-  - reviewer: Skipped - straightforward API integration
+  - architect: Analyzed /me endpoint patterns, schema patterns, analytics_service structure
+  - backend: Implemented MoodTrendItemRead, UserAnalyticsRead schemas and GET /me/analytics endpoint
+  - reviewer: Verified route ordering, authentication, dataclass-to-Pydantic conversion - no critical issues
 - **What was implemented**:
-  - generate_summary async function that takes list[Transcript]
-  - StandupSummary dataclass with yesterday, today, blockers, raw_summary fields
-  - format_transcript helper to format conversation for Claude
-  - System and user prompts for structured JSON extraction
-  - Claude API integration using claude-sonnet-4-20250514 model
-  - Error handling for API connection, rate limit, and status errors
-  - JSON parsing with fallback values
-  - Structlog logging throughout
+  - Created MoodTrendItemRead schema with call_date, sentiment, confidence fields
+  - Created UserAnalyticsRead schema with all 7 analytics metrics
+  - Created GET /users/me/analytics endpoint in users.py
+  - Endpoint uses get_or_create_user for authentication (existing pattern)
+  - Converts dataclass from analytics_service to Pydantic response
+  - Route properly ordered before /{user_id} to avoid path conflicts
 - **Files changed**:
-  - backend/src/services/summary_service.py (created)
-  - backend/src/services/__init__.py (updated exports)
-- **Verification**: ruff ✓ | pytest ✓ (46 tests pass)
+  - backend/src/api/schemas.py (modified - added analytics schemas)
+  - backend/src/api/routes/users.py (modified - added endpoint and imports)
+- **Verification**: ruff ✓ | pytest (46 passed) ✓
 - **Learnings for future iterations**:
-  - Use dataclass for simple structured return types
-  - Prompt Claude for JSON output with clear format specification
-  - Handle Anthropic-specific exceptions (APIConnectionError, RateLimitError, APIStatusError)
-  - Import json inside function to avoid unused import warnings when not needed at top level
+  - Route ordering matters: /me/analytics must be before /{user_id} to avoid UUID matching
+  - Use get_or_create_user (not get_current_user) for /me endpoints to support onboarding
+  - Service returns dataclasses, endpoint converts to Pydantic manually
+
+### Analytics Endpoint Patterns
+- GET /users/me/analytics returns UserAnalyticsRead
+- Uses get_or_create_user for authentication (existing /me pattern)
+- Convert service dataclass to Pydantic via explicit mapping in endpoint
+- Place specific routes (/me/analytics) before parameterized routes (/{user_id})
 ---
 
-## 2026-01-28 - US-019: Create summary API endpoint
+## 2026-01-30 - US-118: Create analytics dashboard page
 - **Subagents used**:
-  - architect: Not needed - extends existing calls.py patterns
-  - specialist: Implemented directly (follows CRUD endpoint patterns)
-  - simplifier: Not needed - code is straightforward
-  - reviewer: Skipped - follows established patterns
+  - architect: Analyzed frontend patterns (dashboard pages, API client, styling, sidebar navigation)
+  - frontend: Implemented complete analytics page with recharts, stat cards, loading/error states
+  - reviewer: Found minor issues - invalid date parsing, magic numbers, no retry button
 - **What was implemented**:
-  - POST /calls/{id}/summarize endpoint in calls.py
-  - Return 404 if call not found
-  - Return 400 if call has no transcripts
-  - Return 409 if summary already exists (prevents duplicates)
-  - Call generate_summary service with transcripts
-  - Create Summary model and save to database
-  - Return created summary with 201 status
+  - Created frontend/src/lib/api/analytics.ts with UserAnalytics types, analyticsKeys, useAnalyticsQuery hook
+  - Created frontend/src/app/(dashboard)/analytics/page.tsx with:
+    - StatCard component for metrics display
+    - MoodTrendChart component using recharts BarChart with color-coded sentiment bars
+    - LoadingState with skeleton animations
+    - ErrorState with red alert styling
+    - EmptyState for users with no calls
+  - Added Analytics navigation item to sidebar
+  - Installed recharts dependency
+  - Fixed date parsing with defensive isNaN check
 - **Files changed**:
-  - backend/src/api/routes/calls.py (updated - added summarize endpoint)
-- **Verification**: ruff ✓ | pytest ✓ (46 tests pass)
+  - frontend/src/lib/api/analytics.ts (new)
+  - frontend/src/app/(dashboard)/analytics/page.tsx (new)
+  - frontend/src/lib/api/index.ts (modified - export analytics)
+  - frontend/src/app/(dashboard)/layout.tsx (modified - added nav item)
+  - frontend/package.json (modified - added recharts)
+- **Verification**: npm run build ✓
 - **Learnings for future iterations**:
-  - Use 409 Conflict for "already exists" scenarios vs 400 Bad Request
-  - Eager load relationships (selectinload) when checking existence and generating
-  - Service function can be async and called directly from route handler
+  - recharts is a good choice for React charting - small bundle, good TypeScript support
+  - Always add defensive date parsing when receiving dates from API
+  - Use format() from date-fns consistently for date formatting
+  - Sentiment colors: positive=#22c55e (green), neutral=#71717a (gray), negative=#ef4444 (red), concerned=#f59e0b (amber)
+  - Fire emoji (🔥) for streak display adds visual appeal
+
+### Frontend Analytics Patterns
+- Analytics API: GET /api/users/me/analytics returns UserAnalyticsRead
+- Query key: analyticsKeys.user() for cache management
+- StatCard pattern: icon + title + value + optional subtitle
+- MoodTrendChart: recharts BarChart with Cell for per-bar coloring
+- Duration formatting: <1m, Xm, Xh Ym based on minutes
+- Empty state: Check if total_calls === 0 to show onboarding message
 ---
 
-## 2026-01-28 - US-020: Create Slack integration service
+## 2026-01-30 - US-119: Create settings page with preferences
 - **Subagents used**:
-  - architect: Not needed - standard HTTP API integration
-  - specialist: Implemented directly (httpx async pattern)
-  - simplifier: Not needed - code is well-structured
-  - reviewer: Skipped - straightforward integration
+  - architect: Analyzed dashboard pages, API client patterns, Preferences API, User API, styling patterns, sidebar navigation
+  - frontend: Implemented complete settings page with all sections, preferences API client
+  - reviewer: Found critical auth issue in delete endpoint, missing error states, Slack toggle persistence issue
 - **What was implemented**:
-  - post_summary async function that posts to Slack
-  - SlackPostResult dataclass for structured return with success/message_id/error
-  - build_slack_blocks helper for Slack Block Kit formatting
-  - Formatted message sections: header, yesterday, today, blockers (conditional), footer
-  - Uses SLACK_BOT_TOKEN and SLACK_CHANNEL_ID from environment
-  - Error handling for missing config, API errors, timeouts, and request errors
-  - Structlog logging throughout
+  - Created preferences.ts API client with UserPreferences types, query keys, hooks
+  - Created settings/page.tsx with ProfileSection, PreferencesSection, NotificationsSection, DangerZoneSection
+  - TagInput component for multi-select topics/interests with keyboard support
+  - Delete account confirmation modal requiring "DELETE" text
+  - Added security check to DELETE /users/{user_id} endpoint (users can only delete own account)
+  - Added error states for ProfileSection and PreferencesSection
+  - Added deleteUser mutation and useDeleteUserMutation hook
+  - Added authenticated_client test fixture
 - **Files changed**:
-  - backend/src/services/slack_service.py (created)
-  - backend/src/services/__init__.py (updated exports)
-- **Verification**: ruff ✓ | pytest ✓ (46 tests pass)
+  - frontend/src/lib/api/preferences.ts (new)
+  - frontend/src/app/(dashboard)/settings/page.tsx (new)
+  - frontend/src/lib/api/users.ts (modified - added deleteUser, useDeleteUserMutation)
+  - frontend/src/lib/api/index.ts (modified - export preferences)
+  - backend/src/api/routes/users.py (modified - added auth check to delete endpoint)
+  - backend/tests/conftest.py (modified - added authenticated_client fixture)
+  - backend/tests/test_api.py (modified - updated delete tests with auth)
+- **Verification**: ruff ✓ | pytest (47 passed) ✓ | npm run build ✓
 - **Learnings for future iterations**:
-  - Slack Block Kit uses structured JSON for rich message formatting
-  - Slack API returns {"ok": false, "error": "..."} on failure, not HTTP errors
-  - Use dataclass for service return types with success/error information
-  - httpx.AsyncClient for async HTTP calls with proper timeout handling
+  - Always add auth check to endpoints that modify user data - reviewer caught critical security issue
+  - For singleton resources (preferences), use GET with auto-create and PUT for upsert
+  - Add error states to all data-fetching components, not just loading states
+  - Modal backdrop click handlers should also clear form state
+  - Slack toggle is UI-only placeholder - shows "Configuration Required" notice when enabled
+  - authenticated_client fixture mocks get_or_create_user dependency for testing protected endpoints
+
+### Settings Page Patterns
+- Settings page has 4 sections: Profile, Preferences, Notifications, Danger Zone
+- TagInput: Type + Enter/comma to add tags, Backspace to remove last tag
+- Delete confirmation: Requires typing "DELETE" to enable button
+- Error states: Show red alert with icon, "Please refresh" message
+- Slack toggle: UI-only, shows amber warning when enabled that backend config is required
+- Delete endpoint requires auth and checks current_user.id == user_id
 ---
 
-## 2026-01-28 - US-021: Create Slack posting endpoint
+## 2026-01-30 - US-120: Add mood indicator to call detail page
 - **Subagents used**:
-  - architect: Not needed - follows existing router patterns
-  - specialist: Implemented directly (REST endpoint pattern)
-  - simplifier: Not needed - code is straightforward
-  - reviewer: Skipped - follows established patterns
+  - architect: Analyzed call detail page, API client patterns, backend schema, styling patterns
+  - frontend: Implemented MoodSection component with all features
+  - reviewer: Found missing analyzed_at timestamp - added
 - **What was implemented**:
-  - New summaries.py router with POST /summaries/{id}/post-to-slack
-  - Return 404 if summary not found
-  - Return 400 if summary already posted to Slack
-  - Return 502 if Slack API call fails (bad gateway for external service failure)
-  - Eager load call and user relationships with chained selectinload
-  - Update summary.posted_to_slack and summary.slack_message_id
-  - Register router in __init__.py with /summaries prefix
+  - Added SentimentType and MoodAnalysis types to calls.ts
+  - Added analyzeMood API function and useAnalyzeMoodMutation hook
+  - Created MoodSection component with two states:
+    - No analysis: Shows "Analyze Mood" button (indigo) with loading spinner
+    - Has analysis: Shows sentiment badge, confidence bar, flags, notes, analyzed_at timestamp
+  - Sentiment badge colors: positive=green, neutral=zinc, negative=red, concerned=amber
+  - Flag badges use amber warning style with triangle icon
+  - Integrated between SummarySection and TranscriptSection
 - **Files changed**:
-  - backend/src/api/routes/summaries.py (created)
-  - backend/src/api/routes/__init__.py (updated)
-- **Verification**: ruff ✓ | pytest ✓ (46 tests pass)
+  - frontend/src/lib/api/calls.ts (modified - added types, mutation)
+  - frontend/src/app/(dashboard)/calls/[id]/page.tsx (modified - added MoodSection)
+- **Verification**: npm run build ✓
 - **Learnings for future iterations**:
-  - Use 502 Bad Gateway for external service failures
-  - Chain selectinload for nested relationships: Summary.call.selectinload(Call.user)
-  - Import models directly to use in selectinload, not via string references
+  - Always display timestamps for when AI analysis was performed
+  - Use indigo for "action" buttons to differentiate from status colors
+  - Confidence visualized as progress bar is more intuitive than just percentage
+  - Reviewer caught missing analyzed_at display
+
+### Mood Indicator Patterns
+- SentimentType: "positive" | "neutral" | "negative" | "concerned"
+- Badge colors: positive=green-100/800, neutral=zinc-100/800, negative=red-100/800, concerned=amber-100/800
+- Flag badges: amber warning style with triangle icon
+- Confidence: progress bar + percentage text
+- Always show analyzed_at timestamp with format "MMM d, yyyy 'at' h:mm a"
 ---
 
-## 2026-01-28 - US-022: Add Slack posting UI to call detail
+## 2026-01-30 - US-121: Add memories tab to call detail page
 - **Subagents used**:
-  - architect: Not needed - standard React Query mutation pattern
-  - specialist: Implemented directly (mutation + UI pattern)
-  - simplifier: Not needed - code is straightforward
-  - reviewer: Skipped - follows established patterns
+  - architect: Analyzed backend schema, models, routes; identified missing endpoint
+  - backend: Implemented MemoryRead schema, extract-memories endpoint, updated get_call
+  - frontend: Implemented MemoriesSection and MemoryCard components
+  - reviewer: Found critical API response type mismatch - fixed
 - **What was implemented**:
-  - usePostToSlackMutation hook with cache invalidation
-  - Post to Slack button in SummarySection component
-  - Loading spinner while posting (isPending state)
-  - Error message display with red styling
-  - "Posted to Slack" badge shown when already posted
-  - Button hidden when already posted (shows badge instead)
+  - Backend: MemoryRead schema, POST /calls/{id}/extract-memories endpoint, memories in CallReadWithDetails
+  - Frontend: Memory, MemoryType types, useExtractMemoriesMutation hook
+  - MemoriesSection component with Extract Memories button (teal color)
+  - MemoryCard with type badge, content, importance progress bar
+  - Memory type badge colors: fact=blue, preference=purple, event=amber, relationship=emerald
+  - Importance shown as X/10 with progress bar
 - **Files changed**:
-  - frontend/src/lib/api/calls.ts (added usePostToSlackMutation)
-  - frontend/src/app/(dashboard)/calls/[id]/page.tsx (updated SummarySection)
-- **Verification**: npm build ✓
+  - backend/src/api/schemas.py (modified - added MemoryRead, updated CallReadWithDetails)
+  - backend/src/api/routes/calls.py (modified - added extract-memories endpoint, selectinload memories)
+  - frontend/src/lib/api/calls.ts (modified - added types, mutation)
+  - frontend/src/app/(dashboard)/calls/[id]/page.tsx (modified - added MemoriesSection, MemoryCard)
+- **Verification**: ruff ✓ | pytest (47 passed) ✓ | npm run build ✓
 - **Learnings for future iterations**:
-  - Use mutateAsync for try/catch error handling
-  - Show error state with useState + try/catch pattern
-  - Invalidate related queries on mutation success
+  - Backend returns list directly (list[MemoryRead]), not wrapped in object
+  - Reviewer caught API response type mismatch - always verify backend return type matches frontend expectation
+  - Use teal for memories button to differentiate from indigo (mood) and purple (slack)
+  - Memory importance uses same progress bar pattern as confidence
+
+### Memories Section Patterns
+- MemoryType: "fact" | "preference" | "event" | "relationship"
+- Badge colors: fact=blue, preference=purple, event=amber, relationship=emerald
+- Extract endpoint returns plain list, not wrapped object
+- useExtractMemoriesMutation takes callId as arg, invalidates call detail query
+- Importance shown as progress bar + "X/10" label
 ---
 
-## 2026-01-28 - US-023: Create LiveKit agent skeleton
+## 2026-01-30 - US-122: Create Twilio webhook handler
 - **Subagents used**:
-  - architect: Not needed - following LiveKit documentation patterns
-  - specialist: Implemented directly (LiveKit agents SDK pattern)
-  - simplifier: Not needed - code is minimal skeleton
-  - reviewer: Skipped - skeleton implementation
+  - architect: Analyzed settings patterns, existing routes, required Twilio dependencies
+  - backend: Implemented webhooks.py with signature validation and TwiML generation
+  - reviewer: Found critical issues - missing db.commit(), phone PII in logs, XML injection risk
 - **What was implemented**:
-  - standup_agent.py with VoicePipelineAgent setup
-  - STANDUP_SYSTEM_PROMPT for conversation context
-  - entrypoint function: connect to room, wait for participant, start agent
-  - Use silero VAD for voice activity detection
-  - Placeholders for STT/LLM/TTS providers (None = use defaults)
-  - main() function for CLI startup
-  - Export from agent/__init__.py
+  - Created backend/src/api/routes/webhooks.py with POST /twilio/incoming
+  - Twilio signature validation dependency using RequestValidator
+  - mask_phone() helper for privacy-safe logging
+  - TwiML generation using Twilio VoiceResponse (avoids XML injection)
+  - Looks up user by phone number, creates call with IN_PROGRESS status
+  - Returns TwiML to connect to LiveKit SIP room
+  - Added TWILIO_AUTH_TOKEN, TWILIO_WEBHOOK_URL, LIVEKIT_SIP_DOMAIN settings
+  - Added twilio>=9.0.0 dependency
 - **Files changed**:
-  - backend/src/agent/standup_agent.py (created)
-  - backend/src/agent/__init__.py (updated exports)
-- **Verification**: ruff ✓ | pytest ✓ (46 tests pass)
+  - backend/src/api/routes/webhooks.py (new)
+  - backend/src/api/routes/__init__.py (modified - registered router)
+  - backend/src/config.py (modified - added settings)
+  - backend/pyproject.toml (modified - added twilio dependency)
+- **Verification**: ruff ✓ | pytest (47 passed) ✓
 - **Learnings for future iterations**:
-  - LiveKit agents use entrypoint function pattern
-  - VoicePipelineAgent takes vad, stt, llm, tts, chat_ctx parameters
-  - Agent can be started with: python -m src.agent.standup_agent dev
-  - silero.VAD.load() for voice activity detection
+  - Always mask PII (phone numbers) in logs
+  - Use library-provided builders (VoiceResponse) instead of f-string XML to avoid injection
+  - Don't forget db.commit() after creating records
+  - Return form data from validation dependency to avoid reading twice
+  - Twilio expects TwiML responses even for errors (not HTTP error codes)
+
+### Twilio Webhook Patterns
+- POST /webhooks/twilio/incoming receives form data
+- Validate signature using RequestValidator(auth_token).validate(url, params, signature)
+- Return TwiML XML with media_type="application/xml"
+- Use VoiceResponse builder for safe TwiML: response.say(), response.reject(), dial.sip()
+- Mask phone numbers in logs: show first 3 and last 3 chars only
+- Form data validation dependency returns the params to avoid reading twice
 ---
 
-## 2026-01-28 - US-024: Implement standup conversation flow
+## 2026-01-30 - US-123: Add call direction tracking
 - **Subagents used**:
-  - architect: Not needed - patterns established from US-023
-  - specialist: Implemented directly (extended agent with state machine)
-  - simplifier: Not needed - code is well-structured
-  - reviewer: Skipped - follows established patterns
+  - architect: Analyzed call model, trigger endpoint, webhooks, frontend calls page patterns
+  - backend: Implemented CallDirection enum, model field, migration, schema updates
+  - frontend: Implemented CallDirection type and direction badge on calls list
 - **What was implemented**:
-  - ConversationState enum: GREETING, ASK_YESTERDAY, ASK_TODAY, ASK_BLOCKERS, CLOSING, COMPLETED
-  - TranscriptEntry dataclass for storing transcript entries with speaker, content, timestamp_ms
-  - StandupSession dataclass for tracking conversation state, transcript, and standup answers
-  - STANDUP_PROMPTS dictionary with template strings for each conversation state
-  - get_prompt_for_state helper to format prompts with user name
-  - create_standup_agent function that sets up event handlers for speech events
-  - Event handlers: user_speech_committed (stores responses), agent_speech_committed (logs)
-  - run_standup_conversation function that initiates the greeting and starts the flow
-  - User name extraction from participant identity (handles email and underscore formats)
-  - Call ID extraction from room metadata (JSON parsing with fallback)
-  - Final logging of session state (transcript count, response lengths)
+  - Backend: CallDirection enum (INBOUND/OUTBOUND), direction field on Call model with default OUTBOUND
+  - Migration 006_add_call_direction.py with server_default="outbound"
+  - Trigger endpoint sets direction=OUTBOUND
+  - Twilio webhook sets direction=INBOUND
+  - Updated CallRead and CallReadWithDetails schemas
+  - Frontend: CallDirection type, direction field in Call interface
+  - Direction badge on calls list page (purple for inbound, indigo for outbound)
 - **Files changed**:
-  - backend/src/agent/standup_agent.py (updated - full conversation flow)
-- **Verification**: ruff ✓ | pytest ✓ (46 tests pass)
+  - backend/src/models/call.py (modified - added enum and field)
+  - backend/src/models/__init__.py (modified - export enum)
+  - backend/alembic/versions/006_add_call_direction.py (new)
+  - backend/src/api/schemas.py (modified - added direction field)
+  - backend/src/api/routes/calls.py (modified - set direction=OUTBOUND)
+  - backend/src/api/routes/webhooks.py (modified - set direction=INBOUND)
+  - frontend/src/lib/api/calls.ts (modified - added type and field)
+  - frontend/src/app/(dashboard)/calls/page.tsx (modified - added badge)
+- **Verification**: ruff ✓ | pytest (47 passed) ✓ | npm run build ✓
 - **Learnings for future iterations**:
-  - Use @agent.on("user_speech_committed") to capture final user speech
-  - ChatMessage.content can be string or list - always convert to str
-  - Extract user info from participant.identity and room.metadata
-  - State machine pattern with enum for conversation phases
-  - Track timestamps relative to session start for transcript ordering
+  - Use server_default in migration to handle existing records
+  - Direction badge colors: inbound=purple (user-initiated), outbound=indigo (system-initiated)
+  - Straightforward enum addition follows existing patterns well
+
+### Call Direction Patterns
+- CallDirection: INBOUND (user calls Meela) vs OUTBOUND (Meela calls user)
+- Default is OUTBOUND since most calls are scheduled/triggered
+- Migration uses server_default for backfilling existing records
+- Badge colors: purple for inbound, indigo for outbound
 ---
 
-## 2026-01-28 - US-025: Create manual call trigger endpoint
+## 2026-01-30 - US-124: Enhance dashboard home with insights
 - **Subagents used**:
-  - architect: Not needed - follows existing endpoint patterns
-  - specialist: Implemented directly (new service + endpoint)
-  - simplifier: Not needed - code is well-structured
-  - reviewer: Skipped - follows established patterns
+  - architect: Analyzed current dashboard, available data, identified missing memories endpoint
+  - backend: Added GET /users/me/memories endpoint
+  - frontend: Implemented enhanced dashboard with all new components
 - **What was implemented**:
-  - CallTriggerRequest/CallTriggerResponse schemas in schemas.py
-  - livekit_service.py with RoomInfo dataclass and two async functions:
-    - create_room_for_call: Creates LiveKit room and generates participant token
-    - dispatch_agent_to_room: Dispatches standup agent to join the room
-  - POST /calls/trigger endpoint in calls.py:
-    - Validates user exists (404 if not)
-    - Creates call record with IN_PROGRESS status and started_at timestamp
-    - Creates LiveKit room with metadata (call_id, user_id)
-    - Generates participant access token with publish/subscribe grants
-    - Dispatches agent (non-blocking, warns if fails)
-    - Returns call_id, room_name, token, livekit_url
-  - Service exports added to services/__init__.py
+  - Backend: GET /users/me/memories endpoint (limit query param, 1-10, default 3)
+  - Frontend API: useUserMemoriesQuery hook with UserMemory/UserMemoryType types
+  - WelcomeHeader: Time-based greeting ("Good morning/afternoon/evening") + user name
+  - QuickStatsRow: Calls this week + current streak (with fire emoji)
+  - MiniMoodTrend: Last 5 moods as colored dots with legend
+  - MemoriesSection: 2-3 memory cards with type badge + content + relative date
+  - Empty states for no moods/memories
 - **Files changed**:
-  - backend/src/api/schemas.py (added CallTriggerRequest, CallTriggerResponse)
-  - backend/src/services/livekit_service.py (created)
-  - backend/src/services/__init__.py (updated exports)
-  - backend/src/api/routes/calls.py (added trigger endpoint)
-- **Verification**: ruff ✓ | pytest ✓ (46 tests pass)
+  - backend/src/api/routes/users.py (modified - added memories endpoint)
+  - frontend/src/lib/api/users.ts (modified - added UserMemory types, useUserMemoriesQuery)
+  - frontend/src/app/(dashboard)/page.tsx (major rewrite - enhanced dashboard)
+- **Verification**: ruff ✓ | pytest (47 passed) ✓ | npm run build ✓
 - **Learnings for future iterations**:
-  - LiveKit API uses api.LiveKitAPI with URL, key, secret
-  - Access tokens built with api.AccessToken(...).with_grants(...).to_jwt()
-  - Room metadata is JSON string, useful for passing call_id to agent
-  - Agent dispatch is non-critical - user can still join if agent fails to dispatch
-  - Use datetime.UTC alias instead of timezone.utc (ruff UP017)
+  - Renamed Memory to UserMemory to avoid conflict with Memory type in calls.ts
+  - Time-based greetings use new Date().getHours() for morning/afternoon/evening
+  - Mood trend as colored dots is simpler than a chart and visually clean
+  - formatDistanceToNow from date-fns for "X days ago" format
+
+### Enhanced Dashboard Patterns
+- WelcomeHeader: getGreeting() uses hours < 12 = morning, < 18 = afternoon, else evening
+- MiniMoodTrend: Colored dots - green=positive, gray=neutral, amber=concerned, red=negative
+- Memory cards: Type badge (same colors as call detail) + content + relative date
+- QuickStatsRow: Two stat cards side by side
 ---
 
-## 2026-01-28 - US-026: Wire up manual call button in UI
+## 2026-01-30 - US-125: Add alert notifications for concerning moods
 - **Subagents used**:
-  - architect: Not needed - follows existing React Query patterns
-  - specialist: Implemented directly (mutation + UI update)
-  - simplifier: Not needed - code is straightforward
-  - reviewer: Skipped - follows established patterns
+  - architect: Analyzed alert patterns, model design, integration points
+  - backend: Implemented Alert model, alert_service, routes, integration with post_call_service
+  - frontend: Implemented alerts API client and AlertBanner component
+  - reviewer: Found deprecated datetime.utcnow(), duplicate alerts bug, missing composite index
 - **What was implemented**:
-  - TriggerCallResponse interface for API response type
-  - triggerCall API function calling POST /calls/trigger
-  - useTriggerCallMutation hook with cache invalidation
-  - Updated QuickActions to accept isStartingCall and startCallError props
-  - Loading spinner animation during call trigger
-  - Disabled button state while loading
-  - Error message display below button
-  - Navigation to /calls/{call_id} on successful trigger
-  - Temporary user ID constant until auth is implemented
+  - Backend: Alert model with AlertType enum (mood_concern, missed_calls)
+  - alert_service.py: create_mood_alert, get_unacknowledged_alerts, get_all_alerts, acknowledge_alert
+  - Integration in post_call_service.py: creates alert after mood analysis if concerning
+  - Duplicate alert prevention: checks existing alert before creating new one
+  - Migration 007_add_alerts.py with composite index (user_id, acknowledged)
+  - AlertRead schema in schemas.py
+  - GET /alerts endpoint with acknowledged filter, POST /alerts/{id}/acknowledge
+  - Frontend: alerts.ts API client with useUnacknowledgedAlertsQuery (30s refetch)
+  - AlertBanner component with dismiss functionality, call link, color-coded by type
 - **Files changed**:
-  - frontend/src/lib/api/calls.ts (added TriggerCallResponse, triggerCall, useTriggerCallMutation)
-  - frontend/src/app/(dashboard)/page.tsx (updated QuickActions and DashboardPage)
-- **Verification**: npm build ✓
+  - backend/src/models/alert.py (new)
+  - backend/src/models/user.py (modified - added alerts relationship)
+  - backend/src/models/call.py (modified - added alerts relationship)
+  - backend/src/models/__init__.py (modified - exports)
+  - backend/alembic/versions/007_add_alerts.py (new)
+  - backend/src/services/alert_service.py (new)
+  - backend/src/services/post_call_service.py (modified - added alert creation)
+  - backend/src/api/schemas.py (modified - added AlertRead)
+  - backend/src/api/routes/alerts.py (new)
+  - backend/src/api/routes/__init__.py (modified - registered router)
+  - frontend/src/lib/api/alerts.ts (new)
+  - frontend/src/components/AlertBanner.tsx (new)
+  - frontend/src/app/(dashboard)/page.tsx (modified - added AlertBanner)
+- **Verification**: ruff ✓ | npm run build ✓
 - **Learnings for future iterations**:
-  - Use mutateAsync with try/catch for error handling in async handlers
-  - Pass isPending from mutation to component for loading state
-  - Use router.push() from useRouter for navigation after mutation
-  - Remove unused imports (WEEKDAYS was not used)
+  - Use datetime.now(UTC) instead of deprecated datetime.utcnow()
+  - Always check for existing records before creating alerts (prevent duplicates)
+  - Add composite indexes for common query patterns (user_id, acknowledged)
+  - POST is better than PATCH for action endpoints with no body
+  - Alert banner with 30s refetch keeps dashboard up to date
+
+### Alert Patterns
+- AlertType: mood_concern, missed_calls
+- create_mood_alert: Creates alert for NEGATIVE, CONCERNED sentiment or any flags
+- Alert banner colors: mood_concern=amber, missed_calls=blue
+- POST /alerts/{id}/acknowledge for action endpoints (no body needed)
+- Composite index (user_id, acknowledged) for efficient queries
+- useUnacknowledgedAlertsQuery with 30s refetchInterval
 ---
 
-## COMPLETE - All V0 User Stories Implemented
-All 26 user stories have been implemented:
-- US-001 to US-006: Database models and migrations
-- US-007 to US-011: API schemas and CRUD endpoints with tests
-- US-012 to US-017: Frontend dashboard, pages, and layouts
-- US-018 to US-022: Summary generation and Slack integration
-- US-023 to US-026: LiveKit agent and manual call trigger
+## 2026-01-30 - US-126: Write integration tests for new features
+- **Subagents used**:
+  - architect: Analyzed test infrastructure, identified existing patterns and fixtures
+  - backend: Implemented all test files with proper mocking patterns
+- **What was implemented**:
+  - test_auth.py: Auth middleware tests (7 tests)
+    - Valid token, invalid token, missing token
+    - Protected endpoint access verification
+  - test_preferences.py: Preferences CRUD tests (10 tests)
+    - GET auto-creates defaults, PUT upsert, DELETE reset
+    - Fixed SQLite enum compatibility in preferences route
+  - test_mood_analysis.py: Mood analysis endpoint tests (6 tests)
+    - Success, 404, 400, 409 cases with mocked analyze_mood service
+  - test_analytics.py: Analytics endpoint tests (6 tests)
+    - Empty analytics, with calls, mood trend, streak calculation
+  - test_webhooks.py: Twilio webhook tests (6 tests)
+    - Valid signature, invalid signature, missing signature
+    - Unknown phone, no SIP domain, call creation verification
+  - Added python-multipart dependency for form parsing
+  - Fixed preferences route to explicitly set enum values (SQLite compatibility)
+- **Files changed**:
+  - backend/tests/test_auth.py (new)
+  - backend/tests/test_preferences.py (new)
+  - backend/tests/test_mood_analysis.py (new)
+  - backend/tests/test_analytics.py (new)
+  - backend/tests/test_webhooks.py (new)
+  - backend/src/api/routes/preferences.py (modified - explicit enum values)
+  - backend/pyproject.toml (modified - added python-multipart)
+- **Verification**: ruff ✓ | pytest (81 passed) ✓
+- **Learnings for future iterations**:
+  - SQLite handles enums differently - explicitly pass enum values instead of relying on server_default
+  - python-multipart is required for form data parsing in FastAPI tests
+  - Use @patch with module path where the function is imported, not where it's defined
+  - Webhook tests need to mock RequestValidator and get_settings
+  - Test fixtures should use test_session directly when needed for assertions
 
-The V0 core feature set is complete.
-
----
-
-# V1 - Meela Parity Features
-Started: After V0 completion
-
-## V1 Goals
-- User authentication (Supabase Auth)
-- User onboarding wizard
-- Memory/personalization (remember past conversations)
-- Mood/alert detection (flag concerns)
-- APScheduler for automated calls
-- Analytics dashboard
-- User preferences
-- Twilio webhook for inbound calls
-
-## Additional V1 Patterns
-- Supabase Auth JWT validation in backend
-- @supabase/auth-helpers-nextjs for frontend auth
-- Alembic migrations continue numbering (002_, 003_, etc.)
-- Services follow existing async patterns in services/
-
+### Test Patterns
+- Use authenticated_client fixture for protected endpoints
+- Use @patch("src.api.routes.module.function") for mocking
+- Mock RequestValidator.validate() for Twilio signature tests
+- SQLite compatibility: Explicitly set enum values in code, don't rely on server_default
+- Fixtures can be defined at class level with @pytest.fixture
 ---

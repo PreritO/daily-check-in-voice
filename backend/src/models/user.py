@@ -10,7 +10,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base
 
 if TYPE_CHECKING:
+    from .alert import Alert
     from .call import Call
+    from .memory import ConversationMemory
+    from .preferences import UserPreferences
     from .schedule import Schedule
 
 
@@ -22,6 +25,12 @@ class User(Base):
     id: Mapped[UUID] = mapped_column(
         primary_key=True,
         server_default=func.gen_random_uuid(),
+    )
+    auth_id: Mapped[str | None] = mapped_column(
+        String(36),
+        unique=True,
+        index=True,
+        nullable=True,
     )
     email: Mapped[str] = mapped_column(
         String(255),
@@ -60,6 +69,22 @@ class User(Base):
     )
     schedules: Mapped[list["Schedule"]] = relationship(
         "Schedule",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    preferences: Mapped["UserPreferences | None"] = relationship(
+        "UserPreferences",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    memories: Mapped[list["ConversationMemory"]] = relationship(
+        "ConversationMemory",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    alerts: Mapped[list["Alert"]] = relationship(
+        "Alert",
         back_populates="user",
         cascade="all, delete-orphan",
     )

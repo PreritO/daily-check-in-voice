@@ -8,13 +8,175 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.schemas import UserCreate, UserRead, UserUpdate
+from src.api.dependencies import get_or_create_user
+from src.api.schemas import (
+    MemoryRead,
+    MoodTrendItemRead,
+    UserAnalyticsRead,
+    UserCreate,
+    UserRead,
+    UserUpdate,
+)
 from src.database import get_db
-from src.models import User
+from src.models import ConversationMemory, User
+from src.services.analytics_service import get_user_analytics
 
 logger = structlog.get_logger()
 
 router = APIRouter()
+
+
+@router.get("/me", response_model=UserRead)
+async def get_current_user_profile(
+    current_user: User = Depends(get_or_create_user),
+) -> User:
+    """Get the current authenticated user's profile.
+
+    This endpoint uses get_or_create_user dependency which will:
+    - Create a new user record if this is the first time they're calling the API
+    - Return the existing user record if they already exist
+
+    Args:
+        current_user: The authenticated user from the JWT token.
+
+    Returns:
+        The current user's profile.
+    """
+    logger.info("Getting current user profile", user_id=str(current_user.id))
+    return current_user
+
+
+@router.patch("/me", response_model=UserRead)
+async def update_current_user_profile(
+    user_data: UserUpdate,
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Update the current authenticated user's profile.
+
+    Uses get_or_create_user to support the onboarding flow where
+    this may be the first API call after Supabase signup.
+
+    Args:
+        user_data: User update data (only provided fields will be updated).
+        current_user: The authenticated user from the JWT token.
+        db: Database session.
+
+    Returns:
+        The updated user profile.
+
+    Raises:
+        HTTPException: 409 if email already exists.
+    """
+    logger.info("Updating current user profile", user_id=str(current_user.id))
+
+    # Only update fields that were explicitly provided
+    update_data = user_data.model_dump(exclude_unset=True)
+
+    if not update_data:
+        logger.info("No fields to update", user_id=str(current_user.id))
+        return current_user
+
+    for field, value in update_data.items():
+        setattr(current_user, field, value)
+
+    try:
+        await db.flush()
+        await db.refresh(current_user)
+    except IntegrityError as e:
+        await db.rollback()
+        logger.warning("Duplicate email on update", user_id=str(current_user.id), error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User with email {update_data.get('email')} already exists",
+        ) from e
+
+    logger.info(
+        "Current user profile updated",
+        user_id=str(current_user.id),
+        updated_fields=list(update_data.keys()),
+    )
+    return current_user
+
+
+@router.get("/me/analytics", response_model=UserAnalyticsRead)
+async def get_current_user_analytics(
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserAnalyticsRead:
+    """Get analytics for the current authenticated user.
+
+    Returns aggregated statistics about the user's call history including:
+    - Total calls and duration
+    - Calls this week and month
+    - Mood trend data points
+    - Current streak of consecutive days with calls
+
+    Args:
+        current_user: The authenticated user from the JWT token.
+        db: Database session.
+
+    Returns:
+        UserAnalyticsRead with all computed analytics metrics.
+    """
+    logger.info("Getting current user analytics", user_id=str(current_user.id))
+
+    analytics = await get_user_analytics(
+        user_id=current_user.id,
+        db=db,
+        user_timezone=current_user.timezone,
+    )
+
+    # Convert dataclass to Pydantic
+    return UserAnalyticsRead(
+        total_calls=analytics.total_calls,
+        total_duration_minutes=analytics.total_duration_minutes,
+        average_call_duration=analytics.average_call_duration,
+        calls_this_week=analytics.calls_this_week,
+        calls_this_month=analytics.calls_this_month,
+        mood_trend=[
+            MoodTrendItemRead(
+                call_date=item.call_date,
+                sentiment=item.sentiment,
+                confidence=item.confidence,
+            )
+            for item in analytics.mood_trend
+        ],
+        streak_days=analytics.streak_days,
+    )
+
+
+@router.get("/me/memories", response_model=list[MemoryRead])
+async def get_current_user_memories(
+    limit: int = Query(default=3, ge=1, le=10, description="Maximum number of memories to return"),
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[ConversationMemory]:
+    """Get recent memories for the current user.
+
+    Returns the most recent conversation memories stored for the user,
+    ordered by creation date (newest first).
+
+    Args:
+        limit: Maximum number of memories to return (1-10, default 3).
+        current_user: The authenticated user from the JWT token.
+        db: Database session.
+
+    Returns:
+        List of recent memories for the current user.
+    """
+    logger.info("Getting current user memories", user_id=str(current_user.id), limit=limit)
+
+    result = await db.execute(
+        select(ConversationMemory)
+        .where(ConversationMemory.user_id == current_user.id)
+        .order_by(ConversationMemory.created_at.desc())
+        .limit(limit)
+    )
+    memories = result.scalars().all()
+
+    logger.info("User memories retrieved", user_id=str(current_user.id), count=len(memories))
+    return list(memories)
 
 
 @router.get("/", response_model=list[UserRead])
@@ -181,18 +343,35 @@ async def update_user(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: UUID,
+    current_user: User = Depends(get_or_create_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """Delete a user.
 
+    Users can only delete their own account for security.
+
     Args:
         user_id: UUID of the user to delete.
+        current_user: The authenticated user from the JWT token.
         db: Database session.
 
     Raises:
+        HTTPException: 403 if trying to delete another user's account.
         HTTPException: 404 if user not found.
     """
-    logger.info("Deleting user", user_id=str(user_id))
+    logger.info("Deleting user", user_id=str(user_id), current_user_id=str(current_user.id))
+
+    # Security: Users can only delete their own account
+    if user_id != current_user.id:
+        logger.warning(
+            "User attempted to delete another user's account",
+            user_id=str(user_id),
+            current_user_id=str(current_user.id),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own account",
+        )
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()

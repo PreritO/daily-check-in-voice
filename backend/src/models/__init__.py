@@ -1,19 +1,33 @@
 """Database models for Daily Check-In Agent."""
 
+from .alert import Alert, AlertType
 from .base import Base
-from .call import Call, CallStatus
+from .call import Call, CallDirection, CallStatus
+from .memory import ConversationMemory, MemoryType
+from .mood import MoodAnalysis, SentimentType
+from .preferences import CallDurationPreference, CommunicationStyle, UserPreferences
 from .schedule import Schedule
 from .summary import Summary
 from .transcript import Speaker, Transcript
 from .user import User
 
 __all__ = [
+    "Alert",
+    "AlertType",
     "Base",
     "Call",
+    "CallDirection",
+    "CallDurationPreference",
     "CallStatus",
+    "CommunicationStyle",
+    "ConversationMemory",
+    "MemoryType",
+    "MoodAnalysis",
     "Schedule",
+    "SentimentType",
     "Speaker",
     "Summary",
     "Transcript",
     "User",
+    "UserPreferences",
 ]

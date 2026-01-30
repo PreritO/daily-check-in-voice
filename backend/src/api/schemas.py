@@ -1,12 +1,13 @@
 """Pydantic v2 API schemas for the Daily Check-In Agent."""
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from src.models import CallStatus, Speaker
+from src.models import AlertType, CallDirection, CallStatus, MemoryType, SentimentType, Speaker
+from src.models.preferences import CallDurationPreference, CommunicationStyle
 
 # =============================================================================
 # User Schemas
@@ -30,6 +31,7 @@ class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    auth_id: str | None
     email: EmailStr
     name: str
     timezone: str
@@ -74,6 +76,7 @@ class CallRead(BaseModel):
     id: UUID
     user_id: UUID
     status: CallStatus
+    direction: CallDirection
     scheduled_at: datetime | None
     started_at: datetime | None
     ended_at: datetime | None
@@ -131,6 +134,44 @@ class SummaryRead(BaseModel):
 
 
 # =============================================================================
+# Mood Analysis Schemas
+# =============================================================================
+
+
+class MoodAnalysisRead(BaseModel):
+    """Schema for reading mood analysis data."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    call_id: UUID
+    overall_sentiment: SentimentType
+    confidence: float
+    flags: list[str]
+    notes: str | None
+    analyzed_at: datetime
+
+
+# =============================================================================
+# Memory Schemas
+# =============================================================================
+
+
+class MemoryRead(BaseModel):
+    """Schema for reading memory data."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    memory_type: MemoryType
+    content: str
+    source_call_id: UUID | None
+    importance: int
+    created_at: datetime
+
+
+# =============================================================================
 # Call Detail Schema (with nested data)
 # =============================================================================
 
@@ -143,6 +184,7 @@ class CallReadWithDetails(BaseModel):
     id: UUID
     user_id: UUID
     status: CallStatus
+    direction: CallDirection
     scheduled_at: datetime | None
     started_at: datetime | None
     ended_at: datetime | None
@@ -150,6 +192,8 @@ class CallReadWithDetails(BaseModel):
     updated_at: datetime
     transcripts: list[TranscriptRead] = Field(default_factory=list)
     summary: SummaryRead | None = None
+    mood_analysis: MoodAnalysisRead | None = None
+    memories: list[MemoryRead] = Field(default_factory=list)
 
 
 # =============================================================================
@@ -238,3 +282,104 @@ class CallTriggerResponse(BaseModel):
     room_name: str = Field(..., description="LiveKit room name")
     token: str = Field(..., description="LiveKit access token for the participant")
     livekit_url: str = Field(..., description="LiveKit server URL")
+
+
+# =============================================================================
+# Preference Schemas
+# =============================================================================
+
+
+class PreferencesRead(BaseModel):
+    """Schema for reading user preferences."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    conversation_topics: list[str]
+    interests: list[str]
+    communication_style: CommunicationStyle
+    call_duration_preference: CallDurationPreference
+    created_at: datetime
+    updated_at: datetime
+
+
+class PreferencesUpsert(BaseModel):
+    """Schema for creating or updating user preferences (upsert).
+
+    All fields are optional - missing fields will use defaults on create
+    or remain unchanged on update.
+    """
+
+    conversation_topics: list[str] | None = Field(
+        default=None, description="Topics the user wants to discuss"
+    )
+    interests: list[str] | None = Field(
+        default=None, description="User's interests for personalization"
+    )
+    communication_style: CommunicationStyle | None = Field(
+        default=None, description="Preferred communication style"
+    )
+    call_duration_preference: CallDurationPreference | None = Field(
+        default=None, description="Preferred call duration"
+    )
+
+
+# =============================================================================
+# Analytics Schemas
+# =============================================================================
+
+
+class MoodTrendItemRead(BaseModel):
+    """Single data point in the user's mood trend."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    call_date: date
+    sentiment: SentimentType
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score 0-1")
+
+
+class UserAnalyticsRead(BaseModel):
+    """Aggregated analytics for a user's call history."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    total_calls: int = Field(..., ge=0, description="Total number of completed calls")
+    total_duration_minutes: float = Field(..., ge=0.0, description="Total call time in minutes")
+    average_call_duration: float = Field(
+        ..., ge=0.0, description="Average call duration in minutes"
+    )
+    calls_this_week: int = Field(..., ge=0, description="Completed calls this week")
+    calls_this_month: int = Field(..., ge=0, description="Completed calls this month")
+    mood_trend: list[MoodTrendItemRead] = Field(
+        default_factory=list, description="Recent mood data points"
+    )
+    streak_days: int = Field(..., ge=0, description="Current consecutive days with calls")
+
+
+# =============================================================================
+# Alert Schemas
+# =============================================================================
+
+
+class AlertRead(BaseModel):
+    """Schema for reading alert data."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    call_id: UUID | None
+    alert_type: AlertType
+    title: str
+    message: str
+    acknowledged: bool
+    acknowledged_at: datetime | None
+    created_at: datetime
+
+
+class AlertAcknowledge(BaseModel):
+    """Schema for acknowledging an alert."""
+
+    acknowledged: bool = Field(default=True, description="Acknowledge status")

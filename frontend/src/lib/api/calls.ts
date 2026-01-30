@@ -6,12 +6,16 @@ import { apiClient } from "./client";
 // =============================================================================
 
 export type CallStatus = "scheduled" | "in_progress" | "completed" | "failed";
+export type CallDirection = "inbound" | "outbound";
 export type Speaker = "agent" | "user";
+export type SentimentType = "positive" | "neutral" | "negative" | "concerned";
+export type MemoryType = "fact" | "preference" | "event" | "relationship";
 
 export interface Call {
   id: string;
   user_id: string;
   status: CallStatus;
+  direction: CallDirection;
   scheduled_at: string | null;
   started_at: string | null;
   ended_at: string | null;
@@ -41,9 +45,31 @@ export interface Summary {
   updated_at: string;
 }
 
+export interface MoodAnalysis {
+  id: string;
+  call_id: string;
+  overall_sentiment: SentimentType;
+  confidence: number;
+  flags: string[];
+  notes: string | null;
+  analyzed_at: string;
+}
+
+export interface Memory {
+  id: string;
+  user_id: string;
+  memory_type: MemoryType;
+  content: string;
+  source_call_id: string | null;
+  importance: number;
+  created_at: string;
+}
+
 export interface CallWithDetails extends Call {
   transcripts: Transcript[];
   summary: Summary | null;
+  mood_analysis: MoodAnalysis | null;
+  memories: Memory[];
 }
 
 // =============================================================================
@@ -210,6 +236,46 @@ export function usePostToSlackMutation() {
     onSuccess: (data) => {
       // Invalidate the call detail query to refresh the summary
       queryClient.invalidateQueries({ queryKey: callsKeys.detail(data.call_id) });
+    },
+  });
+}
+
+// =============================================================================
+// Mood Analysis API Functions
+// =============================================================================
+
+async function analyzeMood(callId: string): Promise<MoodAnalysis> {
+  const response = await apiClient.post<MoodAnalysis>(`/calls/${callId}/analyze-mood`);
+  return response.data;
+}
+
+export function useAnalyzeMoodMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: analyzeMood,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: callsKeys.detail(data.call_id) });
+    },
+  });
+}
+
+// =============================================================================
+// Memory Extraction API Functions
+// =============================================================================
+
+async function extractMemories(callId: string): Promise<Memory[]> {
+  const response = await apiClient.post<Memory[]>(`/calls/${callId}/extract-memories`);
+  return response.data;
+}
+
+export function useExtractMemoriesMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (callId: string) => extractMemories(callId),
+    onSuccess: (_, callId) => {
+      queryClient.invalidateQueries({ queryKey: callsKeys.detail(callId) });
     },
   });
 }

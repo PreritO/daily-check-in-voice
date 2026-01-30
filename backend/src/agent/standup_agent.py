@@ -1,8 +1,11 @@
 """LiveKit Voice Pipeline Agent for standup calls."""
 
 import enum
+import json
+import time
 from dataclasses import dataclass, field
 from typing import Any
+from uuid import UUID
 
 import structlog
 from livekit.agents import (
@@ -14,6 +17,12 @@ from livekit.agents import (
 )
 from livekit.agents.pipeline import VoicePipelineAgent
 from livekit.plugins import silero
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
+from src.database import async_session_maker
+from src.models import User
+from src.services.memory_service import get_user_context
 
 logger = structlog.get_logger()
 
@@ -111,23 +120,129 @@ def get_prompt_for_state(state: ConversationState, user_name: str = "there") -> 
     return prompt_template.format(user_name=user_name)
 
 
+async def fetch_agent_context(
+    user_id: UUID,
+    log: Any,
+) -> tuple[str, str, str | None]:
+    """Fetch user context for agent personalization.
+
+    Opens a database session and retrieves:
+    - User name from the User model
+    - Memory context from the memory service
+    - Communication style preference
+
+    Args:
+        user_id: The UUID of the user to fetch context for.
+        log: Logger instance for structured logging.
+
+    Returns:
+        Tuple of (user_name, memory_context, communication_style).
+        Returns ("there", "", None) if user not found or on error.
+    """
+    log = log.bind(user_id=str(user_id))
+    log.info("fetching_agent_context")
+
+    try:
+        async with async_session_maker() as db:
+            # Fetch user with preferences using selectinload for eager loading
+            result = await db.execute(
+                select(User).options(selectinload(User.preferences)).where(User.id == user_id)
+            )
+            user = result.scalar_one_or_none()
+
+            if not user:
+                log.warning("user_not_found_for_context")
+                return ("there", "", None)
+
+            # Get user name
+            user_name = user.name or "there"
+
+            # Get communication style from preferences
+            communication_style: str | None = None
+            if user.preferences and user.preferences.communication_style:
+                communication_style = user.preferences.communication_style.value
+
+            # Get memory context
+            memory_context = await get_user_context(user_id, db)
+
+            log.info(
+                "agent_context_fetched",
+                user_name=user_name,
+                communication_style=communication_style,
+                memory_context_length=len(memory_context),
+            )
+
+            return (user_name, memory_context, communication_style)
+
+    except Exception as e:
+        log.error("failed_to_fetch_agent_context", error=str(e))
+        return ("there", "", None)
+
+
+def build_system_prompt(
+    memory_context: str = "",
+    communication_style: str | None = None,
+) -> str:
+    """Build the complete system prompt with personalization.
+
+    Combines the base standup system prompt with communication style
+    guidance and user memory context.
+
+    Args:
+        memory_context: Formatted string of user memories and context.
+        communication_style: The user's preferred communication style
+                            ("casual", "formal", or "friendly").
+
+    Returns:
+        Complete system prompt with all personalization sections.
+    """
+    prompt_parts = [STANDUP_SYSTEM_PROMPT]
+
+    # Add communication style guidance
+    if communication_style:
+        style_guidance = {
+            "casual": "Use a casual, relaxed tone.",
+            "formal": "Use a professional, formal tone.",
+            "friendly": "Use a warm, friendly tone.",
+        }
+        guidance = style_guidance.get(communication_style)
+        if guidance:
+            prompt_parts.append(f"\nCommunication Style:\n{guidance}")
+
+    # Add user context from memories
+    if memory_context:
+        prompt_parts.append(f"\nUser Context:\n{memory_context}")
+
+    return "\n".join(prompt_parts)
+
+
 def create_standup_agent(
     session: StandupSession,
     log: Any,
+    memory_context: str = "",
+    communication_style: str | None = None,
 ) -> VoicePipelineAgent:
     """Create and configure the voice pipeline agent for standup calls.
 
     Args:
         session: The standup session tracking state.
         log: Logger instance.
+        memory_context: Formatted string of user memories for personalization.
+        communication_style: User's preferred communication style.
 
     Returns:
         Configured VoicePipelineAgent.
     """
+    # Build the personalized system prompt
+    system_prompt = build_system_prompt(
+        memory_context=memory_context,
+        communication_style=communication_style,
+    )
+
     # Create the initial chat context with system prompt
     initial_ctx = llm.ChatContext().append(
         role="system",
-        text=STANDUP_SYSTEM_PROMPT,
+        text=system_prompt,
     )
 
     # Create the voice pipeline agent
@@ -162,8 +277,6 @@ def create_standup_agent(
             session.blockers = content
 
         # Add to transcript
-        import time
-
         timestamp_ms = int(time.time() * 1000) - session.start_time_ms
         session.add_transcript("user", content, timestamp_ms)
 
@@ -178,8 +291,6 @@ def create_standup_agent(
         )
 
         # Add to transcript
-        import time
-
         timestamp_ms = int(time.time() * 1000) - session.start_time_ms
         session.add_transcript("agent", content, timestamp_ms)
 
@@ -198,8 +309,6 @@ async def run_standup_conversation(
         session: The standup session tracking state.
         log: Logger instance.
     """
-    import time
-
     session.start_time_ms = int(time.time() * 1000)
 
     # Greeting and ask about yesterday
@@ -235,24 +344,44 @@ async def entrypoint(ctx: JobContext) -> None:
     participant = await ctx.wait_for_participant()
     log.info("participant_joined", participant_id=participant.identity)
 
-    # Extract user name from participant identity or metadata
-    user_name = participant.identity or "there"
-    # Try to extract just the name part if it's an email or complex ID
-    if "@" in user_name:
-        user_name = user_name.split("@")[0]
-    if "_" in user_name:
-        user_name = user_name.replace("_", " ").title()
-
-    # Extract call_id from room metadata if available
+    # Extract call_id and user_id from room metadata if available
     call_id = None
+    user_id_str = None
     if ctx.room.metadata:
         try:
-            import json
-
             metadata = json.loads(ctx.room.metadata)
             call_id = metadata.get("call_id")
+            user_id_str = metadata.get("user_id")
         except (json.JSONDecodeError, TypeError):
-            pass
+            log.warning("failed_to_parse_room_metadata")
+
+    # Fetch user context if user_id is available
+    user_name = "there"
+    memory_context = ""
+    communication_style = None
+
+    if user_id_str:
+        try:
+            user_id = UUID(user_id_str)
+            user_name, memory_context, communication_style = await fetch_agent_context(user_id, log)
+            log.info(
+                "user_context_loaded",
+                user_id=user_id_str,
+                user_name=user_name,
+                has_memory_context=bool(memory_context),
+                communication_style=communication_style,
+            )
+        except (ValueError, TypeError) as e:
+            log.warning("invalid_user_id_in_metadata", user_id=user_id_str, error=str(e))
+    else:
+        # Fallback: Extract user name from participant identity
+        user_name = participant.identity or "there"
+        # Try to extract just the name part if it's an email or complex ID
+        if "@" in user_name:
+            user_name = user_name.split("@")[0]
+        if "_" in user_name:
+            user_name = user_name.replace("_", " ").title()
+        log.info("using_participant_identity_as_name", user_name=user_name)
 
     # Initialize the standup session
     session = StandupSession(
@@ -260,12 +389,23 @@ async def entrypoint(ctx: JobContext) -> None:
         user_name=user_name,
     )
 
-    # Create the agent
-    agent = create_standup_agent(session, log)
+    # Create the agent with personalization context
+    agent = create_standup_agent(
+        session,
+        log,
+        memory_context=memory_context,
+        communication_style=communication_style,
+    )
 
     # Start the agent
     agent.start(ctx.room, participant)
-    log.info("agent_started", participant_id=participant.identity, user_name=user_name)
+    log.info(
+        "agent_started",
+        participant_id=participant.identity,
+        user_name=user_name,
+        user_id=user_id_str,
+        has_memory_context=bool(memory_context),
+    )
 
     # Run the standup conversation
     await run_standup_conversation(agent, session, log)
