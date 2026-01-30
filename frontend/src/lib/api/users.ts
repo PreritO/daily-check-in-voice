@@ -108,3 +108,36 @@ export function formatToE164(phone: string): string {
   // Always add + prefix since we stripped it
   return `+${digitsOnly}`;
 }
+
+// =============================================================================
+// Memory Types and API
+// =============================================================================
+
+export type UserMemoryType = "fact" | "preference" | "event" | "relationship";
+
+export interface UserMemory {
+  id: string;
+  user_id: string;
+  memory_type: UserMemoryType;
+  content: string;
+  source_call_id: string | null;
+  importance: number;
+  created_at: string;
+}
+
+export const memoriesKeys = {
+  all: ["memories"] as const,
+  user: (limit?: number) => [...memoriesKeys.all, "user", limit] as const,
+};
+
+async function getUserMemories(limit: number = 3): Promise<UserMemory[]> {
+  const response = await apiClient.get<UserMemory[]>(`/users/me/memories?limit=${limit}`);
+  return response.data;
+}
+
+export function useUserMemoriesQuery(limit: number = 3) {
+  return useQuery({
+    queryKey: memoriesKeys.user(limit),
+    queryFn: () => getUserMemories(limit),
+  });
+}

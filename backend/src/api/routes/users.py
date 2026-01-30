@@ -9,9 +9,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_or_create_user
-from src.api.schemas import MoodTrendItemRead, UserAnalyticsRead, UserCreate, UserRead, UserUpdate
+from src.api.schemas import (
+    MemoryRead,
+    MoodTrendItemRead,
+    UserAnalyticsRead,
+    UserCreate,
+    UserRead,
+    UserUpdate,
+)
 from src.database import get_db
-from src.models import User
+from src.models import ConversationMemory, User
 from src.services.analytics_service import get_user_analytics
 
 logger = structlog.get_logger()
@@ -137,6 +144,39 @@ async def get_current_user_analytics(
         ],
         streak_days=analytics.streak_days,
     )
+
+
+@router.get("/me/memories", response_model=list[MemoryRead])
+async def get_current_user_memories(
+    limit: int = Query(default=3, ge=1, le=10, description="Maximum number of memories to return"),
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[ConversationMemory]:
+    """Get recent memories for the current user.
+
+    Returns the most recent conversation memories stored for the user,
+    ordered by creation date (newest first).
+
+    Args:
+        limit: Maximum number of memories to return (1-10, default 3).
+        current_user: The authenticated user from the JWT token.
+        db: Database session.
+
+    Returns:
+        List of recent memories for the current user.
+    """
+    logger.info("Getting current user memories", user_id=str(current_user.id), limit=limit)
+
+    result = await db.execute(
+        select(ConversationMemory)
+        .where(ConversationMemory.user_id == current_user.id)
+        .order_by(ConversationMemory.created_at.desc())
+        .limit(limit)
+    )
+    memories = result.scalars().all()
+
+    logger.info("User memories retrieved", user_id=str(current_user.id), count=len(memories))
+    return list(memories)
 
 
 @router.get("/", response_model=list[UserRead])
