@@ -9,6 +9,7 @@ from .memory_service import (
     get_user_context,
 )
 from .mood_service import MoodAnalysisResult, analyze_mood
+from .post_call_service import PostCallResult, process_completed_call
 from .scheduler_service import (
     add_schedule_job,
     get_scheduler,
@@ -24,6 +25,7 @@ __all__ = [
     "ExtractedMemory",
     "MemoryExtractionResult",
     "MoodAnalysisResult",
+    "PostCallResult",
     "RoomInfo",
     "SlackPostResult",
     "StandupSummary",
@@ -37,6 +39,7 @@ __all__ = [
     "get_scheduler",
     "get_user_context",
     "post_summary",
+    "process_completed_call",
     "remove_schedule_job",
     "reset_jwks_client",
     "shutdown_scheduler",
