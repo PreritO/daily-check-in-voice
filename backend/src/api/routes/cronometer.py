@@ -1,7 +1,10 @@
 """Cronometer integration API endpoints."""
 
+from datetime import UTC, datetime
+
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
+from pycronometer.exceptions import CronometerAuthError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,8 +12,11 @@ from src.api.dependencies import get_or_create_user
 from src.api.schemas import (
     CredentialStatusResponse,
     SaveCredentialsRequest,
+    SyncRequest,
+    SyncResponse,
 )
 from src.database import get_db
+from src.integrations.cronometer import CronometerSyncService
 from src.models import CronometerCredential, User
 from src.utils.encryption import encrypt_string
 
@@ -122,3 +128,65 @@ async def delete_credentials(
     await db.delete(credential)
     await db.flush()
     logger.info("Deleted Cronometer credentials", user_id=str(current_user.id))
+
+
+@router.post("/sync", response_model=SyncResponse)
+async def sync_cronometer_data(
+    request: SyncRequest = SyncRequest(),
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> SyncResponse:
+    """Trigger a manual Cronometer sync for the current user.
+
+    Args:
+        request: Sync parameters (days_back, default 7, max 90).
+        current_user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        Sync result with counts and timestamp.
+
+    Raises:
+        HTTPException: 404 if no credentials saved, 401 if Cronometer login fails.
+    """
+    # Check if credentials exist
+    result = await db.execute(
+        select(CronometerCredential).where(CronometerCredential.user_id == current_user.id)
+    )
+    credential = result.scalar_one_or_none()
+
+    if credential is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No Cronometer credentials found. Please save credentials first.",
+        )
+
+    # Run sync
+    sync_service = CronometerSyncService(db)
+    try:
+        sync_result = await sync_service.sync_user(current_user.id, request.days_back)
+    except CronometerAuthError as e:
+        logger.warning(
+            "Cronometer login failed",
+            user_id=str(current_user.id),
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Cronometer login failed. Please check your credentials.",
+        ) from e
+
+    logger.info(
+        "Cronometer sync completed",
+        user_id=str(current_user.id),
+        food_logs=sync_result.food_logs_synced,
+        biometric_logs=sync_result.biometric_logs_synced,
+        health_notes=sync_result.health_notes_synced,
+    )
+
+    return SyncResponse(
+        food_logs_synced=sync_result.food_logs_synced,
+        biometric_logs_synced=sync_result.biometric_logs_synced,
+        health_notes_synced=sync_result.health_notes_synced,
+        synced_at=datetime.now(UTC),
+    )
