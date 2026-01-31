@@ -15,6 +15,8 @@ from src.api.schemas import (
     CredentialStatusResponse,
     DailyTimelineData,
     FoodLogResponse,
+    GrangerResponse,
+    GrangerResultSchema,
     HealthNoteResponse,
     MultiLagCorrelationResponseSchema,
     SaveCredentialsRequest,
@@ -25,6 +27,10 @@ from src.api.schemas import (
 from src.database import get_db
 from src.integrations.cronometer import CronometerSyncService
 from src.models import CronometerCredential, FoodLog, HealthNote, User
+from src.services import (
+    GrangerCausalityService,
+    GrangerInsufficientDataError,
+)
 from src.services.insights_service import (
     InsightsService,
     InsufficientDataError,
@@ -513,4 +519,101 @@ async def get_timeline(
         end_date=end_date,
         nutrient_keys=nutrients,
         daily_data=daily_data,
+    )
+
+
+@router.get("/insights/granger", response_model=GrangerResponse)
+async def get_granger_causality(
+    start_date: date = Query(..., description="Start date (inclusive)"),
+    end_date: date = Query(..., description="End date (inclusive)"),
+    nutrients: list[str] = Query(
+        default=["fiber_g", "protein_g", "carbs_g", "fat_g", "sugar_g"],
+        description="List of nutrient keys to test",
+    ),
+    max_lag_days: int = Query(default=3, ge=1, le=7, description="Max lag days (1-7)"),
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> GrangerResponse:
+    """Run Granger causality tests to determine if nutrient intake predicts Bristol outcomes.
+
+    Granger causality tests whether past values of nutrient intake help predict
+    future Bristol scores beyond what Bristol scores alone would predict.
+
+    Args:
+        start_date: Start date for analysis (inclusive).
+        end_date: End date for analysis (inclusive).
+        nutrients: List of nutrient keys to test for causality.
+        max_lag_days: Maximum number of lag days to test (1-7).
+        current_user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        Granger causality results sorted by p-value (most significant first).
+
+    Raises:
+        HTTPException: 400 if insufficient data for all nutrients.
+    """
+    granger_service = GrangerCausalityService(db)
+    results: list[GrangerResultSchema] = []
+    skipped_nutrients: list[str] = []
+
+    for nutrient_key in nutrients:
+        try:
+            result = await granger_service.test_causality(
+                user_id=current_user.id,
+                nutrient_key=nutrient_key,
+                start_date=start_date,
+                end_date=end_date,
+                max_lag_days=max_lag_days,
+            )
+            results.append(
+                GrangerResultSchema(
+                    nutrient_key=result.nutrient_key,
+                    nutrient_name=result.nutrient_name,
+                    f_statistic=result.f_statistic,
+                    p_value=result.p_value,
+                    optimal_lag=result.optimal_lag,
+                    is_causal=result.is_causal,
+                )
+            )
+        except GrangerInsufficientDataError as e:
+            logger.warning(
+                "Insufficient data for Granger test",
+                user_id=str(current_user.id),
+                nutrient_key=nutrient_key,
+                error=str(e),
+            )
+            skipped_nutrients.append(nutrient_key)
+
+    # If all nutrients failed, return 400
+    if not results:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Insufficient data for Granger causality test. "
+            f"Skipped nutrients: {skipped_nutrients}. "
+            f"Ensure you have sufficient consecutive daily data for both "
+            f"food logs and bowel movements in the date range.",
+        )
+
+    # Sort by p_value ascending (most significant first)
+    results.sort(key=lambda r: r.p_value)
+
+    causal_count = sum(1 for r in results if r.is_causal)
+
+    logger.info(
+        "Granger causality analysis completed",
+        user_id=str(current_user.id),
+        start_date=str(start_date),
+        end_date=str(end_date),
+        nutrients_tested=len(results),
+        causal_count=causal_count,
+        skipped_nutrients=skipped_nutrients,
+    )
+
+    return GrangerResponse(
+        start_date=start_date,
+        end_date=end_date,
+        nutrients_tested=len(results),
+        causal_nutrients_count=causal_count,
+        results=results,
     )

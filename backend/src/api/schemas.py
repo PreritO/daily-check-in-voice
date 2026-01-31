@@ -502,6 +502,27 @@ class TimelineResponse(BaseModel):
 # =============================================================================
 
 
+class GrangerResultSchema(BaseModel):
+    """Schema for Granger causality test result."""
+
+    nutrient_key: str = Field(..., description="Nutrient identifier")
+    nutrient_name: str = Field(..., description="Human-readable nutrient name")
+    f_statistic: float = Field(..., description="F-test statistic")
+    p_value: float = Field(..., description="P-value from Granger test")
+    optimal_lag: int = Field(..., description="Optimal lag in days")
+    is_causal: bool = Field(..., description="True if p < 0.05")
+
+
+class GrangerResponse(BaseModel):
+    """Response for Granger causality endpoint."""
+
+    start_date: date
+    end_date: date
+    nutrients_tested: int
+    causal_nutrients_count: int
+    results: list[GrangerResultSchema]  # Sorted by p_value ascending (most significant first)
+
+
 class CorrelationResultSchema(BaseModel):
     """Schema for a single nutrient correlation result."""
 
