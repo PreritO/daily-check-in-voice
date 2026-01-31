@@ -17,3 +17,5 @@ export type {
   HealthNoteData,
   CalendarHeatmapProps,
 } from "./CalendarHeatmap";
+export { LagCorrelationChart } from "./LagCorrelationChart";
+export type { LagCorrelationChartProps } from "./LagCorrelationChart";
