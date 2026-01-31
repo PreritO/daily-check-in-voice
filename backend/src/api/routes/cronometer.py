@@ -1,6 +1,6 @@
 """Cronometer integration API endpoints."""
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
 import structlog
@@ -11,13 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_or_create_user
 from src.api.schemas import (
+    BristolEvent,
     CredentialStatusResponse,
+    DailyTimelineData,
     FoodLogResponse,
     HealthNoteResponse,
     MultiLagCorrelationResponseSchema,
     SaveCredentialsRequest,
     SyncRequest,
     SyncResponse,
+    TimelineResponse,
 )
 from src.database import get_db
 from src.integrations.cronometer import CronometerSyncService
@@ -375,4 +378,139 @@ async def get_correlations(
             for c in result.consistent_correlations
         ],
         insights=result.insights,
+    )
+
+
+@router.get("/insights/timeline", response_model=TimelineResponse)
+async def get_timeline(
+    start_date: date = Query(..., description="Start date (inclusive)"),
+    end_date: date = Query(..., description="End date (inclusive)"),
+    nutrients: list[str] = Query(
+        default=["calories", "protein_g", "carbs_g", "fat_g", "fiber_g"],
+        description="List of nutrient keys to include (from raw_data or model fields)",
+    ),
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> TimelineResponse:
+    """Get nutrient intake and Bristol events over time for visualization.
+
+    Args:
+        start_date: Start date for the timeline (inclusive).
+        end_date: End date for the timeline (inclusive).
+        nutrients: List of nutrient keys to aggregate (can be model fields like
+            'calories', 'protein_g' or raw_data keys like 'Energy (kcal)').
+        current_user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        Timeline data with daily nutrient totals and Bristol events.
+    """
+    # Convert dates to datetimes for comparison (timezone-naive)
+    start_dt = datetime.combine(start_date, datetime.min.time())
+    end_dt = datetime.combine(end_date, datetime.max.time())
+
+    # Fetch food logs for the date range
+    food_result = await db.execute(
+        select(FoodLog)
+        .where(FoodLog.user_id == current_user.id)
+        .where(FoodLog.logged_at >= start_dt)
+        .where(FoodLog.logged_at <= end_dt)
+        .order_by(FoodLog.logged_at.asc())
+    )
+    food_logs = list(food_result.scalars().all())
+
+    # Fetch health notes that are bowel movements with bristol_scale
+    health_result = await db.execute(
+        select(HealthNote)
+        .where(HealthNote.user_id == current_user.id)
+        .where(HealthNote.is_bowel_movement.is_(True))
+        .where(HealthNote.bristol_scale.isnot(None))
+        .where(HealthNote.logged_at >= start_dt)
+        .where(HealthNote.logged_at <= end_dt)
+        .order_by(HealthNote.logged_at.asc())
+    )
+    health_notes = list(health_result.scalars().all())
+
+    # Mapping from user-friendly nutrient keys to model fields
+    nutrient_field_map: dict[str, str] = {
+        "calories": "calories",
+        "protein_g": "protein_g",
+        "carbs_g": "carbs_g",
+        "fat_g": "fat_g",
+        "fiber_g": "fiber_g",
+        "sugar_g": "sugar_g",
+        "sodium_mg": "sodium_mg",
+    }
+
+    # Group food logs by date and aggregate nutrients
+    daily_nutrients: dict[date, dict[str, float]] = {}
+    for log in food_logs:
+        log_date = log.logged_at.date()
+        if log_date not in daily_nutrients:
+            daily_nutrients[log_date] = {key: 0.0 for key in nutrients}
+
+        for nutrient_key in nutrients:
+            value = 0.0
+
+            # First check if it's a model field
+            if nutrient_key in nutrient_field_map:
+                field_name = nutrient_field_map[nutrient_key]
+                field_value = getattr(log, field_name, None)
+                if field_value is not None:
+                    value = float(field_value)
+            # Otherwise, try to get from raw_data
+            elif log.raw_data:
+                raw_value = log.raw_data.get(nutrient_key)
+                if raw_value is not None:
+                    try:
+                        value = float(raw_value)
+                    except (ValueError, TypeError):
+                        value = 0.0
+
+            daily_nutrients[log_date][nutrient_key] += value
+
+    # Group Bristol events by date
+    daily_bristol: dict[date, list[BristolEvent]] = {}
+    for note in health_notes:
+        note_date = note.logged_at.date()
+        if note_date not in daily_bristol:
+            daily_bristol[note_date] = []
+
+        daily_bristol[note_date].append(
+            BristolEvent(
+                timestamp=note.logged_at,
+                bristol_score=note.bristol_scale,  # type: ignore[arg-type]
+                quantity_score=note.quantity_score,
+            )
+        )
+
+    # Build the daily data list, ensuring all dates in range are included
+    daily_data: list[DailyTimelineData] = []
+    current_date = start_date
+
+    while current_date <= end_date:
+        daily_data.append(
+            DailyTimelineData(
+                day=current_date,
+                nutrients=daily_nutrients.get(current_date, {key: 0.0 for key in nutrients}),
+                bristol_events=daily_bristol.get(current_date, []),
+            )
+        )
+        current_date += timedelta(days=1)
+
+    logger.info(
+        "Timeline data retrieved",
+        user_id=str(current_user.id),
+        start_date=str(start_date),
+        end_date=str(end_date),
+        total_food_logs=len(food_logs),
+        total_bristol_events=len(health_notes),
+        days_in_range=len(daily_data),
+    )
+
+    return TimelineResponse(
+        start_date=start_date,
+        end_date=end_date,
+        nutrient_keys=nutrients,
+        daily_data=daily_data,
     )

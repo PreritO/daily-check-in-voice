@@ -460,6 +460,44 @@ class CredentialStatusResponse(BaseModel):
 
 
 # =============================================================================
+# Timeline Schemas
+# =============================================================================
+
+
+class BristolEvent(BaseModel):
+    """A single Bristol stool event."""
+
+    timestamp: datetime = Field(..., description="When the BM event occurred")
+    bristol_score: int = Field(..., ge=1, le=7, description="Bristol scale score (1-7)")
+    quantity_score: int | None = Field(None, ge=1, le=5, description="Quantity score (1-5)")
+
+
+class DailyTimelineData(BaseModel):
+    """Daily aggregated nutrient and Bristol data."""
+
+    day: date = Field(..., description="The date for this data point")
+    nutrients: dict[str, float] = Field(
+        default_factory=dict, description="Nutrient key -> total value for the day"
+    )
+    bristol_events: list[BristolEvent] = Field(
+        default_factory=list, description="All BM events that day"
+    )
+
+
+class TimelineResponse(BaseModel):
+    """Response for the timeline endpoint."""
+
+    start_date: date = Field(..., description="Start date of the timeline")
+    end_date: date = Field(..., description="End date of the timeline")
+    nutrient_keys: list[str] = Field(
+        default_factory=list, description="List of nutrient keys included"
+    )
+    daily_data: list[DailyTimelineData] = Field(
+        default_factory=list, description="One entry per day, sorted ascending"
+    )
+
+
+# =============================================================================
 # Insights Schemas
 # =============================================================================
 
@@ -483,9 +521,7 @@ class CorrelationResultSchema(BaseModel):
     intake_high_threshold: float | None = Field(None, description="75th percentile intake")
     intake_low_threshold: float | None = Field(None, description="25th percentile intake")
     direction: str = Field(..., description="Correlation direction: positive, negative, or none")
-    interpretation: str = Field(
-        "", description="Human-readable interpretation of the correlation"
-    )
+    interpretation: str = Field("", description="Human-readable interpretation of the correlation")
 
 
 class ConsistentCorrelationSchema(BaseModel):
