@@ -1,0 +1,378 @@
+"""Cronometer integration API endpoints."""
+
+from datetime import UTC, date, datetime
+from typing import Literal
+
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pycronometer.exceptions import CronometerAuthError
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.api.dependencies import get_or_create_user
+from src.api.schemas import (
+    CredentialStatusResponse,
+    FoodLogResponse,
+    HealthNoteResponse,
+    MultiLagCorrelationResponseSchema,
+    SaveCredentialsRequest,
+    SyncRequest,
+    SyncResponse,
+)
+from src.database import get_db
+from src.integrations.cronometer import CronometerSyncService
+from src.models import CronometerCredential, FoodLog, HealthNote, User
+from src.services.insights_service import (
+    InsightsService,
+    InsufficientDataError,
+    TimeLagWindow,
+)
+from src.utils.encryption import encrypt_string
+
+logger = structlog.get_logger()
+
+router = APIRouter()
+
+
+@router.post("/credentials", status_code=status.HTTP_201_CREATED)
+async def save_credentials(
+    request: SaveCredentialsRequest,
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> CredentialStatusResponse:
+    """Save encrypted Cronometer credentials for the current user.
+
+    Args:
+        request: Email and password to save.
+        current_user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        Credential status after saving.
+    """
+    # Check if credentials already exist
+    result = await db.execute(
+        select(CronometerCredential).where(CronometerCredential.user_id == current_user.id)
+    )
+    credential = result.scalar_one_or_none()
+
+    # Encrypt credentials
+    encrypted_email = encrypt_string(request.email)
+    encrypted_password = encrypt_string(request.password)
+
+    if credential:
+        # Update existing credentials
+        credential.encrypted_email = encrypted_email
+        credential.encrypted_password = encrypted_password
+        logger.info("Updated Cronometer credentials", user_id=str(current_user.id))
+    else:
+        # Create new credentials
+        credential = CronometerCredential(
+            user_id=current_user.id,
+            encrypted_email=encrypted_email,
+            encrypted_password=encrypted_password,
+        )
+        db.add(credential)
+        logger.info("Saved Cronometer credentials", user_id=str(current_user.id))
+
+    await db.flush()
+    await db.refresh(credential)
+
+    return CredentialStatusResponse(
+        has_credentials=True,
+        last_sync_at=credential.last_sync_at,
+    )
+
+
+@router.get("/credentials/status", response_model=CredentialStatusResponse)
+async def get_credential_status(
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> CredentialStatusResponse:
+    """Check if Cronometer credentials exist for the current user.
+
+    Args:
+        current_user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        Credential status with last sync time.
+    """
+    result = await db.execute(
+        select(CronometerCredential).where(CronometerCredential.user_id == current_user.id)
+    )
+    credential = result.scalar_one_or_none()
+
+    return CredentialStatusResponse(
+        has_credentials=credential is not None,
+        last_sync_at=credential.last_sync_at if credential else None,
+    )
+
+
+@router.delete("/credentials", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_credentials(
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Delete Cronometer credentials for the current user.
+
+    Args:
+        current_user: The authenticated user.
+        db: Database session.
+
+    Raises:
+        HTTPException: 404 if no credentials exist.
+    """
+    result = await db.execute(
+        select(CronometerCredential).where(CronometerCredential.user_id == current_user.id)
+    )
+    credential = result.scalar_one_or_none()
+
+    if credential is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No Cronometer credentials found",
+        )
+
+    await db.delete(credential)
+    await db.flush()
+    logger.info("Deleted Cronometer credentials", user_id=str(current_user.id))
+
+
+@router.post("/sync", response_model=SyncResponse)
+async def sync_cronometer_data(
+    request: SyncRequest = SyncRequest(),
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> SyncResponse:
+    """Trigger a manual Cronometer sync for the current user.
+
+    Args:
+        request: Sync parameters (days_back, default 7, max 90).
+        current_user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        Sync result with counts and timestamp.
+
+    Raises:
+        HTTPException: 404 if no credentials saved, 401 if Cronometer login fails.
+    """
+    # Check if credentials exist
+    result = await db.execute(
+        select(CronometerCredential).where(CronometerCredential.user_id == current_user.id)
+    )
+    credential = result.scalar_one_or_none()
+
+    if credential is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No Cronometer credentials found. Please save credentials first.",
+        )
+
+    # Run sync
+    sync_service = CronometerSyncService(db)
+    try:
+        sync_result = await sync_service.sync_user(current_user.id, request.days_back)
+    except CronometerAuthError as e:
+        logger.warning(
+            "Cronometer login failed",
+            user_id=str(current_user.id),
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Cronometer login failed. Please check your credentials.",
+        ) from e
+
+    logger.info(
+        "Cronometer sync completed",
+        user_id=str(current_user.id),
+        food_logs=sync_result.food_logs_synced,
+        biometric_logs=sync_result.biometric_logs_synced,
+        health_notes=sync_result.health_notes_synced,
+    )
+
+    return SyncResponse(
+        food_logs_synced=sync_result.food_logs_synced,
+        biometric_logs_synced=sync_result.biometric_logs_synced,
+        health_notes_synced=sync_result.health_notes_synced,
+        synced_at=datetime.now(UTC),
+    )
+
+
+@router.get("/food-logs", response_model=list[FoodLogResponse])
+async def get_food_logs(
+    start_date: date = Query(..., description="Start date (inclusive)"),
+    end_date: date = Query(..., description="End date (inclusive)"),
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[FoodLog]:
+    """Get food logs for the current user within a date range.
+
+    Args:
+        start_date: Start date (inclusive).
+        end_date: End date (inclusive).
+        current_user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        List of food logs, ordered by logged_at descending.
+    """
+    # Convert dates to datetimes for comparison
+    start_dt = datetime.combine(start_date, datetime.min.time())
+    end_dt = datetime.combine(end_date, datetime.max.time())
+
+    result = await db.execute(
+        select(FoodLog)
+        .where(FoodLog.user_id == current_user.id)
+        .where(FoodLog.logged_at >= start_dt)
+        .where(FoodLog.logged_at <= end_dt)
+        .order_by(FoodLog.logged_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+@router.get("/health-notes", response_model=list[HealthNoteResponse])
+async def get_health_notes(
+    start_date: date = Query(..., description="Start date (inclusive)"),
+    end_date: date = Query(..., description="End date (inclusive)"),
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[HealthNote]:
+    """Get health notes for the current user within a date range.
+
+    Args:
+        start_date: Start date (inclusive).
+        end_date: End date (inclusive).
+        current_user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        List of health notes, ordered by logged_at descending.
+    """
+    # Convert dates to datetimes for comparison
+    start_dt = datetime.combine(start_date, datetime.min.time())
+    end_dt = datetime.combine(end_date, datetime.max.time())
+
+    result = await db.execute(
+        select(HealthNote)
+        .where(HealthNote.user_id == current_user.id)
+        .where(HealthNote.logged_at >= start_dt)
+        .where(HealthNote.logged_at <= end_dt)
+        .order_by(HealthNote.logged_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+# Valid time lag values for query parameter validation
+VALID_TIME_LAGS = {12, 24, 36, 48, 72}
+
+
+@router.get("/insights/correlations", response_model=MultiLagCorrelationResponseSchema)
+async def get_correlations(
+    start_date: date = Query(..., description="Start date (inclusive)"),
+    end_date: date = Query(..., description="End date (inclusive)"),
+    time_lags: list[int] = Query(
+        default=[12, 24, 36, 48, 72],
+        description="Time lag windows in hours (valid: 12, 24, 36, 48, 72)",
+    ),
+    min_sample_size: int = Query(default=5, ge=3, le=100, description="Min BM samples required"),
+    analysis_level: Literal["basic", "standard", "comprehensive"] = Query(
+        default="standard", description="Level of nutrient analysis"
+    ),
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> MultiLagCorrelationResponseSchema:
+    """Analyze correlations between nutrient intake and bowel movement outcomes.
+
+    Args:
+        start_date: Start date for analysis (inclusive).
+        end_date: End date for analysis (inclusive).
+        time_lags: List of time lag windows in hours to analyze.
+        min_sample_size: Minimum number of BM samples required.
+        analysis_level: basic (macros), standard, or comprehensive (all nutrients).
+        current_user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        Correlation analysis results with insights.
+
+    Raises:
+        HTTPException: 400 if invalid time_lags or insufficient data.
+    """
+    # Validate time_lags
+    invalid_lags = [lag for lag in time_lags if lag not in VALID_TIME_LAGS]
+    if invalid_lags:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid time_lags: {invalid_lags}. Valid values: {sorted(VALID_TIME_LAGS)}",
+        )
+
+    # Convert to TimeLagWindow enum values
+    time_lag_enums = [TimeLagWindow(lag) for lag in time_lags]
+
+    # Run correlation analysis
+    insights_service = InsightsService(db)
+    try:
+        result = await insights_service.analyze_correlations(
+            user_id=current_user.id,
+            start_date=start_date,
+            end_date=end_date,
+            time_lags=time_lag_enums,
+            min_sample_size=min_sample_size,
+            analysis_level=analysis_level,
+        )
+    except InsufficientDataError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+    logger.info(
+        "Correlation analysis completed",
+        user_id=str(current_user.id),
+        total_bms=result.total_bowel_movements,
+        total_food_logs=result.total_food_logs,
+        consistent_correlations=len(result.consistent_correlations),
+    )
+
+    # Convert dataclass to Pydantic schema
+    return MultiLagCorrelationResponseSchema(
+        baseline_bristol_score=result.baseline_bristol_score,
+        total_bowel_movements=result.total_bowel_movements,
+        total_food_logs=result.total_food_logs,
+        analysis_start_date=result.analysis_start_date,
+        analysis_end_date=result.analysis_end_date,
+        results_by_lag={
+            lag: [
+                {
+                    "nutrient_name": r.nutrient_name,
+                    "nutrient_key": r.nutrient_key,
+                    "time_lag_hours": r.time_lag_hours,
+                    "correlation_coefficient": r.correlation_coefficient,
+                    "p_value": r.p_value,
+                    "sample_size": r.sample_size,
+                    "is_significant": r.is_significant,
+                    "avg_bristol_high_intake": r.avg_bristol_high_intake,
+                    "avg_bristol_low_intake": r.avg_bristol_low_intake,
+                    "intake_high_threshold": r.intake_high_threshold,
+                    "intake_low_threshold": r.intake_low_threshold,
+                    "direction": r.direction,
+                }
+                for r in results
+            ]
+            for lag, results in result.results_by_lag.items()
+        },
+        consistent_correlations=[
+            {
+                "nutrient_name": c.nutrient_name,
+                "nutrient_key": c.nutrient_key,
+                "windows_significant": c.windows_significant,
+                "avg_correlation": c.avg_correlation,
+                "direction": c.direction,
+            }
+            for c in result.consistent_correlations
+        ],
+        insights=result.insights,
+    )

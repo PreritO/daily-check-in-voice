@@ -1,10 +1,10 @@
-"""Schedule database model."""
+"""Cronometer credential database model."""
 
 from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -13,10 +13,10 @@ if TYPE_CHECKING:
     from .user import User
 
 
-class Schedule(Base):
-    """Schedule model for storing user call schedule configuration."""
+class CronometerCredential(Base):
+    """Cronometer credential model for storing encrypted user credentials."""
 
-    __tablename__ = "schedules"
+    __tablename__ = "cronometer_credentials"
 
     id: Mapped[UUID] = mapped_column(
         primary_key=True,
@@ -24,19 +24,18 @@ class Schedule(Base):
     )
     user_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
-        index=True,
+        unique=True,
         nullable=False,
     )
-    enabled: Mapped[bool] = mapped_column(
-        Boolean,
-        server_default="true",
+    encrypted_email: Mapped[str] = mapped_column(
+        Text,
         nullable=False,
     )
-    cron_expression: Mapped[str] = mapped_column(
-        String(100),
+    encrypted_password: Mapped[str] = mapped_column(
+        Text,
         nullable=False,
     )
-    next_run_at: Mapped[datetime | None] = mapped_column(
+    last_sync_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
@@ -55,9 +54,9 @@ class Schedule(Base):
     # Relationships
     user: Mapped["User"] = relationship(
         "User",
-        back_populates="schedules",
+        back_populates="cronometer_credential",
     )
 
     def __repr__(self) -> str:
-        """Return string representation of Schedule."""
-        return f"<Schedule(id={self.id}, user_id={self.user_id}, enabled={self.enabled}, cron={self.cron_expression!r})>"
+        """Return string representation of CronometerCredential."""
+        return f"<CronometerCredential(id={self.id}, user_id={self.user_id}, last_sync_at={self.last_sync_at})>"

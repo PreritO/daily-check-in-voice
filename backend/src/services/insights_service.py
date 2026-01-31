@@ -1,0 +1,736 @@
+"""Insights service for analyzing correlations between nutrition and bowel movements."""
+
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
+from enum import Enum
+from uuid import UUID
+
+import numpy as np
+import structlog
+from scipy import stats
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.models import FoodLog, HealthNote
+
+logger = structlog.get_logger()
+
+
+class TimeLagWindow(Enum):
+    """Time windows for analyzing correlation between food intake and BM outcomes."""
+
+    HOURS_12 = 12
+    HOURS_24 = 24
+    HOURS_36 = 36
+    HOURS_48 = 48
+    HOURS_72 = 72
+
+
+@dataclass
+class CorrelationResult:
+    """Result of correlation analysis for a single nutrient."""
+
+    nutrient_name: str
+    nutrient_key: str
+    time_lag_hours: int
+    correlation_coefficient: float
+    p_value: float
+    sample_size: int
+    is_significant: bool
+    avg_bristol_high_intake: float | None
+    avg_bristol_low_intake: float | None
+    intake_high_threshold: float | None
+    intake_low_threshold: float | None
+    direction: str  # "positive", "negative", or "none"
+    interpretation: str = ""  # Human-readable explanation of the correlation
+
+
+@dataclass
+class ConsistentCorrelation:
+    """A nutrient that shows significant correlation across multiple time windows."""
+
+    nutrient_name: str
+    nutrient_key: str
+    windows_significant: int
+    avg_correlation: float
+    direction: str
+
+
+@dataclass
+class MultiLagCorrelationResponse:
+    """Complete response for multi-lag correlation analysis."""
+
+    baseline_bristol_score: float
+    total_bowel_movements: int
+    total_food_logs: int
+    analysis_start_date: date
+    analysis_end_date: date
+    results_by_lag: dict[int, list[CorrelationResult]] = field(default_factory=dict)
+    consistent_correlations: list[ConsistentCorrelation] = field(default_factory=list)
+    insights: list[str] = field(default_factory=list)
+
+
+class InsufficientDataError(Exception):
+    """Raised when there isn't enough data for meaningful correlation analysis."""
+
+    pass
+
+
+# Comprehensive list of nutrients tracked by Cronometer
+# Maps actual Cronometer raw_data keys to human-readable names
+TRACKED_NUTRIENTS: dict[str, str] = {
+    # Macronutrients
+    "Energy (kcal)": "Calories",
+    "Protein (g)": "Protein",
+    "Carbs (g)": "Carbohydrates",
+    "Fat (g)": "Total Fat",
+    "Fiber (g)": "Fiber",
+    "Sugars (g)": "Sugar",
+    "Added Sugars (g)": "Added Sugar",
+    "Saturated (g)": "Saturated Fat",
+    "Monounsaturated (g)": "Monounsaturated Fat",
+    "Polyunsaturated (g)": "Polyunsaturated Fat",
+    "Trans-Fats (g)": "Trans Fat",
+    "Cholesterol (mg)": "Cholesterol",
+    "Net Carbs (g)": "Net Carbs",
+    "Starch (g)": "Starch",
+    # Sugars breakdown
+    "Fructose (g)": "Fructose",
+    "Galactose (g)": "Galactose",
+    "Glucose (g)": "Glucose",
+    "Lactose (g)": "Lactose",
+    "Maltose (g)": "Maltose",
+    "Sucrose (g)": "Sucrose",
+    # Minerals
+    "Sodium (mg)": "Sodium",
+    "Potassium (mg)": "Potassium",
+    "Calcium (mg)": "Calcium",
+    "Magnesium (mg)": "Magnesium",
+    "Iron (mg)": "Iron",
+    "Zinc (mg)": "Zinc",
+    "Copper (mg)": "Copper",
+    "Manganese (mg)": "Manganese",
+    "Selenium (µg)": "Selenium",
+    "Phosphorus (mg)": "Phosphorus",
+    # Fat-Soluble Vitamins
+    "Vitamin A (µg)": "Vitamin A",
+    "Vitamin D (IU)": "Vitamin D",
+    "Vitamin E (mg)": "Vitamin E",
+    "Vitamin K (µg)": "Vitamin K",
+    # Water-Soluble Vitamins
+    "Vitamin C (mg)": "Vitamin C",
+    "B1 (Thiamine) (mg)": "Thiamin (B1)",
+    "B2 (Riboflavin) (mg)": "Riboflavin (B2)",
+    "B3 (Niacin) (mg)": "Niacin (B3)",
+    "B5 (Pantothenic Acid) (mg)": "Pantothenic Acid (B5)",
+    "B6 (Pyridoxine) (mg)": "Vitamin B6",
+    "B12 (Cobalamin) (µg)": "Vitamin B12",
+    "Folate (µg)": "Folate",
+    # Amino Acids (Cronometer uses grams)
+    "Tryptophan (g)": "Tryptophan",
+    "Threonine (g)": "Threonine",
+    "Isoleucine (g)": "Isoleucine",
+    "Leucine (g)": "Leucine",
+    "Lysine (g)": "Lysine",
+    "Methionine (g)": "Methionine",
+    "Cystine (g)": "Cystine",
+    "Phenylalanine (g)": "Phenylalanine",
+    "Tyrosine (g)": "Tyrosine",
+    "Valine (g)": "Valine",
+    "Histidine (g)": "Histidine",
+    # Fatty Acids
+    "Omega-3 (g)": "Omega-3",
+    "Omega-6 (g)": "Omega-6",
+    # Other
+    "Caffeine (mg)": "Caffeine",
+    "Alcohol (g)": "Alcohol",
+    "Water (g)": "Water",
+}
+
+# Group nutrients by category for organized display
+# Uses actual Cronometer raw_data keys
+NUTRIENT_GROUPS: dict[str, list[str]] = {
+    "Macronutrients": [
+        "Energy (kcal)",
+        "Protein (g)",
+        "Carbs (g)",
+        "Fat (g)",
+        "Fiber (g)",
+        "Sugars (g)",
+        "Added Sugars (g)",
+        "Saturated (g)",
+        "Monounsaturated (g)",
+        "Polyunsaturated (g)",
+        "Trans-Fats (g)",
+        "Cholesterol (mg)",
+        "Net Carbs (g)",
+        "Starch (g)",
+    ],
+    "Minerals": [
+        "Sodium (mg)",
+        "Potassium (mg)",
+        "Calcium (mg)",
+        "Magnesium (mg)",
+        "Iron (mg)",
+        "Zinc (mg)",
+        "Copper (mg)",
+        "Manganese (mg)",
+        "Selenium (µg)",
+        "Phosphorus (mg)",
+    ],
+    "Fat-Soluble Vitamins": [
+        "Vitamin A (µg)",
+        "Vitamin D (IU)",
+        "Vitamin E (mg)",
+        "Vitamin K (µg)",
+    ],
+    "Water-Soluble Vitamins": [
+        "Vitamin C (mg)",
+        "B1 (Thiamine) (mg)",
+        "B2 (Riboflavin) (mg)",
+        "B3 (Niacin) (mg)",
+        "B5 (Pantothenic Acid) (mg)",
+        "B6 (Pyridoxine) (mg)",
+        "B12 (Cobalamin) (µg)",
+        "Folate (µg)",
+    ],
+    "Amino Acids": [
+        "Tryptophan (g)",
+        "Threonine (g)",
+        "Isoleucine (g)",
+        "Leucine (g)",
+        "Lysine (g)",
+        "Methionine (g)",
+        "Cystine (g)",
+        "Phenylalanine (g)",
+        "Tyrosine (g)",
+        "Valine (g)",
+        "Histidine (g)",
+    ],
+    "Fatty Acids": [
+        "Omega-3 (g)",
+        "Omega-6 (g)",
+    ],
+    "Other": [
+        "Caffeine (mg)",
+        "Alcohol (g)",
+        "Water (g)",
+    ],
+}
+
+
+class InsightsService:
+    """Service for analyzing correlations between nutrition and bowel movements."""
+
+    def __init__(self, db: AsyncSession) -> None:
+        """Initialize the insights service.
+
+        Args:
+            db: The async database session.
+        """
+        self.db = db
+        self.logger = logger.bind(service="insights")
+
+    async def analyze_correlations(
+        self,
+        user_id: UUID,
+        start_date: date,
+        end_date: date,
+        time_lags: list[TimeLagWindow] | None = None,
+        min_sample_size: int = 5,
+        analysis_level: str = "standard",
+    ) -> MultiLagCorrelationResponse:
+        """Analyze correlations between nutrient intake and bowel movement outcomes.
+
+        Args:
+            user_id: The user's UUID.
+            start_date: Start date for analysis (inclusive).
+            end_date: End date for analysis (inclusive).
+            time_lags: List of time windows to analyze. Defaults to all windows.
+            min_sample_size: Minimum number of BM samples required.
+            analysis_level: "basic" (macros only), "standard", or "comprehensive".
+
+        Returns:
+            MultiLagCorrelationResponse with all correlation data.
+
+        Raises:
+            InsufficientDataError: If not enough BM data for analysis.
+        """
+        if time_lags is None:
+            time_lags = list(TimeLagWindow)
+
+        self.logger.info(
+            "starting_correlation_analysis",
+            user_id=str(user_id),
+            start_date=str(start_date),
+            end_date=str(end_date),
+            time_lags=[t.value for t in time_lags],
+            min_sample_size=min_sample_size,
+            analysis_level=analysis_level,
+        )
+
+        # Determine which nutrients to analyze based on level
+        if analysis_level == "basic":
+            # Only macronutrients
+            nutrients_to_analyze = NUTRIENT_GROUPS["Macronutrients"]
+        elif analysis_level == "comprehensive":
+            # All nutrients
+            nutrients_to_analyze = list(TRACKED_NUTRIENTS.keys())
+        else:
+            # Standard: macros + minerals + vitamins
+            nutrients_to_analyze = (
+                NUTRIENT_GROUPS["Macronutrients"]
+                + NUTRIENT_GROUPS["Minerals"]
+                + NUTRIENT_GROUPS["Water-Soluble Vitamins"]
+                + NUTRIENT_GROUPS["Fat-Soluble Vitamins"]
+            )
+
+        # Convert dates to datetimes for queries
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date, datetime.max.time())
+
+        # Fetch bowel movement health notes
+        bm_result = await self.db.execute(
+            select(HealthNote)
+            .where(HealthNote.user_id == user_id)
+            .where(HealthNote.is_bowel_movement.is_(True))
+            .where(HealthNote.logged_at >= start_dt)
+            .where(HealthNote.logged_at <= end_dt)
+            .where(HealthNote.bristol_scale.isnot(None))
+            .order_by(HealthNote.logged_at)
+        )
+        bm_notes = list(bm_result.scalars().all())
+
+        if len(bm_notes) < min_sample_size:
+            raise InsufficientDataError(
+                f"Need at least {min_sample_size} bowel movements with Bristol scores, "
+                f"but only found {len(bm_notes)}."
+            )
+
+        # Calculate max lag for extended food log query
+        max_lag_hours = max(t.value for t in time_lags)
+        extended_start_dt = start_dt - timedelta(hours=max_lag_hours)
+
+        # Fetch food logs for extended range
+        food_result = await self.db.execute(
+            select(FoodLog)
+            .where(FoodLog.user_id == user_id)
+            .where(FoodLog.logged_at >= extended_start_dt)
+            .where(FoodLog.logged_at <= end_dt)
+            .order_by(FoodLog.logged_at)
+        )
+        food_logs = list(food_result.scalars().all())
+
+        # Prepare BM data as (bristol_score, bm_time) tuples
+        bm_data: list[tuple[int, datetime]] = [
+            (note.bristol_scale, note.logged_at)  # type: ignore[misc]
+            for note in bm_notes
+            if note.bristol_scale is not None and note.logged_at is not None
+        ]
+
+        # Prepare food data as list of dicts
+        food_data: list[dict] = [
+            {"logged_at": log.logged_at, "raw_data": log.raw_data or {}} for log in food_logs
+        ]
+
+        # Calculate baseline Bristol score
+        bristol_scores = [bm[0] for bm in bm_data]
+        baseline_bristol = float(np.mean(bristol_scores)) if bristol_scores else 0.0
+
+        # Run correlation analysis for each time lag
+        results_by_lag: dict[int, list[CorrelationResult]] = {}
+        for time_lag in time_lags:
+            results = self._analyze_nutrient_correlations(
+                bm_data=bm_data,
+                food_data=food_data,
+                time_lag=time_lag,
+                nutrients_to_analyze=nutrients_to_analyze,
+            )
+            results_by_lag[time_lag.value] = results
+
+        # Find consistent correlations across windows
+        consistent_correlations = self._find_consistent_correlations(results_by_lag)
+
+        # Generate human-readable insights
+        insights = self._generate_insights(
+            baseline_bristol=baseline_bristol,
+            consistent_correlations=consistent_correlations,
+            results_by_lag=results_by_lag,
+        )
+
+        self.logger.info(
+            "correlation_analysis_complete",
+            user_id=str(user_id),
+            total_bms=len(bm_notes),
+            total_food_logs=len(food_logs),
+            consistent_correlations=len(consistent_correlations),
+        )
+
+        return MultiLagCorrelationResponse(
+            baseline_bristol_score=round(baseline_bristol, 2),
+            total_bowel_movements=len(bm_notes),
+            total_food_logs=len(food_logs),
+            analysis_start_date=start_date,
+            analysis_end_date=end_date,
+            results_by_lag=results_by_lag,
+            consistent_correlations=consistent_correlations,
+            insights=insights,
+        )
+
+    def _get_nutrient_value(self, raw_data: dict, nutrient_key: str) -> float | None:
+        """Extract a nutrient value from food log raw_data.
+
+        Args:
+            raw_data: The raw_data JSON from a FoodLog.
+            nutrient_key: The key to look up (e.g., "fiber_g").
+
+        Returns:
+            The nutrient value, or None if not present.
+        """
+        if not raw_data:
+            return None
+        value = raw_data.get(nutrient_key)
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _analyze_nutrient_correlations(
+        self,
+        bm_data: list[tuple[int, datetime]],  # (bristol_score, bm_time)
+        food_data: list[dict],  # list of {logged_at: datetime, raw_data: dict}
+        time_lag: TimeLagWindow,
+        nutrients_to_analyze: list[str],
+    ) -> list[CorrelationResult]:
+        """Analyze correlations for a specific time lag window.
+
+        For each BM event, we aggregate all food consumed in the time window
+        BEFORE the BM (e.g., 24-48 hours before for HOURS_24 lag).
+
+        Args:
+            bm_data: List of (bristol_score, bm_time) tuples.
+            food_data: List of food log dicts with logged_at and raw_data.
+            time_lag: The time window to analyze.
+            nutrients_to_analyze: List of nutrient keys to analyze.
+
+        Returns:
+            List of CorrelationResult objects, sorted by abs correlation.
+        """
+        results: list[CorrelationResult] = []
+        lag_hours = time_lag.value
+
+        # For each BM, find food consumed in the window [bm_time - lag, bm_time]
+        # Build nutrient totals for each BM event
+        bm_nutrient_totals: dict[str, list[tuple[float, float]]] = {
+            key: [] for key in nutrients_to_analyze
+        }
+
+        for bristol_score, bm_time in bm_data:
+            window_start = bm_time - timedelta(hours=lag_hours)
+            window_end = bm_time
+
+            # Sum nutrients from food in this window
+            nutrient_sums: dict[str, float] = {key: 0.0 for key in nutrients_to_analyze}
+
+            for food in food_data:
+                food_time = food.get("logged_at")
+                if food_time is None:
+                    continue
+                if window_start <= food_time <= window_end:
+                    raw_data = food.get("raw_data", {})
+                    for key in nutrients_to_analyze:
+                        value = self._get_nutrient_value(raw_data, key)
+                        if value is not None:
+                            nutrient_sums[key] += value
+
+            # Store the (nutrient_total, bristol_score) pair for each nutrient
+            for key in nutrients_to_analyze:
+                bm_nutrient_totals[key].append((nutrient_sums[key], float(bristol_score)))
+
+        # Now compute correlations for each nutrient
+        for nutrient_key in nutrients_to_analyze:
+            pairs = bm_nutrient_totals[nutrient_key]
+            sample_size = len(pairs)
+
+            # Need at least 3 data points for meaningful correlation
+            if sample_size < 3:
+                continue
+
+            nutrient_values = np.array([p[0] for p in pairs])
+            bristol_values = np.array([p[1] for p in pairs])
+
+            # Skip if no variance in either variable
+            if np.std(nutrient_values) == 0 or np.std(bristol_values) == 0:
+                continue
+
+            # Calculate Pearson correlation
+            try:
+                corr_coef, p_value = stats.pearsonr(nutrient_values, bristol_values)
+            except Exception:
+                continue
+
+            # Handle NaN values
+            if np.isnan(corr_coef) or np.isnan(p_value):
+                continue
+
+            is_significant = p_value < 0.05
+
+            # Determine direction
+            if abs(corr_coef) < 0.1:
+                direction = "none"
+            elif corr_coef > 0:
+                direction = "positive"
+            else:
+                direction = "negative"
+
+            # Calculate high/low intake comparison using median split
+            median_intake = float(np.median(nutrient_values))
+
+            high_mask = nutrient_values >= median_intake
+            low_mask = nutrient_values < median_intake
+
+            high_bristols = bristol_values[high_mask]
+            low_bristols = bristol_values[low_mask]
+
+            avg_bristol_high = float(np.mean(high_bristols)) if len(high_bristols) > 0 else None
+            avg_bristol_low = float(np.mean(low_bristols)) if len(low_bristols) > 0 else None
+
+            # Calculate thresholds (25th and 75th percentile)
+            intake_low_threshold = float(np.percentile(nutrient_values, 25))
+            intake_high_threshold = float(np.percentile(nutrient_values, 75))
+
+            # Generate human-readable interpretation
+            nutrient_name = TRACKED_NUTRIENTS.get(nutrient_key, nutrient_key)
+            interpretation = self._generate_correlation_interpretation(
+                nutrient_name=nutrient_name,
+                direction=direction,
+                corr_coef=corr_coef,
+                avg_bristol_high=avg_bristol_high,
+                avg_bristol_low=avg_bristol_low,
+                is_significant=is_significant,
+            )
+
+            results.append(
+                CorrelationResult(
+                    nutrient_name=nutrient_name,
+                    nutrient_key=nutrient_key,
+                    time_lag_hours=lag_hours,
+                    correlation_coefficient=round(float(corr_coef), 4),
+                    p_value=round(float(p_value), 4),
+                    sample_size=sample_size,
+                    is_significant=is_significant,
+                    avg_bristol_high_intake=round(avg_bristol_high, 2)
+                    if avg_bristol_high
+                    else None,
+                    avg_bristol_low_intake=round(avg_bristol_low, 2) if avg_bristol_low else None,
+                    intake_high_threshold=round(intake_high_threshold, 2),
+                    intake_low_threshold=round(intake_low_threshold, 2),
+                    direction=direction,
+                    interpretation=interpretation,
+                )
+            )
+
+        # Sort by absolute correlation strength (strongest first)
+        results.sort(key=lambda r: abs(r.correlation_coefficient), reverse=True)
+
+        return results
+
+    def _find_consistent_correlations(
+        self,
+        results_by_lag: dict[int, list[CorrelationResult]],
+        min_windows: int = 2,
+    ) -> list[ConsistentCorrelation]:
+        """Find nutrients with significant correlations across multiple time windows.
+
+        Args:
+            results_by_lag: Correlation results keyed by time lag hours.
+            min_windows: Minimum number of windows for "consistent" status.
+
+        Returns:
+            List of ConsistentCorrelation objects, sorted by windows_significant.
+        """
+        # Track significance and correlations across windows for each nutrient
+        nutrient_stats: dict[str, dict] = {}
+
+        for _lag_hours, results in results_by_lag.items():
+            for result in results:
+                if result.nutrient_key not in nutrient_stats:
+                    nutrient_stats[result.nutrient_key] = {
+                        "name": result.nutrient_name,
+                        "windows_significant": 0,
+                        "correlations": [],
+                        "directions": [],
+                    }
+
+                if result.is_significant:
+                    nutrient_stats[result.nutrient_key]["windows_significant"] += 1
+                    nutrient_stats[result.nutrient_key]["correlations"].append(
+                        result.correlation_coefficient
+                    )
+                    nutrient_stats[result.nutrient_key]["directions"].append(result.direction)
+
+        # Filter to nutrients significant in >= min_windows
+        consistent: list[ConsistentCorrelation] = []
+
+        for nutrient_key, nutrient_data in nutrient_stats.items():
+            if nutrient_data["windows_significant"] >= min_windows:
+                correlations = nutrient_data["correlations"]
+                avg_corr = sum(correlations) / len(correlations) if correlations else 0.0
+
+                # Determine overall direction (most common non-"none" direction)
+                directions = [d for d in nutrient_data["directions"] if d != "none"]
+                if directions:
+                    positive_count = sum(1 for d in directions if d == "positive")
+                    negative_count = sum(1 for d in directions if d == "negative")
+                    if positive_count > negative_count:
+                        direction = "positive"
+                    elif negative_count > positive_count:
+                        direction = "negative"
+                    else:
+                        direction = "mixed"
+                else:
+                    direction = "none"
+
+                consistent.append(
+                    ConsistentCorrelation(
+                        nutrient_name=nutrient_data["name"],
+                        nutrient_key=nutrient_key,
+                        windows_significant=nutrient_data["windows_significant"],
+                        avg_correlation=round(avg_corr, 4),
+                        direction=direction,
+                    )
+                )
+
+        # Sort by number of significant windows (most first), then by avg correlation
+        consistent.sort(key=lambda c: (c.windows_significant, abs(c.avg_correlation)), reverse=True)
+
+        return consistent
+
+    def _generate_insights(
+        self,
+        baseline_bristol: float,
+        consistent_correlations: list[ConsistentCorrelation],
+        results_by_lag: dict[int, list[CorrelationResult]],
+    ) -> list[str]:
+        """Generate human-readable insights from correlation analysis.
+
+        Args:
+            baseline_bristol: Average Bristol score.
+            consistent_correlations: Nutrients with consistent correlations.
+            results_by_lag: All correlation results by time lag.
+
+        Returns:
+            List of insight strings.
+        """
+        insights: list[str] = []
+
+        # Baseline Bristol context
+        if baseline_bristol < 3:
+            insights.append(
+                f"Your average Bristol score is {baseline_bristol:.1f}, which tends toward "
+                "the harder/constipation end of the scale (1-2). Consider foods that may "
+                "help with regularity."
+            )
+        elif baseline_bristol > 5:
+            insights.append(
+                f"Your average Bristol score is {baseline_bristol:.1f}, which tends toward "
+                "the looser/diarrhea end of the scale (6-7). Consider foods that may help "
+                "firm things up."
+            )
+        else:
+            insights.append(
+                f"Your average Bristol score is {baseline_bristol:.1f}, which is in the "
+                "healthy range (3-5). Keep up the good work!"
+            )
+
+        # Top correlation insights (up to 5)
+        for corr in consistent_correlations[:5]:
+            if corr.direction == "positive":
+                direction_text = "associated with higher (looser) Bristol scores"
+                recommendation = "Consider moderating intake if you experience loose stools."
+            elif corr.direction == "negative":
+                direction_text = "associated with lower (firmer) Bristol scores"
+                recommendation = "Consider increasing intake if you experience constipation."
+            else:
+                direction_text = "has a mixed relationship with Bristol scores"
+                recommendation = "The relationship varies across different time windows."
+
+            insights.append(
+                f"{corr.nutrient_name}: Significant across {corr.windows_significant} time "
+                f"windows (avg correlation: {corr.avg_correlation:.2f}). This nutrient is "
+                f"{direction_text}. {recommendation}"
+            )
+
+        # If no consistent correlations, provide general insight
+        if not consistent_correlations:
+            insights.append(
+                "No nutrients showed consistent significant correlations across multiple "
+                "time windows. This could mean your diet is well-balanced, or more data "
+                "is needed for reliable patterns to emerge."
+            )
+
+        return insights
+
+    def _generate_correlation_interpretation(
+        self,
+        nutrient_name: str,
+        direction: str,
+        corr_coef: float,
+        avg_bristol_high: float | None,
+        avg_bristol_low: float | None,
+        is_significant: bool,
+    ) -> str:
+        """Generate a human-readable interpretation of a correlation result.
+
+        Args:
+            nutrient_name: Human-readable nutrient name.
+            direction: "positive", "negative", or "none".
+            corr_coef: Pearson correlation coefficient.
+            avg_bristol_high: Avg Bristol score for high intake days.
+            avg_bristol_low: Avg Bristol score for low intake days.
+            is_significant: Whether p-value < 0.05.
+
+        Returns:
+            Human-readable interpretation string.
+        """
+        if direction == "none" or abs(corr_coef) < 0.1:
+            return f"No meaningful relationship detected between {nutrient_name} and stool consistency."
+
+        # Determine correlation strength
+        abs_corr = abs(corr_coef)
+        if abs_corr >= 0.7:
+            strength = "strong"
+        elif abs_corr >= 0.4:
+            strength = "moderate"
+        else:
+            strength = "weak"
+
+        # Add significance qualifier
+        sig_qualifier = "" if is_significant else " (not statistically significant)"
+
+        # Generate direction-specific interpretation
+        if direction == "positive":
+            # Positive: more nutrient → higher Bristol → looser stool
+            arrow_text = f"More {nutrient_name} → higher Bristol (looser stool)"
+            detail = f"{strength.capitalize()} positive correlation (r={corr_coef:.2f}){sig_qualifier}."
+        else:
+            # Negative: more nutrient → lower Bristol → firmer stool
+            arrow_text = f"More {nutrient_name} → lower Bristol (firmer stool)"
+            detail = f"{strength.capitalize()} negative correlation (r={corr_coef:.2f}){sig_qualifier}."
+
+        # Add high/low intake comparison if available
+        if avg_bristol_high is not None and avg_bristol_low is not None:
+            diff = avg_bristol_high - avg_bristol_low
+            if abs(diff) >= 0.5:
+                comparison = (
+                    f" High intake days avg Bristol: {avg_bristol_high:.1f}, "
+                    f"low intake days: {avg_bristol_low:.1f}."
+                )
+            else:
+                comparison = ""
+        else:
+            comparison = ""
+
+        return f"{arrow_text}. {detail}{comparison}"

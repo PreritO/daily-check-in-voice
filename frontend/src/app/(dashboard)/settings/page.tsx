@@ -15,6 +15,11 @@ import {
   useUpdatePreferencesMutation,
   type CommunicationStyle,
 } from "@/lib/api/preferences";
+import {
+  useCronometerStatusQuery,
+  useSaveCronometerCredentialsMutation,
+  useDeleteCronometerCredentialsMutation,
+} from "@/lib/api/cronometer";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 // =============================================================================
@@ -547,6 +552,276 @@ function NotificationsSection() {
 }
 
 // =============================================================================
+// Integrations Section
+// =============================================================================
+
+function IntegrationsSection() {
+  const { data: status, isLoading, error } = useCronometerStatusQuery();
+  const saveMutation = useSaveCronometerCredentialsMutation();
+  const deleteMutation = useDeleteCronometerCredentialsMutation();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Clean up success message timeout on unmount
+  useEffect(() => {
+    if (!saveSuccess) return;
+    const timer = setTimeout(() => setSaveSuccess(false), 3000);
+    return () => clearTimeout(timer);
+  }, [saveSuccess]);
+
+  const handleConnect = async () => {
+    if (!email || !password) return;
+    setSaveSuccess(false);
+    try {
+      await saveMutation.mutateAsync({ email, password });
+      setEmail("");
+      setPassword("");
+      setSaveSuccess(true);
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await deleteMutation.mutateAsync();
+      setShowDisconnectConfirm(false);
+    } catch {
+      // Error handled by mutation
+    }
+  };
+
+  const formatLastSync = (timestamp: string | null) => {
+    if (!timestamp) return "Not synced yet";
+    const date = new Date(timestamp);
+    return date.toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+        <div className="animate-pulse space-y-5">
+          <div className="h-7 w-36 rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
+          <div className="h-24 w-full rounded bg-[#E8E5EB] dark:bg-[#3D3935]" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-[#F5A9A9] bg-[#F5A9A9]/10 p-6 shadow-sm dark:border-[#F5A9A9]/50 dark:bg-[#F5A9A9]/5">
+        <div className="flex items-center gap-4">
+          <svg className="h-6 w-6 text-[#C77070] dark:text-[#F5A9A9]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div>
+            <h3 className="font-serif text-lg font-medium text-[#C77070] dark:text-[#F5A9A9]">Failed to load integrations</h3>
+            <p className="text-base text-[#C77070] dark:text-[#F5A9A9]">Please refresh the page to try again.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const isConnected = status?.has_credentials ?? false;
+
+  return (
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+      <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">Integrations</h2>
+      <p className="mt-1 text-base text-[#A89B86] dark:text-[#B8A99A]">
+        Connect external services to enhance your wellness tracking.
+      </p>
+
+      <div className="mt-6 space-y-5">
+        {/* Cronometer Integration */}
+        <div className="rounded-xl border border-[#DEDDDB] bg-[#FDFBF7] p-5 shadow-sm dark:border-[#3D3935] dark:bg-[#3D3935]">
+          <div className="flex items-start gap-4">
+            {/* Cronometer Icon */}
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#FF6B35]">
+              <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                    Cronometer
+                  </h3>
+                  <p className="text-sm text-[#A89B86] dark:text-[#B8A99A]">
+                    Sync nutrition data and health notes
+                  </p>
+                </div>
+                {isConnected && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#A8D5BA]/20 px-3 py-1 text-sm font-medium text-[#6B9F7D] dark:bg-[#A8D5BA]/10 dark:text-[#A8D5BA]">
+                    <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 8 8" aria-hidden="true">
+                      <circle cx="4" cy="4" r="3" />
+                    </svg>
+                    Connected
+                  </span>
+                )}
+              </div>
+
+              {isConnected ? (
+                /* Connected State */
+                <div className="mt-4 space-y-4">
+                  <div className="flex items-center gap-2 text-sm text-[#A89B86] dark:text-[#B8A99A]">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Last synced: {formatLastSync(status?.last_sync_at ?? null)}</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowDisconnectConfirm(true)}
+                    disabled={deleteMutation.isPending}
+                    className="rounded-xl border border-[#F5A9A9] px-4 py-2 text-sm font-medium text-[#C77070] transition-all duration-200 hover:bg-[#F5A9A9]/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#F5A9A9]/50 dark:text-[#F5A9A9] dark:hover:bg-[#F5A9A9]/5"
+                  >
+                    {deleteMutation.isPending ? "Disconnecting..." : "Disconnect"}
+                  </button>
+
+                  {deleteMutation.isError && (
+                    <p className="text-sm text-[#F5A9A9]">Failed to disconnect. Please try again.</p>
+                  )}
+                </div>
+              ) : (
+                /* Not Connected State - Show Form */
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label htmlFor="cronometer-email" className="mb-2 block text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                      Cronometer Email
+                    </label>
+                    <input
+                      id="cronometer-email"
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] placeholder-[#A89B86] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#363230] dark:text-[#F5F3F0] dark:placeholder-[#B8A99A]"
+                      placeholder="your@email.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="cronometer-password" className="mb-2 block text-base font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                      Cronometer Password
+                    </label>
+                    <input
+                      id="cronometer-password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-3 text-base text-[#4A4543] placeholder-[#A89B86] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#363230] dark:text-[#F5F3F0] dark:placeholder-[#B8A99A]"
+                      placeholder="Enter your password"
+                    />
+                    <p className="mt-2 text-xs text-[#A89B86] dark:text-[#B8A99A]">
+                      Your credentials are encrypted and stored securely.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={handleConnect}
+                      disabled={!email || !password || saveMutation.isPending}
+                      className="rounded-xl bg-[#E8A0BF] px-6 py-3 text-base font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#D88FAE] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {saveMutation.isPending ? "Connecting..." : "Connect"}
+                    </button>
+                    {saveSuccess && (
+                      <span className="text-base text-[#A8D5BA]">Connected successfully!</span>
+                    )}
+                    {saveMutation.isError && (
+                      <span className="text-base text-[#F5A9A9]">Failed to connect. Please check your credentials.</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Disconnect Confirmation Modal */}
+      {showDisconnectConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop - disable click when mutation is pending */}
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => !deleteMutation.isPending && setShowDisconnectConfirm(false)}
+          />
+
+          {/* Modal with ARIA attributes for accessibility */}
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="disconnect-modal-title"
+            aria-describedby="disconnect-modal-description"
+            className="relative z-10 w-full max-w-md rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-xl dark:border-[#3D3935] dark:bg-[#363230]"
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F5A9A9]/20 dark:bg-[#F5A9A9]/10">
+                <svg className="h-6 w-6 text-[#C77070] dark:text-[#F5A9A9]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 id="disconnect-modal-title" className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+                  Disconnect Cronometer
+                </h3>
+                <p className="text-base text-[#A89B86] dark:text-[#B8A99A]">
+                  This will remove your stored credentials.
+                </p>
+              </div>
+            </div>
+
+            <div id="disconnect-modal-description" className="mt-5">
+              <p className="text-base text-[#4A4543] dark:text-[#F5F3F0]">
+                Are you sure you want to disconnect your Cronometer account? Your synced data will remain, but you will need to reconnect to sync new data.
+              </p>
+            </div>
+
+            <div className="mt-6 flex gap-4">
+              <button
+                type="button"
+                onClick={() => setShowDisconnectConfirm(false)}
+                className="flex-1 rounded-xl border border-[#DEDDDB] px-6 py-3 text-base font-medium text-[#4A4543] shadow-sm transition-all duration-200 hover:bg-[#E8E5EB] hover:shadow-md dark:border-[#3D3935] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDisconnect}
+                disabled={deleteMutation.isPending}
+                className="flex-1 rounded-xl bg-[#C77070] px-6 py-3 text-base font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#B55E5E] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? "Disconnecting..." : "Disconnect"}
+              </button>
+            </div>
+
+            {deleteMutation.isError && (
+              <p className="mt-4 text-base text-[#F5A9A9]">
+                Failed to disconnect. Please try again.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
 // Danger Zone Section
 // =============================================================================
 
@@ -700,6 +975,7 @@ export default function SettingsPage() {
       <AppearanceSection />
       <PreferencesSection />
       <NotificationsSection />
+      <IntegrationsSection />
       <DangerZoneSection />
     </div>
   );

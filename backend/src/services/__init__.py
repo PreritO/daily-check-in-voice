@@ -2,6 +2,16 @@
 
 from .analytics_service import MoodTrendItem, UserAnalytics, get_user_analytics
 from .auth_service import AuthError, TokenPayload, verify_supabase_token
+from .insights_service import (
+    NUTRIENT_GROUPS,
+    TRACKED_NUTRIENTS,
+    ConsistentCorrelation,
+    CorrelationResult,
+    InsightsService,
+    InsufficientDataError,
+    MultiLagCorrelationResponse,
+    TimeLagWindow,
+)
 from .livekit_service import RoomInfo, create_room_for_call, dispatch_agent_to_room
 from .memory_service import (
     ExtractedMemory,
@@ -23,15 +33,23 @@ from .summary_service import StandupSummary, generate_summary
 
 __all__ = [
     "AuthError",
+    "ConsistentCorrelation",
+    "CorrelationResult",
     "ExtractedMemory",
+    "InsightsService",
+    "InsufficientDataError",
     "MemoryExtractionResult",
     "MoodAnalysisResult",
     "MoodTrendItem",
+    "MultiLagCorrelationResponse",
+    "NUTRIENT_GROUPS",
     "PostCallResult",
     "RoomInfo",
     "SlackPostResult",
     "StandupSummary",
+    "TimeLagWindow",
     "TokenPayload",
+    "TRACKED_NUTRIENTS",
     "UserAnalytics",
     "add_schedule_job",
     "analyze_mood",

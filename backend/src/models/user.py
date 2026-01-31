@@ -4,14 +4,18 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import String, func
+from sqlalchemy import DateTime, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 
 if TYPE_CHECKING:
     from .alert import Alert
+    from .biometric_log import BiometricLog
     from .call import Call
+    from .cronometer_credential import CronometerCredential
+    from .food_log import FoodLog
+    from .health_note import HealthNote
     from .memory import ConversationMemory
     from .preferences import UserPreferences
     from .schedule import Schedule
@@ -52,10 +56,12 @@ class User(Base):
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
@@ -85,6 +91,27 @@ class User(Base):
     )
     alerts: Mapped[list["Alert"]] = relationship(
         "Alert",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    cronometer_credential: Mapped["CronometerCredential | None"] = relationship(
+        "CronometerCredential",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    food_logs: Mapped[list["FoodLog"]] = relationship(
+        "FoodLog",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    biometric_logs: Mapped[list["BiometricLog"]] = relationship(
+        "BiometricLog",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    health_notes: Mapped[list["HealthNote"]] = relationship(
+        "HealthNote",
         back_populates="user",
         cascade="all, delete-orphan",
     )
