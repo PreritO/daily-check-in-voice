@@ -14,6 +14,96 @@ import {
   CorrelationResult,
   ConsistentCorrelation,
 } from "@/lib/api/cronometer";
+// Chart components - some are used, others are prepared for future use
+import {
+  // ScatterPlot, // Will be used when timeline API is available
+  CorrelationHeatmap,
+  // TimeSeriesChart, // Will be used when timeline API is available
+  // BoxPlot, // Will be used when detailed data API is available
+  // CalendarHeatmap, // Will be used when health notes API is available
+  LagCorrelationChart,
+} from "@/components/charts";
+
+// =============================================================================
+// Tab Types
+// =============================================================================
+
+type TabType = "analysis" | "visualizations";
+type ChartType = "scatter" | "heatmap" | "timeseries" | "boxplot" | "calendar" | "lagchart";
+
+// =============================================================================
+// Nutrient Options for Selector
+// =============================================================================
+
+interface NutrientOption {
+  value: string;
+  label: string;
+  category: string;
+}
+
+const NUTRIENT_OPTIONS: NutrientOption[] = [
+  // Macros
+  { value: "fiber", label: "Fiber", category: "Macros" },
+  { value: "protein", label: "Protein", category: "Macros" },
+  { value: "carbs", label: "Carbohydrates", category: "Macros" },
+  { value: "fat", label: "Fat", category: "Macros" },
+  { value: "calories", label: "Calories", category: "Macros" },
+  { value: "sugar", label: "Sugar", category: "Macros" },
+  { value: "saturated_fat", label: "Saturated Fat", category: "Macros" },
+  { value: "monounsaturated_fat", label: "Monounsaturated Fat", category: "Macros" },
+  { value: "polyunsaturated_fat", label: "Polyunsaturated Fat", category: "Macros" },
+  { value: "omega_3", label: "Omega-3", category: "Macros" },
+  { value: "omega_6", label: "Omega-6", category: "Macros" },
+  // Vitamins
+  { value: "vitamin_a", label: "Vitamin A", category: "Vitamins" },
+  { value: "vitamin_b1", label: "Vitamin B1 (Thiamin)", category: "Vitamins" },
+  { value: "vitamin_b2", label: "Vitamin B2 (Riboflavin)", category: "Vitamins" },
+  { value: "vitamin_b3", label: "Vitamin B3 (Niacin)", category: "Vitamins" },
+  { value: "vitamin_b5", label: "Vitamin B5 (Pantothenic)", category: "Vitamins" },
+  { value: "vitamin_b6", label: "Vitamin B6", category: "Vitamins" },
+  { value: "vitamin_b7", label: "Vitamin B7 (Biotin)", category: "Vitamins" },
+  { value: "vitamin_b9", label: "Vitamin B9 (Folate)", category: "Vitamins" },
+  { value: "vitamin_b12", label: "Vitamin B12", category: "Vitamins" },
+  { value: "vitamin_c", label: "Vitamin C", category: "Vitamins" },
+  { value: "vitamin_d", label: "Vitamin D", category: "Vitamins" },
+  { value: "vitamin_e", label: "Vitamin E", category: "Vitamins" },
+  { value: "vitamin_k", label: "Vitamin K", category: "Vitamins" },
+  // Minerals
+  { value: "calcium", label: "Calcium", category: "Minerals" },
+  { value: "iron", label: "Iron", category: "Minerals" },
+  { value: "magnesium", label: "Magnesium", category: "Minerals" },
+  { value: "phosphorus", label: "Phosphorus", category: "Minerals" },
+  { value: "potassium", label: "Potassium", category: "Minerals" },
+  { value: "sodium", label: "Sodium", category: "Minerals" },
+  { value: "zinc", label: "Zinc", category: "Minerals" },
+  { value: "copper", label: "Copper", category: "Minerals" },
+  { value: "manganese", label: "Manganese", category: "Minerals" },
+  { value: "selenium", label: "Selenium", category: "Minerals" },
+  { value: "chromium", label: "Chromium", category: "Minerals" },
+  // Other
+  { value: "water", label: "Water", category: "Other" },
+  { value: "caffeine", label: "Caffeine", category: "Other" },
+  { value: "alcohol", label: "Alcohol", category: "Other" },
+  { value: "cholesterol", label: "Cholesterol", category: "Other" },
+];
+
+const CHART_TYPE_OPTIONS: { value: ChartType; label: string }[] = [
+  { value: "scatter", label: "Scatter Plot" },
+  { value: "heatmap", label: "Correlation Heatmap" },
+  { value: "timeseries", label: "Time Series" },
+  { value: "boxplot", label: "Box Plot" },
+  { value: "calendar", label: "Calendar Heatmap" },
+  { value: "lagchart", label: "Lag Correlation" },
+];
+
+// Group nutrients by category
+const groupedNutrientOptions = NUTRIENT_OPTIONS.reduce((acc, option) => {
+  if (!acc[option.category]) {
+    acc[option.category] = [];
+  }
+  acc[option.category].push(option);
+  return acc;
+}, {} as Record<string, NutrientOption[]>);
 
 // =============================================================================
 // Placeholder Card Component
@@ -1310,10 +1400,398 @@ function CorrelationAnalysisCard({
 }
 
 // =============================================================================
+// Visualizations Tab Component
+// =============================================================================
+
+interface VisualizationsTabProps {
+  correlationsData: MultiLagCorrelationResponse | undefined;
+  isLoading: boolean;
+  startDate: string;
+  endDate: string;
+}
+
+function VisualizationsTab({
+  correlationsData,
+  isLoading,
+  startDate,
+  endDate,
+}: VisualizationsTabProps) {
+  const [selectedNutrient, setSelectedNutrient] = useState<string>("fiber");
+  const [selectedChartType, setSelectedChartType] = useState<ChartType>("scatter");
+
+  // Get the nutrient name for display
+  const nutrientLabel = useMemo(() => {
+    const option = NUTRIENT_OPTIONS.find((o) => o.value === selectedNutrient);
+    return option?.label || selectedNutrient;
+  }, [selectedNutrient]);
+
+  // Find matching nutrient key in correlations data
+  const matchingNutrientKey = useMemo(() => {
+    if (!correlationsData?.results_by_lag) return null;
+
+    // Get the first lag's results to find matching keys
+    const firstLagResults = Object.values(correlationsData.results_by_lag)[0] || [];
+
+    // Try to find a matching nutrient key
+    const normalizedSelected = selectedNutrient.toLowerCase().replace(/[_-]/g, "");
+
+    for (const result of firstLagResults) {
+      const normalizedKey = result.nutrient_key.toLowerCase().replace(/[_-]/g, "");
+      if (
+        normalizedKey.includes(normalizedSelected) ||
+        normalizedSelected.includes(normalizedKey) ||
+        result.nutrient_name.toLowerCase().includes(selectedNutrient.toLowerCase())
+      ) {
+        return result.nutrient_key;
+      }
+    }
+    return null;
+  }, [correlationsData, selectedNutrient]);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+        <div className="flex items-center justify-center py-12">
+          <svg
+            className="h-8 w-8 animate-spin text-[#E8A0BF]"
+            fill="none"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
+          </svg>
+          <span className="ml-3 text-[#4A4543] dark:text-[#F5F3F0]">
+            Loading visualization data...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // No data state
+  if (!correlationsData) {
+    return (
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#FEF3C7] shadow-sm dark:bg-[#FCD34D]/20">
+            <svg
+              className="h-6 w-6 text-[#F59E0B]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+              />
+            </svg>
+          </div>
+          <div>
+            <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+              Run Analysis First
+            </h2>
+            <p className="mt-1 text-base text-[#A89B86] dark:text-[#B8A99A]">
+              Run the correlation analysis in the Analysis tab to visualize your data.
+              The visualizations will use the correlation results to create charts.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render chart based on selection
+  const renderChart = () => {
+    switch (selectedChartType) {
+      case "scatter":
+        // ScatterPlot needs transformed data - show placeholder if no matching nutrient
+        if (!matchingNutrientKey) {
+          return (
+            <div className="flex items-center justify-center py-12 text-[#A89B86] dark:text-[#B8A99A]">
+              <p>No data available for {nutrientLabel}. Try selecting a different nutrient.</p>
+            </div>
+          );
+        }
+        // Note: ScatterPlot needs actual scatter data points which require timeline endpoint
+        return (
+          <div className="rounded-lg bg-[#FDFBF7] p-6 dark:bg-[#3D3935]/50">
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <svg
+                  className="mx-auto h-12 w-12 text-[#A89B86] dark:text-[#B8A99A]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
+                  />
+                </svg>
+                <h3 className="mt-3 text-lg font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                  Scatter Plot - Coming Soon
+                </h3>
+                <p className="mt-1 text-sm text-[#A89B86] dark:text-[#B8A99A]">
+                  This chart requires daily timeline data. Use the Heatmap or Lag Correlation charts to explore available data.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "heatmap":
+        return (
+          <div className="rounded-lg bg-white p-4 dark:bg-[#363230]">
+            <CorrelationHeatmap
+              correlationData={correlationsData.results_by_lag}
+              onCellClick={(nutrientKey, lagHours) => {
+                console.log(`Clicked ${nutrientKey} at ${lagHours}h lag`);
+              }}
+            />
+          </div>
+        );
+
+      case "timeseries":
+        // TimeSeriesChart needs timeline API data
+        return (
+          <div className="rounded-lg bg-[#FDFBF7] p-6 dark:bg-[#3D3935]/50">
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <svg
+                  className="mx-auto h-12 w-12 text-[#A89B86] dark:text-[#B8A99A]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
+                  />
+                </svg>
+                <h3 className="mt-3 text-lg font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                  Time Series - Coming Soon
+                </h3>
+                <p className="mt-1 text-sm text-[#A89B86] dark:text-[#B8A99A]">
+                  This chart requires daily timeline data from the API. Check back soon!
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "boxplot":
+        // BoxPlot needs raw data points
+        return (
+          <div className="rounded-lg bg-[#FDFBF7] p-6 dark:bg-[#3D3935]/50">
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <svg
+                  className="mx-auto h-12 w-12 text-[#A89B86] dark:text-[#B8A99A]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+                <h3 className="mt-3 text-lg font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                  Box Plot - Coming Soon
+                </h3>
+                <p className="mt-1 text-sm text-[#A89B86] dark:text-[#B8A99A]">
+                  This chart requires detailed nutrient-Bristol pairing data. Check back soon!
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "calendar":
+        // CalendarHeatmap needs health notes data
+        return (
+          <div className="rounded-lg bg-[#FDFBF7] p-6 dark:bg-[#3D3935]/50">
+            <div className="flex items-center justify-center py-8">
+              <div className="text-center">
+                <svg
+                  className="mx-auto h-12 w-12 text-[#A89B86] dark:text-[#B8A99A]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                <h3 className="mt-3 text-lg font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                  Calendar Heatmap - Coming Soon
+                </h3>
+                <p className="mt-1 text-sm text-[#A89B86] dark:text-[#B8A99A]">
+                  This chart requires health notes data from the API. Check back soon!
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+
+      case "lagchart":
+        if (!matchingNutrientKey) {
+          return (
+            <div className="flex items-center justify-center py-12 text-[#A89B86] dark:text-[#B8A99A]">
+              <p>No data available for {nutrientLabel}. Try selecting a different nutrient.</p>
+            </div>
+          );
+        }
+        return (
+          <div className="rounded-lg bg-white p-4 dark:bg-[#363230]">
+            <LagCorrelationChart
+              nutrientKey={matchingNutrientKey}
+              nutrientName={nutrientLabel}
+              correlationsByLag={correlationsData.results_by_lag}
+            />
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Controls Card */}
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+        <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+          Visualization Controls
+        </h2>
+        <p className="mt-1 text-base text-[#A89B86] dark:text-[#B8A99A]">
+          Select a nutrient and chart type to explore your data visually.
+        </p>
+
+        <div className="mt-6 flex flex-wrap gap-6">
+          {/* Nutrient Selector */}
+          <div className="flex-1 min-w-[200px]">
+            <label
+              htmlFor="nutrient-select"
+              className="mb-2 block text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]"
+            >
+              Nutrient
+            </label>
+            <select
+              id="nutrient-select"
+              value={selectedNutrient}
+              onChange={(e) => setSelectedNutrient(e.target.value)}
+              className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-2.5 text-sm text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+            >
+              {Object.entries(groupedNutrientOptions).map(([category, nutrients]) => (
+                <optgroup key={category} label={category}>
+                  {nutrients.map((nutrient) => (
+                    <option key={nutrient.value} value={nutrient.value}>
+                      {nutrient.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          {/* Chart Type Selector */}
+          <div className="flex-1 min-w-[200px]">
+            <label
+              htmlFor="chart-type-select"
+              className="mb-2 block text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]"
+            >
+              Chart Type
+            </label>
+            <select
+              id="chart-type-select"
+              value={selectedChartType}
+              onChange={(e) => setSelectedChartType(e.target.value as ChartType)}
+              className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-2.5 text-sm text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+            >
+              {CHART_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Chart type descriptions */}
+        <div className="mt-4 rounded-lg bg-[#FDFBF7] p-3 dark:bg-[#3D3935]/50">
+          <p className="text-xs text-[#A89B86] dark:text-[#B8A99A]">
+            {selectedChartType === "scatter" && "Scatter Plot: Shows the relationship between nutrient intake and Bristol scores."}
+            {selectedChartType === "heatmap" && "Heatmap: Visualizes correlations across all nutrients and time lags."}
+            {selectedChartType === "timeseries" && "Time Series: Shows nutrient intake and Bristol scores over time."}
+            {selectedChartType === "boxplot" && "Box Plot: Shows Bristol score distribution across nutrient intake quartiles."}
+            {selectedChartType === "calendar" && "Calendar: GitHub-style heatmap of daily Bristol scores."}
+            {selectedChartType === "lagchart" && "Lag Chart: Shows how correlation changes across different time lags for a single nutrient."}
+          </p>
+        </div>
+      </div>
+
+      {/* Chart Display Card */}
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+        <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+          {CHART_TYPE_OPTIONS.find((o) => o.value === selectedChartType)?.label || "Chart"}
+          {selectedChartType !== "heatmap" && ` - ${nutrientLabel}`}
+        </h2>
+        <p className="mt-1 text-base text-[#A89B86] dark:text-[#B8A99A]">
+          Date range: {startDate} to {endDate}
+        </p>
+
+        <div className="mt-6">
+          {renderChart()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 // Main Insights Page
 // =============================================================================
 
 export default function InsightsPage() {
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabType>("analysis");
+
   const [startDate, setStartDate] = useState(() =>
     format(subDays(new Date(), 30), "yyyy-MM-dd")
   );
@@ -1404,83 +1882,150 @@ export default function InsightsPage() {
         </div>
       </div>
 
-      {/* Analysis Sections */}
-      <div className="space-y-6">
-        {/* Sync Status */}
-        <SyncStatusCard />
+      {/* Tab Navigation */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setActiveTab("analysis")}
+          className={`rounded-xl px-6 py-3 text-base font-medium transition-all duration-200 ${
+            activeTab === "analysis"
+              ? "bg-[#E8A0BF] text-white shadow-md"
+              : "border border-[#DEDDDB] bg-white text-[#4A4543] hover:bg-[#E8E5EB] dark:border-[#3D3935] dark:bg-[#363230] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+              />
+            </svg>
+            Analysis
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab("visualizations")}
+          className={`rounded-xl px-6 py-3 text-base font-medium transition-all duration-200 ${
+            activeTab === "visualizations"
+              ? "bg-[#E8A0BF] text-white shadow-md"
+              : "border border-[#DEDDDB] bg-white text-[#4A4543] hover:bg-[#E8E5EB] dark:border-[#3D3935] dark:bg-[#363230] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+              />
+            </svg>
+            Visualizations
+          </span>
+        </button>
+      </div>
 
-        {/* Correlation Analysis */}
-        <CorrelationAnalysisCard
-          startDate={startDate}
-          endDate={endDate}
-          timeLags={timeLags}
-          setTimeLags={setTimeLags}
-          analysisLevel={analysisLevel}
-          setAnalysisLevel={setAnalysisLevel}
-          minSampleSize={minSampleSize}
-          setMinSampleSize={setMinSampleSize}
-          isCredentialsLoading={isCredentialsLoading}
-          hasCredentials={hasCredentials}
-          correlationsData={correlationsQuery.data}
-          isCorrelationsLoading={correlationsQuery.isFetching}
-          correlationsError={correlationsQuery.error}
-          onRunAnalysis={handleRunAnalysis}
-        />
+      {/* Tab Content */}
+      {activeTab === "analysis" && (
+        <div className="space-y-6">
+          {/* Sync Status */}
+          <SyncStatusCard />
 
-        {/* Key Insights - show when analysis has run successfully */}
-        {correlationsQuery.data && !correlationsQuery.isFetching && (
-          <KeyInsightsCard data={correlationsQuery.data} />
-        )}
-
-        {/* Consistent Findings - show when analysis has results */}
-        {correlationsQuery.data && !correlationsQuery.isFetching && (
-          <ConsistentFindingsCard
-            consistentCorrelations={correlationsQuery.data.consistent_correlations}
+          {/* Correlation Analysis */}
+          <CorrelationAnalysisCard
+            startDate={startDate}
+            endDate={endDate}
+            timeLags={timeLags}
+            setTimeLags={setTimeLags}
+            analysisLevel={analysisLevel}
+            setAnalysisLevel={setAnalysisLevel}
+            minSampleSize={minSampleSize}
+            setMinSampleSize={setMinSampleSize}
+            isCredentialsLoading={isCredentialsLoading}
+            hasCredentials={hasCredentials}
+            correlationsData={correlationsQuery.data}
+            isCorrelationsLoading={correlationsQuery.isFetching}
+            correlationsError={correlationsQuery.error}
+            onRunAnalysis={handleRunAnalysis}
           />
-        )}
 
-        {/* Correlation Results Table - show when analysis has results */}
-        {correlationsQuery.data &&
-          !correlationsQuery.isFetching &&
-          Object.keys(correlationsQuery.data.results_by_lag).length > 0 && (
-            <CorrelationResultsTable data={correlationsQuery.data} />
+          {/* Key Insights - show when analysis has run successfully */}
+          {correlationsQuery.data && !correlationsQuery.isFetching && (
+            <KeyInsightsCard data={correlationsQuery.data} />
           )}
 
-        {/* Insufficient Data - show when there's an insufficient data error */}
-        {correlationsQuery.error &&
-          !correlationsQuery.isFetching &&
-          correlationsQuery.error.message
-            ?.toLowerCase()
-            .includes("insufficient") && <InsufficientDataCard />}
+          {/* Consistent Findings - show when analysis has results */}
+          {correlationsQuery.data && !correlationsQuery.isFetching && (
+            <ConsistentFindingsCard
+              consistentCorrelations={correlationsQuery.data.consistent_correlations}
+            />
+          )}
 
-        {/* Empty state - show when analysis hasn't run yet */}
-        {!analysisEnabled && !correlationsQuery.data && (
-          <PlaceholderCard
-            title="Key Insights"
-            description="Run analysis to discover nutrition patterns"
-            icon={
-              <svg
-                className="h-6 w-6 text-[#A8D5BA]"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                />
-              </svg>
-            }
-            iconBgClass="bg-[#E8F5E9] dark:bg-[#A8D5BA]/20"
-          />
-        )}
+          {/* Correlation Results Table - show when analysis has results */}
+          {correlationsQuery.data &&
+            !correlationsQuery.isFetching &&
+            Object.keys(correlationsQuery.data.results_by_lag).length > 0 && (
+              <CorrelationResultsTable data={correlationsQuery.data} />
+            )}
 
-        {/* Help Reference - always visible */}
-        <BristolScaleReference />
-      </div>
+          {/* Insufficient Data - show when there's an insufficient data error */}
+          {correlationsQuery.error &&
+            !correlationsQuery.isFetching &&
+            correlationsQuery.error.message
+              ?.toLowerCase()
+              .includes("insufficient") && <InsufficientDataCard />}
+
+          {/* Empty state - show when analysis hasn't run yet */}
+          {!analysisEnabled && !correlationsQuery.data && (
+            <PlaceholderCard
+              title="Key Insights"
+              description="Run analysis to discover nutrition patterns"
+              icon={
+                <svg
+                  className="h-6 w-6 text-[#A8D5BA]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                  />
+                </svg>
+              }
+              iconBgClass="bg-[#E8F5E9] dark:bg-[#A8D5BA]/20"
+            />
+          )}
+
+          {/* Help Reference - always visible */}
+          <BristolScaleReference />
+        </div>
+      )}
+
+      {activeTab === "visualizations" && (
+        <VisualizationsTab
+          correlationsData={correlationsQuery.data}
+          isLoading={correlationsQuery.isFetching}
+          startDate={startDate}
+          endDate={endDate}
+        />
+      )}
     </div>
   );
 }
