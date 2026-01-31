@@ -402,7 +402,176 @@ Started: Fri Jan 30 18:46:58 EST 2026
   - Match label text-base size with other sections for consistency
 ---
 
-## FEATURE COMPLETE: Cronometer Integration
+## 2026-01-31 - US-027: Create Insights page layout and navigation
+- **Subagents used**:
+  - architect: Analyzed dashboard layout patterns, navItems structure, date range picker options
+  - specialist: frontend - created page and navigation
+  - simplifier: Not needed
+  - reviewer: Skipped - straightforward implementation
+- **What was implemented**:
+  - New Insights page at frontend/src/app/(dashboard)/insights/page.tsx
+  - Page title "Nutrition Insights"
+  - Date range picker with From/To date inputs defaulting to last 30 days
+  - Three placeholder sections: Sync Status, Key Insights, Correlation Analysis
+  - PlaceholderCard reusable component for consistent styling
+  - Added to sidebar navigation between Analytics and Schedule
+- **Files changed**:
+  - frontend/src/app/(dashboard)/layout.tsx (added Insights nav item)
+  - frontend/src/app/(dashboard)/insights/page.tsx (new)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Use date-fns format() and subDays() for default date calculations
+  - PlaceholderCard pattern is useful for MVP placeholder sections
+---
+
+## 2026-01-31 - US-028: Add sync status and trigger to Insights page
+- **Subagents used**:
+  - architect: Skipped - patterns already known from US-027
+  - specialist: frontend - implemented SyncStatusCard component
+  - simplifier: Not needed
+  - reviewer: Skipped
+- **What was implemented**:
+  - SyncStatusCard component with three states: loading, not connected, connected
+  - Connection status indicator (Connected/Not Connected)
+  - Last sync timestamp using formatDistanceToNow (e.g., "2 hours ago")
+  - Days selector dropdown with options: 7, 14, 30, 60, 90
+  - Sync Now button with loading spinner during sync
+  - Success message showing sync counts (food logs, biometrics, notes)
+  - Error handling with user-friendly messages
+  - Not connected state with link to Settings page
+- **Files changed**:
+  - frontend/src/app/(dashboard)/insights/page.tsx (replaced Sync Status placeholder)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Use formatDistanceToNow from date-fns for relative timestamps
+  - Import SyncResponse type for typing mutation results
+---
+
+## 2026-01-31 - US-029: Create correlation analysis controls
+- **Subagents used**:
+  - architect: Skipped - patterns already known
+  - specialist: frontend - implemented CorrelationAnalysisCard component
+  - simplifier: Not needed
+  - reviewer: Skipped
+- **What was implemented**:
+  - CorrelationAnalysisCard component with analysis controls
+  - Time lag multi-select checkboxes (12h, 24h, 36h, 48h, 72h - default: 24h, 48h)
+  - Analysis level dropdown (basic, standard, comprehensive - default: standard)
+  - Min sample size input (default 5, range 3-20)
+  - Run Analysis button with proper disabled states
+  - Loading state while fetching
+  - Validation messages for missing credentials, no time lags, invalid date range
+  - Results summary showing food logs, BMs, baseline Bristol, consistent correlations
+  - Updated useCorrelationsQuery to accept enabled parameter
+- **Files changed**:
+  - frontend/src/app/(dashboard)/insights/page.tsx (replaced Correlation Analysis placeholder)
+  - frontend/src/lib/api/cronometer.ts (added enabled option to useCorrelationsQuery)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Use enabled parameter in React Query to control when queries run
+  - TIME_LAG_OPTIONS constant for reusable option definitions
+---
+
+## 2026-01-31 - US-030: Display correlation insights summary
+- **Subagents used**:
+  - architect: Skipped - patterns already known
+  - specialist: frontend - implemented KeyInsightsCard component
+  - simplifier: Not needed
+  - reviewer: Skipped
+- **What was implemented**:
+  - KeyInsightsCard component displaying:
+    - Baseline Bristol score with color-coded indicator (green 3-5, yellow 2/6, red 1/7)
+    - Food logs count and BM samples count in stats grid
+    - All insights as bullet points with checkmark icons
+  - InsufficientDataCard for error state when not enough data
+  - Empty state PlaceholderCard when analysis hasn't run yet
+  - Moved results display from CorrelationAnalysisCard to KeyInsightsCard
+  - getBristolColor helper function for color coding
+- **Files changed**:
+  - frontend/src/app/(dashboard)/insights/page.tsx (added KeyInsightsCard, InsufficientDataCard)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Use color-coded indicators to convey severity/health status at a glance
+  - Separate state components (empty, error, data) for clean conditional rendering
+---
+
+## 2026-01-31 - US-031: Display correlation results table
+- **Subagents used**:
+  - architect: Skipped - patterns already known
+  - specialist: frontend - implemented CorrelationResultsTable component
+  - simplifier: Not needed
+  - reviewer: Skipped
+- **What was implemented**:
+  - CorrelationResultsTable component with sortable columns:
+    - Nutrient, Correlation, P-Value, Significant, High Intake Bristol, Low Intake Bristol
+  - Time lag tabs to switch between available windows (12h, 24h, 36h, 48h, 72h)
+  - Color-coded correlations (green positive, red negative, gray weak)
+  - Significance checkmark badges
+  - Bristol trend arrows (up/down based on high vs low intake difference)
+  - Sorting by column headers with direction toggle
+  - Default sort by |correlation| descending
+  - Alternating row backgrounds for readability
+- **Files changed**:
+  - frontend/src/app/(dashboard)/insights/page.tsx (added CorrelationResultsTable)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Use useMemo for sorting computed arrays
+  - Sort by absolute value for correlation to show strongest relationships
+---
+
+## 2026-01-31 - US-032: Display consistent correlations highlight
+- **Subagents used**:
+  - architect: Skipped - patterns already known
+  - specialist: frontend - implemented ConsistentFindingsCard component
+  - simplifier: Not needed
+  - reviewer: Skipped
+- **What was implemented**:
+  - ConsistentFindingsCard component showing nutrients significant in 2+ time windows
+  - Direction-styled cards (green positive, red negative, yellow mixed)
+  - Direction icons (up/down/horizontal arrows)
+  - Average correlation and windows count display
+  - Tooltip explaining what "consistent" means
+  - Empty state with helpful suggestions when no consistent correlations
+  - Positioned between KeyInsightsCard and CorrelationResultsTable
+- **Files changed**:
+  - frontend/src/app/(dashboard)/insights/page.tsx (added ConsistentFindingsCard)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Use hover tooltip state for inline explanations
+  - Color-code direction to match correlation meaning
+---
+
+## 2026-01-31 - US-033: Add Bristol scale reference and help
+- **Subagents used**:
+  - architect: Skipped - patterns already known
+  - specialist: frontend - implemented BristolScaleReference and TableHeaderTooltip
+  - simplifier: Not needed
+  - reviewer: Skipped
+- **What was implemented**:
+  - BristolScaleReference collapsible card with:
+    - Types 1-7 with color-coded circles (red constipation, green ideal, orange diarrhea)
+    - Understanding Correlations section (positive vs negative)
+    - Statistical Terms section (Correlation Coefficient, P-Value)
+  - TableHeaderTooltip component for inline help
+  - Added tooltips to Correlation and P-Value column headers
+  - Collapsed by default to not clutter UI
+- **Files changed**:
+  - frontend/src/app/(dashboard)/insights/page.tsx (added BristolScaleReference, TableHeaderTooltip)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Use collapsible sections for reference content to reduce visual clutter
+  - Color-coding enhances understanding of scale values
+---
+
+## FEATURE COMPLETE: Cronometer Integration (ALL 33 USER STORIES)
+All 33 user stories completed:
+- US-001 to US-007: Models, migrations, encryption utilities
+- US-008 to US-012: CronometerSyncService with food/biometric/health notes
+- US-013 to US-016: Cronometer API endpoints (credentials, sync, food-logs, health-notes)
+- US-017 to US-020: InsightsService for correlation analysis
+- US-021 to US-025: Correlations API, Pydantic schemas, unit tests, React Query hooks
+- US-026 to US-033: Frontend Insights page with all components
+
 All 24 backend user stories completed:
 - US-001 to US-007: Models, migrations, encryption utilities
 - US-008 to US-012: CronometerSyncService with food/biometric/health notes

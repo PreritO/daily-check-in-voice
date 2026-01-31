@@ -156,9 +156,12 @@ class CronometerSyncService:
             # Generate hash from raw_data
             cronometer_hash = self._generate_hash(serving.raw_data)
 
-            # Skip if already exists
+            # Skip if already exists (in DB or current batch)
             if cronometer_hash in existing_hashes:
                 continue
+
+            # Track this hash to avoid duplicates within the same batch
+            existing_hashes.add(cronometer_hash)
 
             food_log = FoodLog(
                 user_id=user_id,
@@ -184,10 +187,21 @@ class CronometerSyncService:
 
         return new_logs
 
+    # High-frequency Apple Health metrics to skip (too granular for our use case)
+    SKIPPED_BIOMETRIC_TYPES = frozenset({
+        "Heart Rate (Apple Health)",
+        "Resting Heart Rate (Apple Health)",
+        "Walking Heart Rate Average (Apple Health)",
+        "Heart Rate Variability (Apple Health)",
+    })
+
     async def _upsert_biometric_logs(
         self, user_id: UUID, entries: list[BiometricEntry]
     ) -> list[BiometricLog]:
         """Upsert biometric log entries from Cronometer.
+
+        Filters out high-frequency Apple Health metrics (heart rate) that are
+        captured every minute, as they add noise without actionable insights.
 
         Args:
             user_id: The user's ID.
@@ -204,12 +218,19 @@ class CronometerSyncService:
 
         new_logs: list[BiometricLog] = []
         for entry in entries:
+            # Skip high-frequency Apple Health metrics
+            if entry.metric in self.SKIPPED_BIOMETRIC_TYPES:
+                continue
+
             # Generate hash from raw_data
             cronometer_hash = self._generate_hash(entry.raw_data)
 
-            # Skip if already exists
+            # Skip if already exists (in DB or current batch)
             if cronometer_hash in existing_hashes:
                 continue
+
+            # Track this hash to avoid duplicates within the same batch
+            existing_hashes.add(cronometer_hash)
 
             biometric_log = BiometricLog(
                 user_id=user_id,
@@ -249,9 +270,12 @@ class CronometerSyncService:
             # Generate hash from raw_data
             cronometer_hash = self._generate_hash(note.raw_data)
 
-            # Skip if already exists
+            # Skip if already exists (in DB or current batch)
             if cronometer_hash in existing_hashes:
                 continue
+
+            # Track this hash to avoid duplicates within the same batch
+            existing_hashes.add(cronometer_hash)
 
             # Parse bowel movement info from content
             is_bm, bristol_scale, quantity_score = self._parse_bowel_movement(note.content)

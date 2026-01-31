@@ -411,7 +411,7 @@
         "npm run build passes"
       ],
       "priority": 27,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-028",
@@ -428,7 +428,7 @@
         "npm run build passes"
       ],
       "priority": 28,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-029",
@@ -444,7 +444,7 @@
         "npm run build passes"
       ],
       "priority": 29,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-030",
@@ -460,7 +460,7 @@
         "npm run build passes"
       ],
       "priority": 30,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-031",
@@ -476,7 +476,7 @@
         "npm run build passes"
       ],
       "priority": 31,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-032",
@@ -492,7 +492,7 @@
         "npm run build passes"
       ],
       "priority": 32,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-033",
@@ -508,7 +508,7 @@
         "npm run build passes"
       ],
       "priority": 33,
-      "passes": false
+      "passes": true
     }
   ]
 }
