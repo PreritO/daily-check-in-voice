@@ -12,3 +12,8 @@ export type {
 } from "./TimeSeriesChart";
 export { BoxPlot } from "./BoxPlot";
 export type { BoxPlotDataPoint, BoxPlotProps } from "./BoxPlot";
+export { CalendarHeatmap } from "./CalendarHeatmap";
+export type {
+  HealthNoteData,
+  CalendarHeatmapProps,
+} from "./CalendarHeatmap";
