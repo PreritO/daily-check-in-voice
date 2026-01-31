@@ -7,12 +7,20 @@ import {
   useCronometerStatusQuery,
   useSyncCronometerMutation,
   useCorrelationsQuery,
+  useInterventionsQuery,
+  useCreateInterventionMutation,
+  useUpdateInterventionMutation,
+  useDeleteInterventionMutation,
+  useInterventionQuery,
   SyncResponse,
   TimeLag,
   AnalysisLevel,
   MultiLagCorrelationResponse,
   CorrelationResult,
   ConsistentCorrelation,
+  Intervention,
+  InterventionStatus,
+  InterventionWithAnalysis,
 } from "@/lib/api/cronometer";
 // Chart components - some are used, others are prepared for future use
 import {
@@ -28,7 +36,7 @@ import {
 // Tab Types
 // =============================================================================
 
-type TabType = "analysis" | "visualizations";
+type TabType = "analysis" | "visualizations" | "experiments";
 type ChartType = "scatter" | "heatmap" | "timeseries" | "boxplot" | "calendar" | "lagchart";
 
 // =============================================================================
@@ -1785,6 +1793,575 @@ function VisualizationsTab({
 }
 
 // =============================================================================
+// Experiments Tab Component
+// =============================================================================
+
+interface ExperimentsTabProps {
+  startDate: string;
+  endDate: string;
+}
+
+function ExperimentsTab({ startDate, endDate }: ExperimentsTabProps) {
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedInterventionId, setSelectedInterventionId] = useState<string | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<InterventionStatus | "all">("all");
+
+  // Form state for creating/editing interventions
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    hypothesis: "",
+    nutrient_key: "",
+    target_value: "",
+    start_date: format(new Date(), "yyyy-MM-dd"),
+    end_date: "",
+  });
+
+  // Queries and mutations
+  const { data: interventions, isLoading } = useInterventionsQuery(
+    statusFilter === "all" ? undefined : statusFilter
+  );
+  const { data: selectedIntervention, isLoading: isDetailLoading } = useInterventionQuery(
+    selectedInterventionId || "",
+    !!selectedInterventionId && showDetailModal
+  );
+  const createMutation = useCreateInterventionMutation();
+  const updateMutation = useUpdateInterventionMutation();
+  const deleteMutation = useDeleteInterventionMutation();
+
+  // Status badge colors
+  const getStatusColor = (status: InterventionStatus) => {
+    switch (status) {
+      case "planned":
+        return "bg-[#FEF3C7] text-[#92400E] dark:bg-[#FCD34D]/20 dark:text-[#FCD34D]";
+      case "active":
+        return "bg-[#DBEAFE] text-[#1E40AF] dark:bg-[#60A5FA]/20 dark:text-[#60A5FA]";
+      case "completed":
+        return "bg-[#E8F5E9] text-[#2E7D32] dark:bg-[#A8D5BA]/20 dark:text-[#A8D5BA]";
+      case "cancelled":
+        return "bg-[#FFEBEE] text-[#C62828] dark:bg-[#F5A9A9]/20 dark:text-[#F5A9A9]";
+      default:
+        return "bg-[#F5F3F0] text-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0]";
+    }
+  };
+
+  // Handle form submission
+  const handleCreateIntervention = async () => {
+    try {
+      await createMutation.mutateAsync({
+        title: formData.title,
+        description: formData.description || null,
+        hypothesis: formData.hypothesis || null,
+        nutrient_key: formData.nutrient_key || null,
+        target_value: formData.target_value ? parseFloat(formData.target_value) : null,
+        start_date: formData.start_date,
+        end_date: formData.end_date || null,
+        status: "planned",
+      });
+      setShowCreateModal(false);
+      setFormData({
+        title: "",
+        description: "",
+        hypothesis: "",
+        nutrient_key: "",
+        target_value: "",
+        start_date: format(new Date(), "yyyy-MM-dd"),
+        end_date: "",
+      });
+    } catch {
+      // Error handled by mutation state
+    }
+  };
+
+  // Handle status update
+  const handleUpdateStatus = async (id: string, status: InterventionStatus) => {
+    try {
+      await updateMutation.mutateAsync({
+        id,
+        data: {
+          status,
+          end_date: status === "completed" || status === "cancelled"
+            ? format(new Date(), "yyyy-MM-dd")
+            : undefined,
+        },
+      });
+    } catch {
+      // Error handled by mutation state
+    }
+  };
+
+  // Handle delete
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this experiment?")) return;
+    try {
+      await deleteMutation.mutateAsync(id);
+      if (selectedInterventionId === id) {
+        setShowDetailModal(false);
+        setSelectedInterventionId(null);
+      }
+    } catch {
+      // Error handled by mutation state
+    }
+  };
+
+  // View intervention details
+  const handleViewDetails = (id: string) => {
+    setSelectedInterventionId(id);
+    setShowDetailModal(true);
+  };
+
+  // Get Bristol color
+  const getBristolColor = (score: number | null) => {
+    if (score === null) return "text-[#A89B86]";
+    if (score >= 3 && score <= 5) return "text-[#2E7D32] dark:text-[#A8D5BA]";
+    if (score === 2 || score === 6) return "text-[#F59E0B]";
+    return "text-[#C62828] dark:text-[#F5A9A9]";
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Create Button */}
+      <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+              Dietary Experiments
+            </h2>
+            <p className="mt-1 text-base text-[#A89B86] dark:text-[#B8A99A]">
+              Track dietary changes and measure their impact on your digestion.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#E8A0BF] px-6 py-3 text-base font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#D890AF] hover:shadow-md"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            New Experiment
+          </button>
+        </div>
+
+        {/* Status Filter */}
+        <div className="mt-4 flex gap-2">
+          {(["all", "active", "planned", "completed", "cancelled"] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={`rounded-lg px-4 py-2 text-sm font-medium capitalize transition-colors ${
+                statusFilter === status
+                  ? "bg-[#E8A0BF] text-white"
+                  : "border border-[#DEDDDB] text-[#4A4543] hover:bg-[#E8E5EB] dark:border-[#3D3935] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
+              }`}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+          <div className="flex items-center justify-center py-12">
+            <svg className="h-8 w-8 animate-spin text-[#E8A0BF]" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <span className="ml-3 text-[#4A4543] dark:text-[#F5F3F0]">Loading experiments...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && (!interventions || interventions.length === 0) && (
+        <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#F9E4EC] dark:bg-[#E8A0BF]/20">
+              <svg className="h-8 w-8 text-[#E8A0BF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+              </svg>
+            </div>
+            <h3 className="mt-4 font-serif text-lg font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+              No experiments yet
+            </h3>
+            <p className="mt-2 text-center text-[#A89B86] dark:text-[#B8A99A]">
+              Start a dietary experiment to track how specific changes affect your digestion.
+            </p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#E8A0BF] px-6 py-3 text-base font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#D890AF]"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Create Your First Experiment
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Interventions List */}
+      {!isLoading && interventions && interventions.length > 0 && (
+        <div className="space-y-4">
+          {interventions.map((intervention) => (
+            <div
+              key={intervention.id}
+              className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-serif text-lg font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+                      {intervention.title}
+                    </h3>
+                    <span className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${getStatusColor(intervention.status)}`}>
+                      {intervention.status}
+                    </span>
+                  </div>
+                  {intervention.hypothesis && (
+                    <p className="mt-2 text-sm text-[#A89B86] dark:text-[#B8A99A]">
+                      <strong>Hypothesis:</strong> {intervention.hypothesis}
+                    </p>
+                  )}
+                  {intervention.description && (
+                    <p className="mt-1 text-sm text-[#4A4543] dark:text-[#F5F3F0]">
+                      {intervention.description}
+                    </p>
+                  )}
+                  <div className="mt-3 flex items-center gap-4 text-sm text-[#A89B86] dark:text-[#B8A99A]">
+                    <span>Started: {format(new Date(intervention.start_date), "MMM d, yyyy")}</span>
+                    {intervention.end_date && (
+                      <span>Ended: {format(new Date(intervention.end_date), "MMM d, yyyy")}</span>
+                    )}
+                    {intervention.nutrient_key && (
+                      <span className="rounded-lg bg-[#F5F3F0] px-2 py-1 dark:bg-[#3D3935]">
+                        {intervention.nutrient_key}
+                        {intervention.target_value && `: ${intervention.target_value}`}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleViewDetails(intervention.id)}
+                    className="rounded-lg p-2 text-[#A89B86] hover:bg-[#F5F3F0] dark:text-[#B8A99A] dark:hover:bg-[#3D3935]"
+                    title="View details"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </button>
+                  {intervention.status === "planned" && (
+                    <button
+                      onClick={() => handleUpdateStatus(intervention.id, "active")}
+                      className="rounded-lg bg-[#DBEAFE] px-3 py-1 text-sm font-medium text-[#1E40AF] hover:bg-[#BFDBFE] dark:bg-[#60A5FA]/20 dark:text-[#60A5FA]"
+                    >
+                      Start
+                    </button>
+                  )}
+                  {intervention.status === "active" && (
+                    <button
+                      onClick={() => handleUpdateStatus(intervention.id, "completed")}
+                      className="rounded-lg bg-[#E8F5E9] px-3 py-1 text-sm font-medium text-[#2E7D32] hover:bg-[#C8E6C9] dark:bg-[#A8D5BA]/20 dark:text-[#A8D5BA]"
+                    >
+                      Complete
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDelete(intervention.id)}
+                    className="rounded-lg p-2 text-[#C62828] hover:bg-[#FFEBEE] dark:text-[#F5A9A9] dark:hover:bg-[#F5A9A9]/20"
+                    title="Delete"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Create Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-[#363230]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-experiment-title"
+          >
+            <h2 id="create-experiment-title" className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+              New Dietary Experiment
+            </h2>
+            <p className="mt-1 text-sm text-[#A89B86] dark:text-[#B8A99A]">
+              Track a dietary change and measure its impact on your digestion.
+            </p>
+
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-2.5 text-sm text-[#4A4543] shadow-sm focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+                  placeholder="e.g., Increase fiber intake to 35g daily"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                  Hypothesis
+                </label>
+                <textarea
+                  value={formData.hypothesis}
+                  onChange={(e) => setFormData({ ...formData, hypothesis: e.target.value })}
+                  rows={2}
+                  className="mt-1 w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-2.5 text-sm text-[#4A4543] shadow-sm focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+                  placeholder="What do you expect to happen? e.g., 'More fiber will improve Bristol scores'"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={2}
+                  className="mt-1 w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-2.5 text-sm text-[#4A4543] shadow-sm focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+                  placeholder="Additional details about your experiment"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                    Nutrient (optional)
+                  </label>
+                  <select
+                    value={formData.nutrient_key}
+                    onChange={(e) => setFormData({ ...formData, nutrient_key: e.target.value })}
+                    className="mt-1 w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-2.5 text-sm text-[#4A4543] shadow-sm focus:border-[#E8A0BF] focus:outline-none dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+                  >
+                    <option value="">Select nutrient</option>
+                    {Object.entries(groupedNutrientOptions).map(([category, nutrients]) => (
+                      <optgroup key={category} label={category}>
+                        {nutrients.map((n) => (
+                          <option key={n.value} value={n.value}>{n.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                    Target Value
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.target_value}
+                    onChange={(e) => setFormData({ ...formData, target_value: e.target.value })}
+                    className="mt-1 w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-2.5 text-sm text-[#4A4543] shadow-sm focus:border-[#E8A0BF] focus:outline-none dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+                    placeholder="e.g., 35"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                    Start Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.start_date}
+                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    className="mt-1 w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-2.5 text-sm text-[#4A4543] shadow-sm focus:border-[#E8A0BF] focus:outline-none dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                    Planned End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.end_date}
+                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    className="mt-1 w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-2.5 text-sm text-[#4A4543] shadow-sm focus:border-[#E8A0BF] focus:outline-none dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="rounded-xl border border-[#DEDDDB] px-6 py-2.5 text-sm font-medium text-[#4A4543] hover:bg-[#F5F3F0] dark:border-[#3D3935] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateIntervention}
+                disabled={!formData.title || !formData.start_date || createMutation.isPending}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#E8A0BF] px-6 py-2.5 text-sm font-medium text-white hover:bg-[#D890AF] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {createMutation.isPending && (
+                  <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                )}
+                Create Experiment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {showDetailModal && selectedIntervention && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl dark:bg-[#363230]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="detail-experiment-title"
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 id="detail-experiment-title" className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+                  {selectedIntervention.title}
+                </h2>
+                <span className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-medium capitalize ${getStatusColor(selectedIntervention.status)}`}>
+                  {selectedIntervention.status}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDetailModal(false);
+                  setSelectedInterventionId(null);
+                }}
+                className="rounded-lg p-2 text-[#A89B86] hover:bg-[#F5F3F0] dark:hover:bg-[#3D3935]"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              {selectedIntervention.hypothesis && (
+                <div>
+                  <h4 className="text-sm font-medium text-[#A89B86] dark:text-[#B8A99A]">Hypothesis</h4>
+                  <p className="mt-1 text-sm text-[#4A4543] dark:text-[#F5F3F0]">{selectedIntervention.hypothesis}</p>
+                </div>
+              )}
+
+              {selectedIntervention.description && (
+                <div>
+                  <h4 className="text-sm font-medium text-[#A89B86] dark:text-[#B8A99A]">Description</h4>
+                  <p className="mt-1 text-sm text-[#4A4543] dark:text-[#F5F3F0]">{selectedIntervention.description}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <h4 className="font-medium text-[#A89B86] dark:text-[#B8A99A]">Start Date</h4>
+                  <p className="text-[#4A4543] dark:text-[#F5F3F0]">{format(new Date(selectedIntervention.start_date), "MMMM d, yyyy")}</p>
+                </div>
+                {selectedIntervention.end_date && (
+                  <div>
+                    <h4 className="font-medium text-[#A89B86] dark:text-[#B8A99A]">End Date</h4>
+                    <p className="text-[#4A4543] dark:text-[#F5F3F0]">{format(new Date(selectedIntervention.end_date), "MMMM d, yyyy")}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Bristol Comparison */}
+              {selectedIntervention.status === "completed" && (
+                <div className="rounded-xl border border-[#DEDDDB] p-4 dark:border-[#3D3935]">
+                  <h4 className="font-medium text-[#4A4543] dark:text-[#F5F3F0]">Bristol Comparison</h4>
+                  <p className="mt-1 text-xs text-[#A89B86] dark:text-[#B8A99A]">
+                    Comparing Bristol scores before vs during the experiment
+                  </p>
+
+                  <div className="mt-4 grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-xs text-[#A89B86] dark:text-[#B8A99A]">Before</p>
+                      <p className={`mt-1 text-2xl font-bold ${getBristolColor(selectedIntervention.avg_bristol_before)}`}>
+                        {selectedIntervention.avg_bristol_before?.toFixed(1) || "-"}
+                      </p>
+                      <p className="text-xs text-[#A89B86] dark:text-[#B8A99A]">
+                        {selectedIntervention.days_before_analyzed} days
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-center justify-center">
+                      {selectedIntervention.bristol_difference !== null && (
+                        <>
+                          <svg
+                            className={`h-6 w-6 ${selectedIntervention.bristol_difference > 0 ? "text-[#2E7D32]" : selectedIntervention.bristol_difference < 0 ? "text-[#C62828]" : "text-[#A89B86]"}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                          </svg>
+                          <span className={`mt-1 text-sm font-medium ${selectedIntervention.bristol_difference > 0 ? "text-[#2E7D32]" : selectedIntervention.bristol_difference < 0 ? "text-[#C62828]" : "text-[#A89B86]"}`}>
+                            {selectedIntervention.bristol_difference > 0 ? "+" : ""}
+                            {selectedIntervention.bristol_difference.toFixed(1)}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs text-[#A89B86] dark:text-[#B8A99A]">During</p>
+                      <p className={`mt-1 text-2xl font-bold ${getBristolColor(selectedIntervention.avg_bristol_during)}`}>
+                        {selectedIntervention.avg_bristol_during?.toFixed(1) || "-"}
+                      </p>
+                      <p className="text-xs text-[#A89B86] dark:text-[#B8A99A]">
+                        {selectedIntervention.days_during_analyzed} days
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedIntervention.outcome_notes && (
+                <div>
+                  <h4 className="text-sm font-medium text-[#A89B86] dark:text-[#B8A99A]">Outcome Notes</h4>
+                  <p className="mt-1 text-sm text-[#4A4543] dark:text-[#F5F3F0]">{selectedIntervention.outcome_notes}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowDetailModal(false);
+                  setSelectedInterventionId(null);
+                }}
+                className="rounded-xl border border-[#DEDDDB] px-6 py-2.5 text-sm font-medium text-[#4A4543] hover:bg-[#F5F3F0] dark:border-[#3D3935] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
 // Main Insights Page
 // =============================================================================
 
@@ -1936,6 +2513,32 @@ export default function InsightsPage() {
             Visualizations
           </span>
         </button>
+        <button
+          onClick={() => setActiveTab("experiments")}
+          className={`rounded-xl px-6 py-3 text-base font-medium transition-all duration-200 ${
+            activeTab === "experiments"
+              ? "bg-[#E8A0BF] text-white shadow-md"
+              : "border border-[#DEDDDB] bg-white text-[#4A4543] hover:bg-[#E8E5EB] dark:border-[#3D3935] dark:bg-[#363230] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+              />
+            </svg>
+            Experiments
+          </span>
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -2025,6 +2628,10 @@ export default function InsightsPage() {
           startDate={startDate}
           endDate={endDate}
         />
+      )}
+
+      {activeTab === "experiments" && (
+        <ExperimentsTab startDate={startDate} endDate={endDate} />
       )}
     </div>
   );

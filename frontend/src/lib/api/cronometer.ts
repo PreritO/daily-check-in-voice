@@ -263,3 +263,155 @@ export function useCorrelationsQuery(params: CorrelationsParams, enabled: boolea
     enabled: enabled && !!params.startDate && !!params.endDate,
   });
 }
+
+// =============================================================================
+// Intervention Types
+// =============================================================================
+
+export type InterventionStatus = "planned" | "active" | "completed" | "cancelled";
+
+export interface Intervention {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  hypothesis: string | null;
+  nutrient_key: string | null;
+  target_value: number | null;
+  start_date: string;
+  end_date: string | null;
+  status: InterventionStatus;
+  outcome_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InterventionWithAnalysis extends Intervention {
+  avg_bristol_before: number | null;
+  avg_bristol_during: number | null;
+  bristol_difference: number | null;
+  days_before_analyzed: number;
+  days_during_analyzed: number;
+}
+
+export interface InterventionCreate {
+  title: string;
+  description?: string | null;
+  hypothesis?: string | null;
+  nutrient_key?: string | null;
+  target_value?: number | null;
+  start_date: string;
+  end_date?: string | null;
+  status?: InterventionStatus;
+}
+
+export interface InterventionUpdate {
+  title?: string;
+  description?: string | null;
+  hypothesis?: string | null;
+  nutrient_key?: string | null;
+  target_value?: number | null;
+  end_date?: string | null;
+  status?: InterventionStatus;
+  outcome_notes?: string | null;
+}
+
+// =============================================================================
+// Intervention Query Keys
+// =============================================================================
+
+export const interventionKeys = {
+  all: ["interventions"] as const,
+  lists: () => [...interventionKeys.all, "list"] as const,
+  list: (status?: InterventionStatus) => [...interventionKeys.lists(), { status }] as const,
+  details: () => [...interventionKeys.all, "detail"] as const,
+  detail: (id: string) => [...interventionKeys.details(), id] as const,
+};
+
+// =============================================================================
+// Intervention API Functions
+// =============================================================================
+
+async function getInterventions(status?: InterventionStatus): Promise<Intervention[]> {
+  const params = new URLSearchParams();
+  if (status) {
+    params.append("status", status);
+  }
+  const queryString = params.toString();
+  const url = queryString ? `/interventions?${queryString}` : "/interventions";
+  const response = await apiClient.get(url);
+  return response.data;
+}
+
+async function getIntervention(id: string): Promise<InterventionWithAnalysis> {
+  const response = await apiClient.get(`/interventions/${id}`);
+  return response.data;
+}
+
+async function createIntervention(data: InterventionCreate): Promise<Intervention> {
+  const response = await apiClient.post("/interventions", data);
+  return response.data;
+}
+
+async function updateIntervention(id: string, data: InterventionUpdate): Promise<Intervention> {
+  const response = await apiClient.patch(`/interventions/${id}`, data);
+  return response.data;
+}
+
+async function deleteIntervention(id: string): Promise<void> {
+  await apiClient.delete(`/interventions/${id}`);
+}
+
+// =============================================================================
+// Intervention Hooks
+// =============================================================================
+
+export function useInterventionsQuery(status?: InterventionStatus) {
+  return useQuery({
+    queryKey: interventionKeys.list(status),
+    queryFn: () => getInterventions(status),
+  });
+}
+
+export function useInterventionQuery(id: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: interventionKeys.detail(id),
+    queryFn: () => getIntervention(id),
+    enabled: enabled && !!id,
+  });
+}
+
+export function useCreateInterventionMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createIntervention,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: interventionKeys.lists() });
+    },
+  });
+}
+
+export function useUpdateInterventionMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: InterventionUpdate }) =>
+      updateIntervention(id, data),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: interventionKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: interventionKeys.detail(variables.id) });
+    },
+  });
+}
+
+export function useDeleteInterventionMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteIntervention,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: interventionKeys.lists() });
+    },
+  });
+}
