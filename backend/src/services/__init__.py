@@ -40,6 +40,14 @@ from .memory_service import (
     get_user_context,
 )
 from .mood_service import MoodAnalysisResult, analyze_mood
+from .optimal_ranges_service import (
+    InsufficientDataError as OptimalRangesInsufficientDataError,
+)
+from .optimal_ranges_service import (
+    OptimalRange,
+    OptimalRangesResponse,
+    OptimalRangesService,
+)
 from .post_call_service import PostCallResult, process_completed_call
 from .scheduler_service import (
     add_schedule_job,
@@ -73,6 +81,10 @@ __all__ = [
     "MoodTrendItem",
     "MultiLagCorrelationResponse",
     "NUTRIENT_GROUPS",
+    "OptimalRange",
+    "OptimalRangesInsufficientDataError",
+    "OptimalRangesResponse",
+    "OptimalRangesService",
     "PostCallResult",
     "RoomInfo",
     "SlackPostResult",
