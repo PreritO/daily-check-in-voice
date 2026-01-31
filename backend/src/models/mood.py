@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import JSON, Enum, Float, ForeignKey, Text, func
+from sqlalchemy import JSON, DateTime, Enum, Float, ForeignKey, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -56,6 +56,7 @@ class MoodAnalysis(Base):
         nullable=True,
     )
     analyzed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )

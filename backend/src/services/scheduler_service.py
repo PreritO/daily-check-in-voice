@@ -130,8 +130,7 @@ async def _trigger_scheduled_call(schedule_id: str, user_id: str) -> None:
             if schedule and _scheduler:
                 job = _scheduler.get_job(f"schedule_{schedule_id}")
                 if job and job.next_run_time:
-                    # Strip timezone to match DB column (TIMESTAMP WITHOUT TIME ZONE)
-                    schedule.next_run_at = job.next_run_time.replace(tzinfo=None)
+                    schedule.next_run_at = job.next_run_time
                     log.info("next_run_at_updated", next_run_at=str(schedule.next_run_at))
 
             # Single commit at the end of successful operations
@@ -272,8 +271,7 @@ async def _load_existing_schedules() -> int:
                     if _scheduler:
                         job = _scheduler.get_job(f"schedule_{schedule.id}")
                         if job and job.next_run_time:
-                            # Strip timezone to match DB column (TIMESTAMP WITHOUT TIME ZONE)
-                            schedule.next_run_at = job.next_run_time.replace(tzinfo=None)
+                            schedule.next_run_at = job.next_run_time
 
             await session.commit()
 

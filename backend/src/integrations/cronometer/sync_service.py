@@ -94,8 +94,7 @@ class CronometerSyncService:
         )
         credential = result.scalar_one_or_none()
         if credential:
-            # Use naive datetime (no timezone) to match DB column type
-            credential.last_sync_at = datetime.now(UTC).replace(tzinfo=None)
+            credential.last_sync_at = datetime.now(UTC)
             await self._db.flush()
 
     async def _get_credentials(self, user_id: UUID) -> tuple[str, str]:

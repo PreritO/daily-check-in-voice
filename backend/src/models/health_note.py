@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from sqlalchemy import JSON, Boolean, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -28,6 +28,7 @@ class HealthNote(Base):
         nullable=False,
     )
     logged_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         index=True,
         nullable=False,
     )
@@ -61,6 +62,7 @@ class HealthNote(Base):
         nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
