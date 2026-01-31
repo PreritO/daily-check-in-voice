@@ -1,9 +1,9 @@
 """Cronometer integration API endpoints."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pycronometer.exceptions import CronometerAuthError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,13 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.dependencies import get_or_create_user
 from src.api.schemas import (
     CredentialStatusResponse,
+    FoodLogResponse,
+    HealthNoteResponse,
     SaveCredentialsRequest,
     SyncRequest,
     SyncResponse,
 )
 from src.database import get_db
 from src.integrations.cronometer import CronometerSyncService
-from src.models import CronometerCredential, User
+from src.models import CronometerCredential, FoodLog, HealthNote, User
 from src.utils.encryption import encrypt_string
 
 logger = structlog.get_logger()
@@ -190,3 +192,67 @@ async def sync_cronometer_data(
         health_notes_synced=sync_result.health_notes_synced,
         synced_at=datetime.now(UTC),
     )
+
+
+@router.get("/food-logs", response_model=list[FoodLogResponse])
+async def get_food_logs(
+    start_date: date = Query(..., description="Start date (inclusive)"),
+    end_date: date = Query(..., description="End date (inclusive)"),
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[FoodLog]:
+    """Get food logs for the current user within a date range.
+
+    Args:
+        start_date: Start date (inclusive).
+        end_date: End date (inclusive).
+        current_user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        List of food logs, ordered by logged_at descending.
+    """
+    # Convert dates to datetimes for comparison
+    start_dt = datetime.combine(start_date, datetime.min.time())
+    end_dt = datetime.combine(end_date, datetime.max.time())
+
+    result = await db.execute(
+        select(FoodLog)
+        .where(FoodLog.user_id == current_user.id)
+        .where(FoodLog.logged_at >= start_dt)
+        .where(FoodLog.logged_at <= end_dt)
+        .order_by(FoodLog.logged_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+@router.get("/health-notes", response_model=list[HealthNoteResponse])
+async def get_health_notes(
+    start_date: date = Query(..., description="Start date (inclusive)"),
+    end_date: date = Query(..., description="End date (inclusive)"),
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[HealthNote]:
+    """Get health notes for the current user within a date range.
+
+    Args:
+        start_date: Start date (inclusive).
+        end_date: End date (inclusive).
+        current_user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        List of health notes, ordered by logged_at descending.
+    """
+    # Convert dates to datetimes for comparison
+    start_dt = datetime.combine(start_date, datetime.min.time())
+    end_dt = datetime.combine(end_date, datetime.max.time())
+
+    result = await db.execute(
+        select(HealthNote)
+        .where(HealthNote.user_id == current_user.id)
+        .where(HealthNote.logged_at >= start_dt)
+        .where(HealthNote.logged_at <= end_dt)
+        .order_by(HealthNote.logged_at.desc())
+    )
+    return list(result.scalars().all())
