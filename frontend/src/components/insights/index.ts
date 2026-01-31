@@ -4,3 +4,9 @@ export type {
   GrangerResponse,
   GrangerResultsProps,
 } from "./GrangerResults";
+
+export { ControlledComparison } from "./ControlledComparison";
+export type {
+  ComparisonResult,
+  ControlledComparisonProps,
+} from "./ControlledComparison";
