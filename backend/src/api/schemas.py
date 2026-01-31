@@ -483,6 +483,9 @@ class CorrelationResultSchema(BaseModel):
     intake_high_threshold: float | None = Field(None, description="75th percentile intake")
     intake_low_threshold: float | None = Field(None, description="25th percentile intake")
     direction: str = Field(..., description="Correlation direction: positive, negative, or none")
+    interpretation: str = Field(
+        "", description="Human-readable interpretation of the correlation"
+    )
 
 
 class ConsistentCorrelationSchema(BaseModel):

@@ -42,6 +42,7 @@ class CorrelationResult:
     intake_high_threshold: float | None
     intake_low_threshold: float | None
     direction: str  # "positive", "negative", or "none"
+    interpretation: str = ""  # Human-readable explanation of the correlation
 
 
 @dataclass
@@ -500,9 +501,20 @@ class InsightsService:
             intake_low_threshold = float(np.percentile(nutrient_values, 25))
             intake_high_threshold = float(np.percentile(nutrient_values, 75))
 
+            # Generate human-readable interpretation
+            nutrient_name = TRACKED_NUTRIENTS.get(nutrient_key, nutrient_key)
+            interpretation = self._generate_correlation_interpretation(
+                nutrient_name=nutrient_name,
+                direction=direction,
+                corr_coef=corr_coef,
+                avg_bristol_high=avg_bristol_high,
+                avg_bristol_low=avg_bristol_low,
+                is_significant=is_significant,
+            )
+
             results.append(
                 CorrelationResult(
-                    nutrient_name=TRACKED_NUTRIENTS.get(nutrient_key, nutrient_key),
+                    nutrient_name=nutrient_name,
                     nutrient_key=nutrient_key,
                     time_lag_hours=lag_hours,
                     correlation_coefficient=round(float(corr_coef), 4),
@@ -516,6 +528,7 @@ class InsightsService:
                     intake_high_threshold=round(intake_high_threshold, 2),
                     intake_low_threshold=round(intake_low_threshold, 2),
                     direction=direction,
+                    interpretation=interpretation,
                 )
             )
 
@@ -659,3 +672,65 @@ class InsightsService:
             )
 
         return insights
+
+    def _generate_correlation_interpretation(
+        self,
+        nutrient_name: str,
+        direction: str,
+        corr_coef: float,
+        avg_bristol_high: float | None,
+        avg_bristol_low: float | None,
+        is_significant: bool,
+    ) -> str:
+        """Generate a human-readable interpretation of a correlation result.
+
+        Args:
+            nutrient_name: Human-readable nutrient name.
+            direction: "positive", "negative", or "none".
+            corr_coef: Pearson correlation coefficient.
+            avg_bristol_high: Avg Bristol score for high intake days.
+            avg_bristol_low: Avg Bristol score for low intake days.
+            is_significant: Whether p-value < 0.05.
+
+        Returns:
+            Human-readable interpretation string.
+        """
+        if direction == "none" or abs(corr_coef) < 0.1:
+            return f"No meaningful relationship detected between {nutrient_name} and stool consistency."
+
+        # Determine correlation strength
+        abs_corr = abs(corr_coef)
+        if abs_corr >= 0.7:
+            strength = "strong"
+        elif abs_corr >= 0.4:
+            strength = "moderate"
+        else:
+            strength = "weak"
+
+        # Add significance qualifier
+        sig_qualifier = "" if is_significant else " (not statistically significant)"
+
+        # Generate direction-specific interpretation
+        if direction == "positive":
+            # Positive: more nutrient → higher Bristol → looser stool
+            arrow_text = f"More {nutrient_name} → higher Bristol (looser stool)"
+            detail = f"{strength.capitalize()} positive correlation (r={corr_coef:.2f}){sig_qualifier}."
+        else:
+            # Negative: more nutrient → lower Bristol → firmer stool
+            arrow_text = f"More {nutrient_name} → lower Bristol (firmer stool)"
+            detail = f"{strength.capitalize()} negative correlation (r={corr_coef:.2f}){sig_qualifier}."
+
+        # Add high/low intake comparison if available
+        if avg_bristol_high is not None and avg_bristol_low is not None:
+            diff = avg_bristol_high - avg_bristol_low
+            if abs(diff) >= 0.5:
+                comparison = (
+                    f" High intake days avg Bristol: {avg_bristol_high:.1f}, "
+                    f"low intake days: {avg_bristol_low:.1f}."
+                )
+            else:
+                comparison = ""
+        else:
+            comparison = ""
+
+        return f"{arrow_text}. {detail}{comparison}"
