@@ -22,6 +22,8 @@ from src.api.schemas import (
     GrangerResultSchema,
     HealthNoteResponse,
     MultiLagCorrelationResponseSchema,
+    OptimalRangeSchema,
+    OptimalRangesResponseSchema,
     SaveCredentialsRequest,
     SyncRequest,
     SyncResponse,
@@ -37,11 +39,15 @@ from src.services import (
     GrangerCausalityService,
     GrangerInsufficientDataError,
     InsufficientMatchesError,
+    OptimalRangesService,
 )
 from src.services.insights_service import (
     InsightsService,
     InsufficientDataError,
     TimeLagWindow,
+)
+from src.services.optimal_ranges_service import (
+    InsufficientDataError as OptimalRangesInsufficientDataError,
 )
 from src.utils.encryption import encrypt_string
 
@@ -791,4 +797,100 @@ async def get_food_correlations(
         analysis_end_date=result.analysis_end_date,
         results=results_schemas,
         trigger_foods=trigger_schemas,
+    )
+
+
+@router.get("/insights/optimal-ranges", response_model=OptimalRangesResponseSchema)
+async def get_optimal_ranges(
+    start_date: date = Query(..., description="Start date for analysis"),
+    end_date: date = Query(..., description="End date for analysis"),
+    target_bristol: float = Query(default=4.0, ge=1.0, le=7.0, description="Target Bristol score"),
+    tolerance: float = Query(default=1.0, ge=0.5, le=2.0, description="Acceptable deviation"),
+    min_samples: int = Query(default=5, ge=3, le=20, description="Minimum samples per decile"),
+    time_lag_hours: int = Query(
+        default=24, ge=12, le=48, description="Hours after eating to check"
+    ),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_or_create_user),
+) -> OptimalRangesResponseSchema:
+    """
+    Find personalized optimal nutrient intake ranges based on Bristol outcomes.
+
+    Analyzes nutrient intake data to find ranges where Bristol scores are closest
+    to the target (default: 4, which is ideal). Uses decile-based analysis to
+    identify intake ranges that correlate with optimal digestive outcomes.
+
+    Args:
+        start_date: Start date for analysis (inclusive).
+        end_date: End date for analysis (inclusive).
+        target_bristol: Target Bristol score (1-7, default 4).
+        tolerance: Acceptable deviation from target (default 1).
+        min_samples: Minimum samples required per decile (default 5).
+        time_lag_hours: Hours after eating to check Bristol (default 24).
+
+    Returns:
+        Optimal ranges for each analyzed nutrient, sorted by confidence score.
+
+    Raises:
+        HTTPException: 400 if insufficient data for analysis.
+    """
+    logger.info(
+        "Running optimal ranges analysis",
+        user_id=str(current_user.id),
+        start_date=str(start_date),
+        end_date=str(end_date),
+        target_bristol=target_bristol,
+        tolerance=tolerance,
+    )
+
+    service = OptimalRangesService(db)
+
+    try:
+        result = await service.find_optimal_ranges(
+            user_id=current_user.id,
+            start_date=start_date,
+            end_date=end_date,
+            target_bristol=target_bristol,
+            tolerance=tolerance,
+            min_samples=min_samples,
+            time_lag_hours=time_lag_hours,
+        )
+    except OptimalRangesInsufficientDataError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+    logger.info(
+        "Optimal ranges analysis completed",
+        user_id=str(current_user.id),
+        nutrients_analyzed=result.total_nutrients_analyzed,
+        food_logs=result.total_food_logs,
+        bristol_events=result.total_bristol_events,
+    )
+
+    # Convert dataclass results to Pydantic schemas
+    range_schemas = [
+        OptimalRangeSchema(
+            nutrient_name=r.nutrient_name,
+            nutrient_key=r.nutrient_key,
+            optimal_min=r.optimal_min,
+            optimal_max=r.optimal_max,
+            avg_bristol_in_range=r.avg_bristol_in_range,
+            sample_size=r.sample_size,
+            confidence_score=r.confidence_score,
+            unit=r.unit,
+        )
+        for r in result.ranges
+    ]
+
+    return OptimalRangesResponseSchema(
+        total_nutrients_analyzed=result.total_nutrients_analyzed,
+        total_food_logs=result.total_food_logs,
+        total_bristol_events=result.total_bristol_events,
+        target_bristol=result.target_bristol,
+        tolerance=result.tolerance,
+        analysis_start_date=result.analysis_start_date,
+        analysis_end_date=result.analysis_end_date,
+        ranges=range_schemas,
     )

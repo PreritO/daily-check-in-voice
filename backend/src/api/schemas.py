@@ -632,6 +632,39 @@ class FoodAnalysisResponseSchema(BaseModel):
 
 
 # =============================================================================
+# Optimal Ranges Schemas
+# =============================================================================
+
+
+class OptimalRangeSchema(BaseModel):
+    """Schema for a single optimal nutrient range."""
+
+    nutrient_name: str = Field(..., description="Human-readable nutrient name")
+    nutrient_key: str = Field(..., description="Internal nutrient key")
+    optimal_min: float = Field(..., description="Lower bound of optimal range")
+    optimal_max: float = Field(..., description="Upper bound of optimal range")
+    avg_bristol_in_range: float = Field(..., description="Avg Bristol when intake in range")
+    sample_size: int = Field(..., description="Number of data points in range")
+    confidence_score: float = Field(..., description="Confidence score 0-1")
+    unit: str = Field(..., description="Unit of measurement (e.g., g, mg)")
+
+
+class OptimalRangesResponseSchema(BaseModel):
+    """Schema for optimal ranges response."""
+
+    total_nutrients_analyzed: int = Field(..., description="Number of nutrients with ranges")
+    total_food_logs: int = Field(..., description="Total food logs in period")
+    total_bristol_events: int = Field(..., description="Total Bristol events in period")
+    target_bristol: float = Field(..., description="Target Bristol score used")
+    tolerance: float = Field(..., description="Tolerance from target")
+    analysis_start_date: date = Field(..., description="Start of analysis period")
+    analysis_end_date: date = Field(..., description="End of analysis period")
+    ranges: list[OptimalRangeSchema] = Field(
+        default_factory=list, description="Optimal ranges by nutrient"
+    )
+
+
+# =============================================================================
 # Intervention Schemas
 # =============================================================================
 
