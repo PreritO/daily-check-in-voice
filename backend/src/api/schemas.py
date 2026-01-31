@@ -387,3 +387,73 @@ class AlertAcknowledge(BaseModel):
     """Schema for acknowledging an alert."""
 
     acknowledged: bool = Field(default=True, description="Acknowledge status")
+
+
+# =============================================================================
+# Cronometer Schemas
+# =============================================================================
+
+
+class SaveCredentialsRequest(BaseModel):
+    """Schema for saving Cronometer credentials."""
+
+    email: EmailStr = Field(..., description="Cronometer account email")
+    password: str = Field(..., min_length=1, description="Cronometer account password")
+
+
+class SyncRequest(BaseModel):
+    """Schema for requesting a Cronometer sync."""
+
+    days_back: int = Field(default=7, ge=1, le=90, description="Number of days to sync (1-90)")
+
+
+class SyncResponse(BaseModel):
+    """Schema for Cronometer sync response."""
+
+    food_logs_synced: int = Field(..., ge=0, description="Number of food logs synced")
+    biometric_logs_synced: int = Field(..., ge=0, description="Number of biometric logs synced")
+    health_notes_synced: int = Field(..., ge=0, description="Number of health notes synced")
+    synced_at: datetime = Field(..., description="Timestamp of sync completion")
+
+
+class FoodLogResponse(BaseModel):
+    """Schema for reading food log data."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    logged_at: datetime
+    food_name: str
+    serving_size: str
+    food_group: str | None
+    calories: float | None
+    protein_g: float | None
+    carbs_g: float | None
+    fat_g: float | None
+    fiber_g: float | None
+    sugar_g: float | None
+    sodium_mg: float | None
+    created_at: datetime
+
+
+class HealthNoteResponse(BaseModel):
+    """Schema for reading health note data including parsed BM data."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    logged_at: datetime
+    content: str
+    is_bowel_movement: bool
+    bristol_scale: int | None
+    quantity_score: int | None
+    created_at: datetime
+
+
+class CredentialStatusResponse(BaseModel):
+    """Schema for Cronometer credentials status."""
+
+    has_credentials: bool = Field(..., description="Whether credentials are saved")
+    last_sync_at: datetime | None = Field(None, description="Timestamp of last sync")
