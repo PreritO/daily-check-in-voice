@@ -11,6 +11,7 @@ from .base import Base
 
 if TYPE_CHECKING:
     from .alert import Alert
+    from .biometric_log import BiometricLog
     from .call import Call
     from .cronometer_credential import CronometerCredential
     from .food_log import FoodLog
@@ -98,6 +99,11 @@ class User(Base):
     )
     food_logs: Mapped[list["FoodLog"]] = relationship(
         "FoodLog",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    biometric_logs: Mapped[list["BiometricLog"]] = relationship(
+        "BiometricLog",
         back_populates="user",
         cascade="all, delete-orphan",
     )

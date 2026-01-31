@@ -2,6 +2,7 @@
 
 from .alert import Alert, AlertType
 from .base import Base
+from .biometric_log import BiometricLog
 from .call import Call, CallDirection, CallStatus
 from .cronometer_credential import CronometerCredential
 from .food_log import FoodLog
@@ -17,6 +18,7 @@ __all__ = [
     "Alert",
     "AlertType",
     "Base",
+    "BiometricLog",
     "Call",
     "CallDirection",
     "CallDurationPreference",
