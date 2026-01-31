@@ -342,6 +342,201 @@ const TIME_LAG_OPTIONS: { value: TimeLag; label: string }[] = [
 ];
 
 // =============================================================================
+// Key Insights Card Component
+// =============================================================================
+
+interface KeyInsightsCardProps {
+  data: MultiLagCorrelationResponse;
+}
+
+function KeyInsightsCard({ data }: KeyInsightsCardProps) {
+  // Get Bristol score color
+  const getBristolColor = (
+    score: number
+  ): { bg: string; text: string; label: string } => {
+    if (score >= 3 && score <= 5) {
+      return {
+        bg: "bg-[#E8F5E9] dark:bg-[#A8D5BA]/20",
+        text: "text-[#2E7D32] dark:text-[#A8D5BA]",
+        label: "Healthy",
+      };
+    } else if (score === 2 || score === 6) {
+      return {
+        bg: "bg-[#FFF8E1] dark:bg-[#F5D89A]/20",
+        text: "text-[#F9A825] dark:text-[#F5D89A]",
+        label: "Moderate",
+      };
+    } else {
+      return {
+        bg: "bg-[#FFEBEE] dark:bg-[#F5A9A9]/20",
+        text: "text-[#C62828] dark:text-[#F5A9A9]",
+        label: "Concerning",
+      };
+    }
+  };
+
+  const bristolColor = getBristolColor(data.baseline_bristol_score);
+
+  return (
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+      <div className="flex items-start gap-4">
+        {/* Icon - lightbulb */}
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#E8F5E9] shadow-sm dark:bg-[#A8D5BA]/20">
+          <svg
+            className="h-6 w-6 text-[#A8D5BA]"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+            />
+          </svg>
+        </div>
+
+        <div className="flex-1">
+          <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+            Key Insights
+          </h2>
+
+          {/* Stats Row */}
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {/* Baseline Bristol */}
+            <div className={`rounded-xl p-4 ${bristolColor.bg}`}>
+              <p className={`text-sm font-medium ${bristolColor.text}`}>
+                Baseline Bristol
+              </p>
+              <p className={`font-serif text-2xl font-bold ${bristolColor.text}`}>
+                {data.baseline_bristol_score.toFixed(1)}
+              </p>
+              <p className={`text-xs ${bristolColor.text}`}>
+                {bristolColor.label}
+              </p>
+            </div>
+
+            {/* Food Logs */}
+            <div className="rounded-xl bg-[#F9E4EC] p-4 dark:bg-[#E8A0BF]/20">
+              <p className="text-sm font-medium text-[#C77998] dark:text-[#E8A0BF]">
+                Food Logs
+              </p>
+              <p className="font-serif text-2xl font-bold text-[#C77998] dark:text-[#E8A0BF]">
+                {data.total_food_logs}
+              </p>
+            </div>
+
+            {/* BM Samples */}
+            <div className="rounded-xl bg-[#E8E5EB] p-4 dark:bg-[#6B5B7A]/20">
+              <p className="text-sm font-medium text-[#6B5B7A] dark:text-[#B8A99A]">
+                BM Samples
+              </p>
+              <p className="font-serif text-2xl font-bold text-[#6B5B7A] dark:text-[#B8A99A]">
+                {data.total_bowel_movements}
+              </p>
+            </div>
+          </div>
+
+          {/* Insights List */}
+          {data.insights.length > 0 && (
+            <div className="mt-6">
+              <h3 className="mb-3 text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                Analysis Summary
+              </h3>
+              <ul className="space-y-2">
+                {data.insights.map((insight, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-sm text-[#4A4543] dark:text-[#F5F3F0]"
+                  >
+                    <svg
+                      className="h-5 w-5 flex-shrink-0 text-[#A8D5BA]"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span>{insight}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {data.insights.length === 0 && (
+            <p className="mt-4 text-sm text-[#A89B86] dark:text-[#B8A99A]">
+              No significant insights found. Try adjusting the date range or
+              time lag windows.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Insufficient Data Card Component
+// =============================================================================
+
+function InsufficientDataCard() {
+  return (
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#FEF3C7] shadow-sm dark:bg-[#FCD34D]/20">
+          <svg
+            className="h-6 w-6 text-[#F59E0B]"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+        </div>
+        <div>
+          <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+            Insufficient Data
+          </h2>
+          <p className="mt-1 text-base text-[#A89B86] dark:text-[#B8A99A]">
+            Not enough data to run correlation analysis. Please sync more days
+            from Cronometer or log more bowel movements in your check-ins.
+          </p>
+          <ul className="mt-3 space-y-1 text-sm text-[#A89B86] dark:text-[#B8A99A]">
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#F59E0B]" />
+              Try expanding your date range
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#F59E0B]" />
+              Reduce the minimum sample size
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#F59E0B]" />
+              Sync more historical data from Cronometer
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 // Correlation Analysis Card Component
 // =============================================================================
 
@@ -588,38 +783,26 @@ function CorrelationAnalysisCard({
               </div>
             )}
 
-            {/* Results Summary */}
+            {/* Analysis Complete Indicator */}
             {correlationsData && !isCorrelationsLoading && (
-              <div className="rounded-lg bg-[#E8F5E9] p-4 dark:bg-[#A8D5BA]/20">
-                <h3 className="font-medium text-[#2E7D32] dark:text-[#A8D5BA]">
-                  Analysis Complete
-                </h3>
-                <div className="mt-2 space-y-1 text-sm text-[#4A4543] dark:text-[#F5F3F0]">
-                  <p>
-                    Analyzed {correlationsData.total_food_logs} food logs and{" "}
-                    {correlationsData.total_bowel_movements} bowel movements
-                  </p>
-                  <p>
-                    Baseline Bristol score:{" "}
-                    {correlationsData.baseline_bristol_score.toFixed(1)}
-                  </p>
-                  <p>
-                    Found {correlationsData.consistent_correlations.length}{" "}
-                    consistent correlations
-                  </p>
+              <div className="rounded-lg bg-[#E8F5E9] p-3 dark:bg-[#A8D5BA]/20">
+                <div className="flex items-center gap-2 text-sm font-medium text-[#2E7D32] dark:text-[#A8D5BA]">
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  <span>Analysis complete - see Key Insights below</span>
                 </div>
-                {correlationsData.insights.length > 0 && (
-                  <div className="mt-3 border-t border-[#A8D5BA]/30 pt-3">
-                    <h4 className="text-sm font-medium text-[#2E7D32] dark:text-[#A8D5BA]">
-                      Key Insights:
-                    </h4>
-                    <ul className="mt-1 list-inside list-disc space-y-1 text-sm text-[#4A4543] dark:text-[#F5F3F0]">
-                      {correlationsData.insights.slice(0, 3).map((insight, i) => (
-                        <li key={i}>{insight}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -724,33 +907,10 @@ export default function InsightsPage() {
         </div>
       </div>
 
-      {/* Placeholder Sections */}
+      {/* Analysis Sections */}
       <div className="space-y-6">
         {/* Sync Status */}
         <SyncStatusCard />
-
-        {/* Key Insights */}
-        <PlaceholderCard
-          title="Key Insights"
-          description="Run analysis to discover nutrition patterns"
-          icon={
-            <svg
-              className="h-6 w-6 text-[#A8D5BA]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-              />
-            </svg>
-          }
-          iconBgClass="bg-[#E8F5E9] dark:bg-[#A8D5BA]/20"
-        />
 
         {/* Correlation Analysis */}
         <CorrelationAnalysisCard
@@ -769,6 +929,43 @@ export default function InsightsPage() {
           correlationsError={correlationsQuery.error}
           onRunAnalysis={handleRunAnalysis}
         />
+
+        {/* Key Insights - show when analysis has run successfully */}
+        {correlationsQuery.data && !correlationsQuery.isFetching && (
+          <KeyInsightsCard data={correlationsQuery.data} />
+        )}
+
+        {/* Insufficient Data - show when there's an insufficient data error */}
+        {correlationsQuery.error &&
+          !correlationsQuery.isFetching &&
+          correlationsQuery.error.message
+            ?.toLowerCase()
+            .includes("insufficient") && <InsufficientDataCard />}
+
+        {/* Empty state - show when analysis hasn't run yet */}
+        {!analysisEnabled && !correlationsQuery.data && (
+          <PlaceholderCard
+            title="Key Insights"
+            description="Run analysis to discover nutrition patterns"
+            icon={
+              <svg
+                className="h-6 w-6 text-[#A8D5BA]"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                />
+              </svg>
+            }
+            iconBgClass="bg-[#E8F5E9] dark:bg-[#A8D5BA]/20"
+          />
+        )}
       </div>
     </div>
   );
