@@ -5,10 +5,11 @@ import json
 from dataclasses import dataclass
 from uuid import UUID
 
+from pycronometer import Serving
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import CronometerCredential
+from src.models import CronometerCredential, FoodLog
 from src.utils.encryption import decrypt_string
 
 
@@ -98,3 +99,72 @@ class CronometerSyncService:
         # Sort keys for consistent hashing
         json_str = json.dumps(data, sort_keys=True, default=str)
         return hashlib.sha256(json_str.encode()).hexdigest()
+
+    async def _upsert_food_logs(self, user_id: UUID, servings: list[Serving]) -> list[FoodLog]:
+        """Upsert food log entries from Cronometer servings.
+
+        Args:
+            user_id: The user's ID.
+            servings: List of Serving objects from pycronometer.
+
+        Returns:
+            List of newly created FoodLog objects (excludes duplicates).
+        """
+        if not servings:
+            return []
+
+        # Get existing hashes for deduplication
+        existing_hashes = await self._get_existing_hashes(user_id, "food_logs")
+
+        new_logs: list[FoodLog] = []
+        for serving in servings:
+            # Generate hash from raw_data
+            cronometer_hash = self._generate_hash(serving.raw_data)
+
+            # Skip if already exists
+            if cronometer_hash in existing_hashes:
+                continue
+
+            food_log = FoodLog(
+                user_id=user_id,
+                logged_at=serving.logged_at,
+                food_name=serving.food_name,
+                serving_size=serving.serving_size,
+                food_group=serving.group,
+                calories=serving.calories,
+                protein_g=serving.protein_g,
+                carbs_g=serving.carbs_g,
+                fat_g=serving.fat_g,
+                fiber_g=serving.fiber_g,
+                sugar_g=serving.sugar_g,
+                sodium_mg=serving.sodium_mg,
+                raw_data=serving.raw_data,
+                cronometer_hash=cronometer_hash,
+            )
+            self._db.add(food_log)
+            new_logs.append(food_log)
+
+        if new_logs:
+            await self._db.flush()
+
+        return new_logs
+
+    async def _get_existing_hashes(self, user_id: UUID, table: str) -> set[str]:
+        """Get existing cronometer_hash values for a user.
+
+        Args:
+            user_id: The user's ID.
+            table: Table name ('food_logs', 'biometric_logs', 'health_notes').
+
+        Returns:
+            Set of existing hash values.
+        """
+        if table == "food_logs":
+            result = await self._db.execute(
+                select(FoodLog.cronometer_hash).where(FoodLog.user_id == user_id)
+            )
+        else:
+            # Will be extended for other tables in US-010 and US-011
+            return set()
+
+        return {row[0] for row in result.fetchall()}
