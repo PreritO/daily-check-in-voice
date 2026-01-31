@@ -58,6 +58,9 @@ class Settings:
     # LiveKit SIP
     LIVEKIT_SIP_DOMAIN: str = os.getenv("LIVEKIT_SIP_DOMAIN", "")
 
+    # Cronometer
+    CRONOMETER_ENCRYPTION_KEY: str = os.getenv("CRONOMETER_ENCRYPTION_KEY", "")
+
     # App
     APP_ENV: str = os.getenv("APP_ENV", "development")
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
