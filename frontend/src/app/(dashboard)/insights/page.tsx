@@ -12,6 +12,7 @@ import {
   AnalysisLevel,
   MultiLagCorrelationResponse,
   CorrelationResult,
+  ConsistentCorrelation,
 } from "@/lib/api/cronometer";
 
 // =============================================================================
@@ -481,6 +482,116 @@ function KeyInsightsCard({ data }: KeyInsightsCardProps) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Consistent Findings Card Component
+// =============================================================================
+
+interface ConsistentFindingsCardProps {
+  consistentCorrelations: ConsistentCorrelation[];
+}
+
+function ConsistentFindingsCard({
+  consistentCorrelations,
+}: ConsistentFindingsCardProps) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  // Get direction color and icon
+  const getDirectionStyles = (direction: string) => {
+    switch (direction) {
+      case "positive":
+        return {
+          bg: "bg-[#E8F5E9] dark:bg-[#A8D5BA]/20",
+          text: "text-[#2E7D32] dark:text-[#A8D5BA]",
+          icon: "\u2191",
+          label: "Higher Bristol with more intake",
+        };
+      case "negative":
+        return {
+          bg: "bg-[#FFEBEE] dark:bg-[#F5A9A9]/20",
+          text: "text-[#C62828] dark:text-[#F5A9A9]",
+          icon: "\u2193",
+          label: "Lower Bristol with more intake",
+        };
+      default:
+        return {
+          bg: "bg-[#FFF8E1] dark:bg-[#F5D89A]/20",
+          text: "text-[#F9A825] dark:text-[#F5D89A]",
+          icon: "\u2194",
+          label: "Mixed effect",
+        };
+    }
+  };
+
+  return (
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+      <div className="flex items-center gap-2">
+        <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+          Consistent Findings
+        </h2>
+        {/* Info tooltip */}
+        <div className="relative">
+          <button
+            type="button"
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+            className="flex h-5 w-5 items-center justify-center rounded-full bg-[#E8E5EB] text-xs text-[#6B5B7A] hover:bg-[#DEDDDB] dark:bg-[#3D3935] dark:text-[#B8A99A]"
+          >
+            ?
+          </button>
+          {showTooltip && (
+            <div className="absolute left-0 top-full z-10 mt-2 w-64 rounded-lg bg-[#4A4543] p-3 text-xs text-white shadow-lg dark:bg-[#F5F3F0] dark:text-[#4A4543]">
+              Nutrients that show significant correlation across 2 or more time
+              windows are more reliable predictors of digestive response.
+            </div>
+          )}
+        </div>
+      </div>
+      <p className="mt-1 text-base text-[#A89B86] dark:text-[#B8A99A]">
+        Nutrients with reliable effects across multiple time windows
+      </p>
+
+      {consistentCorrelations.length > 0 ? (
+        <div className="mt-4 flex flex-wrap gap-3">
+          {consistentCorrelations.map((correlation) => {
+            const styles = getDirectionStyles(correlation.direction);
+            return (
+              <div
+                key={correlation.nutrient_name}
+                className={`rounded-xl p-4 ${styles.bg}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`text-lg ${styles.text}`}>{styles.icon}</span>
+                  <span className={`font-medium ${styles.text}`}>
+                    {correlation.nutrient_name}
+                  </span>
+                </div>
+                <div className="mt-2 space-y-1 text-xs">
+                  <p className={styles.text}>
+                    Correlation: {correlation.avg_correlation.toFixed(3)}
+                  </p>
+                  <p className={styles.text}>
+                    {correlation.windows_significant} time windows
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="mt-4 rounded-lg bg-[#FDFBF7] p-4 text-center dark:bg-[#3D3935]/50">
+          <p className="text-sm text-[#A89B86] dark:text-[#B8A99A]">
+            No nutrients showed consistent significant correlations across
+            multiple time windows.
+          </p>
+          <p className="mt-1 text-xs text-[#A89B86] dark:text-[#B8A99A]">
+            Try analyzing more data or adjusting the time lag windows.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -1167,6 +1278,13 @@ export default function InsightsPage() {
         {/* Key Insights - show when analysis has run successfully */}
         {correlationsQuery.data && !correlationsQuery.isFetching && (
           <KeyInsightsCard data={correlationsQuery.data} />
+        )}
+
+        {/* Consistent Findings - show when analysis has results */}
+        {correlationsQuery.data && !correlationsQuery.isFetching && (
+          <ConsistentFindingsCard
+            consistentCorrelations={correlationsQuery.data.consistent_correlations}
+          />
         )}
 
         {/* Correlation Results Table - show when analysis has results */}
