@@ -2,6 +2,13 @@
 
 from .analytics_service import MoodTrendItem, UserAnalytics, get_user_analytics
 from .auth_service import AuthError, TokenPayload, verify_supabase_token
+from .granger_service import (
+    GrangerCausalityService,
+    GrangerResult,
+)
+from .granger_service import (
+    InsufficientDataError as GrangerInsufficientDataError,
+)
 from .insights_service import (
     NUTRIENT_GROUPS,
     TRACKED_NUTRIENTS,
@@ -36,6 +43,9 @@ __all__ = [
     "ConsistentCorrelation",
     "CorrelationResult",
     "ExtractedMemory",
+    "GrangerCausalityService",
+    "GrangerInsufficientDataError",
+    "GrangerResult",
     "InsightsService",
     "InsufficientDataError",
     "MemoryExtractionResult",

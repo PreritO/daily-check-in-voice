@@ -23,6 +23,7 @@ dependencies = [
     "python-multipart>=0.0.22",
     "scipy>=1.11.0",
     "sqlalchemy>=2.0.46",
+    "statsmodels>=0.14.0",
     "structlog>=25.5.0",
     "twilio>=9.0.0",
     "uvicorn[standard]>=0.40.0",
