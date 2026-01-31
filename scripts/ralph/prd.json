@@ -1,414 +1,514 @@
 {
-  "branchName": "feature/v1-meela-parity",
+  "branchName": "feature/cronometer-integration",
   "userStories": [
     {
-      "id": "US-101",
-      "title": "Add Supabase Auth to backend",
-      "description": "Integrate Supabase Auth for user authentication in the backend. Create auth middleware that validates JWT tokens from Supabase. Add current_user dependency for protected routes. Update User model to link with Supabase auth.users via auth_id field.",
+      "id": "US-001",
+      "title": "Add pycronometer and analysis dependencies",
+      "description": "Add pycronometer library from GitHub, cryptography for Fernet encryption, numpy and scipy for statistical analysis to backend/pyproject.toml dependencies.",
       "acceptanceCriteria": [
-        "File backend/src/api/auth.py exists with get_current_user dependency",
-        "Auth middleware validates Supabase JWT tokens",
-        "User model has auth_id field (UUID, nullable for migration)",
-        "New alembic migration adds auth_id column",
-        "Protected routes return 401 without valid token",
-        "uv run ruff check src/ passes",
-        "uv run pytest tests/ passes"
+        "pycronometer @ git+https://github.com/PreritO/pycronometer.git added to dependencies",
+        "cryptography>=44.0.0 added to dependencies",
+        "numpy>=1.26.0 added to dependencies",
+        "scipy>=1.11.0 added to dependencies",
+        "uv sync runs without errors"
       ],
       "priority": 1,
       "passes": true
     },
     {
-      "id": "US-102",
-      "title": "Add Supabase Auth to frontend",
-      "description": "Integrate Supabase Auth in the frontend using @supabase/auth-helpers-nextjs. Create auth context provider, login page, signup page, and logout functionality. Protect dashboard routes with auth middleware.",
+      "id": "US-002",
+      "title": "Create CronometerCredential model",
+      "description": "Create SQLAlchemy model for storing encrypted Cronometer credentials. Fields: id (UUID), user_id (FK to users), encrypted_email (Text), encrypted_password (Text), last_sync_at (datetime nullable), created_at, updated_at. Add relationship to User model.",
       "acceptanceCriteria": [
-        "File frontend/src/lib/auth.tsx exists with auth provider",
-        "File frontend/src/app/(auth)/login/page.tsx exists",
-        "File frontend/src/app/(auth)/signup/page.tsx exists",
-        "Dashboard routes redirect to login if not authenticated",
-        "Auth state persists across page refreshes",
-        "npm run build passes"
+        "Model exists in backend/src/models/cronometer_credential.py",
+        "Uses SQLAlchemy 2.0+ Mapped type hints",
+        "Foreign key to users table with CASCADE delete",
+        "user_id is unique (one credential per user)",
+        "Relationship added to User model (cronometer_credential)",
+        "Exported from backend/src/models/__init__.py"
       ],
       "priority": 2,
       "passes": true
     },
     {
-      "id": "US-103",
-      "title": "Create user onboarding wizard",
-      "description": "Create a multi-step onboarding flow after signup: Step 1 - Enter name and phone number, Step 2 - Select timezone, Step 3 - Set first call schedule. Store progress and redirect to dashboard on completion.",
+      "id": "US-003",
+      "title": "Create FoodLog model",
+      "description": "Create SQLAlchemy model for storing food servings from Cronometer. Fields: id, user_id, logged_at, food_name, serving_size, food_group (nullable), calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg, raw_data (JSONB), cronometer_hash (unique for dedup), created_at.",
       "acceptanceCriteria": [
-        "File frontend/src/app/(auth)/onboarding/page.tsx exists",
-        "3-step wizard with progress indicator",
-        "Phone number validation (E.164 format)",
-        "Timezone selector with common timezones",
-        "Schedule setup with day/time picker",
-        "Creates user record and schedule on completion",
-        "npm run build passes"
+        "Model exists in backend/src/models/food_log.py",
+        "Uses SQLAlchemy 2.0+ Mapped type hints",
+        "raw_data field uses JSONB type from sqlalchemy.dialects.postgresql",
+        "cronometer_hash is unique and indexed for deduplication",
+        "logged_at is indexed for date range queries",
+        "Relationship added to User model (food_logs)",
+        "Exported from backend/src/models/__init__.py"
       ],
       "priority": 3,
       "passes": true
     },
     {
-      "id": "US-104",
-      "title": "Create UserPreferences model",
-      "description": "Create SQLAlchemy UserPreferences model in backend/src/models/preferences.py with fields: id, user_id (FK unique), conversation_topics (JSON array), interests (JSON array), communication_style (enum: casual, formal, friendly), call_duration_preference (enum: short, medium, long), created_at, updated_at.",
+      "id": "US-004",
+      "title": "Create BiometricLog model",
+      "description": "Create SQLAlchemy model for storing biometric measurements. Fields: id, user_id, logged_at, metric_type (string), value (float), unit (string), raw_data (JSONB), cronometer_hash (unique), created_at.",
       "acceptanceCriteria": [
-        "File backend/src/models/preferences.py exists",
-        "UserPreferences class with all fields",
-        "Foreign key to User with unique constraint",
-        "Enums for communication_style and call_duration_preference",
-        "Model exported in __init__.py",
-        "Alembic migration created",
-        "uv run ruff check src/ passes"
+        "Model exists in backend/src/models/biometric_log.py",
+        "Uses SQLAlchemy 2.0+ Mapped type hints",
+        "metric_type stores the type like 'weight', 'body_fat', etc.",
+        "cronometer_hash is unique for deduplication",
+        "Relationship added to User model (biometric_logs)",
+        "Exported from backend/src/models/__init__.py"
       ],
       "priority": 4,
       "passes": true
     },
     {
-      "id": "US-105",
-      "title": "Create UserPreferences API endpoints",
-      "description": "Create CRUD endpoints for user preferences in backend/src/api/routes/preferences.py: GET /preferences (get current user's preferences), PUT /preferences (create or update), DELETE /preferences. Preferences are per-user, not a collection.",
+      "id": "US-005",
+      "title": "Create HealthNote model",
+      "description": "Create SQLAlchemy model for storing notes including bowel movements. Fields: id, user_id, logged_at, content (Text), is_bowel_movement (bool), bristol_scale (int 1-7 nullable), quantity_score (int 1-10 nullable), raw_data (JSONB), cronometer_hash (unique), created_at.",
       "acceptanceCriteria": [
-        "File backend/src/api/routes/preferences.py exists",
-        "GET /preferences returns current user's preferences or 404",
-        "PUT /preferences creates or updates (upsert behavior)",
-        "Routes require authentication",
-        "Router registered in __init__.py",
-        "uv run ruff check src/ passes"
+        "Model exists in backend/src/models/health_note.py",
+        "Uses SQLAlchemy 2.0+ Mapped type hints",
+        "is_bowel_movement defaults to False",
+        "bristol_scale and quantity_score are nullable for non-BM notes",
+        "Relationship added to User model (health_notes)",
+        "Exported from backend/src/models/__init__.py"
       ],
       "priority": 5,
       "passes": true
     },
     {
-      "id": "US-106",
-      "title": "Create ConversationMemory model",
-      "description": "Create SQLAlchemy ConversationMemory model in backend/src/models/memory.py to store important facts from conversations: id, user_id (FK indexed), memory_type (enum: fact, preference, event, relationship), content (text), source_call_id (FK nullable), importance (int 1-10), created_at. This enables personalization.",
+      "id": "US-006",
+      "title": "Create Alembic migration for Cronometer tables",
+      "description": "Generate and verify Alembic migration for the 4 new tables: cronometer_credentials, food_logs, biometric_logs, health_notes. Ensure proper indexes and constraints.",
       "acceptanceCriteria": [
-        "File backend/src/models/memory.py exists",
-        "ConversationMemory class with all fields",
-        "MemoryType enum defined",
-        "Foreign keys to User and Call",
-        "Model exported in __init__.py",
-        "Alembic migration created",
-        "uv run ruff check src/ passes"
+        "Alembic migration file created in backend/alembic/versions/",
+        "Migration creates cronometer_credentials table",
+        "Migration creates food_logs table with JSONB column",
+        "Migration creates biometric_logs table",
+        "Migration creates health_notes table",
+        "All foreign keys and indexes are properly defined",
+        "Migration can be applied with alembic upgrade head"
       ],
       "priority": 6,
       "passes": true
     },
     {
-      "id": "US-107",
-      "title": "Create memory extraction service",
-      "description": "Create backend/src/services/memory_service.py that uses Claude to extract memorable facts from call transcripts. Extract: personal facts, preferences mentioned, upcoming events, relationships mentioned. Store as ConversationMemory records.",
+      "id": "US-007",
+      "title": "Create encryption utility module",
+      "description": "Create utility module for encrypting/decrypting Cronometer credentials using Fernet symmetric encryption. Include functions: encrypt_string, decrypt_string. Read key from CRONOMETER_ENCRYPTION_KEY env var.",
       "acceptanceCriteria": [
-        "File backend/src/services/memory_service.py exists",
-        "Function extract_memories(call_id, transcripts) -> list[ConversationMemory]",
-        "Uses Claude to identify key facts",
-        "Categorizes memories by type",
-        "Assigns importance scores",
-        "Service exported in __init__.py",
-        "uv run ruff check src/ passes"
+        "Module exists in backend/src/utils/encryption.py",
+        "encrypt_string(plaintext: str) -> str function",
+        "decrypt_string(ciphertext: str) -> str function",
+        "Uses Fernet from cryptography library",
+        "Reads encryption key from settings/environment",
+        "Add CRONOMETER_ENCRYPTION_KEY to backend/src/config.py settings"
       ],
       "priority": 7,
       "passes": true
     },
     {
-      "id": "US-108",
-      "title": "Create memory retrieval for agent context",
-      "description": "Create function in memory_service.py to retrieve relevant memories for a user to include in agent prompts. Get recent memories, high-importance memories, and memories related to current date (birthdays, events). Format for LLM context.",
+      "id": "US-008",
+      "title": "Create Cronometer sync service - core structure",
+      "description": "Create the CronometerSyncService class with init, sync_user method skeleton, and helper methods for getting credentials and generating hashes. Do not implement the upsert methods yet.",
       "acceptanceCriteria": [
-        "Function get_user_context(user_id) -> str returns formatted memories",
-        "Retrieves top 10 most important memories",
-        "Retrieves last 5 recent memories",
-        "Checks for date-relevant memories (birthdays, events)",
-        "Returns formatted string for LLM prompt injection",
-        "uv run ruff check src/ passes"
+        "Service exists in backend/src/integrations/cronometer/sync_service.py",
+        "CronometerSyncService class with __init__(db: AsyncSession)",
+        "sync_user(user_id: UUID, days_back: int = 7) -> SyncResult method skeleton",
+        "_get_credentials(user_id) method that queries DB and decrypts",
+        "_generate_hash(data: dict) -> str method using SHA256",
+        "SyncResult dataclass defined with food_logs_synced, biometric_logs_synced, health_notes_synced counts",
+        "Create backend/src/integrations/cronometer/__init__.py"
       ],
       "priority": 8,
       "passes": true
     },
     {
-      "id": "US-109",
-      "title": "Create MoodAnalysis model",
-      "description": "Create SQLAlchemy MoodAnalysis model in backend/src/models/mood.py: id, call_id (FK unique), overall_sentiment (enum: positive, neutral, negative, concerned), confidence (float 0-1), flags (JSON array of concern types), notes (text), analyzed_at (datetime). One analysis per call.",
+      "id": "US-009",
+      "title": "Implement sync service - food logs upsert",
+      "description": "Implement _upsert_food_logs method in CronometerSyncService. Transform pycronometer Serving objects to FoodLog models, use cronometer_hash for deduplication (skip existing).",
       "acceptanceCriteria": [
-        "File backend/src/models/mood.py exists",
-        "MoodAnalysis class with all fields",
-        "SentimentType enum defined",
-        "Foreign key to Call with unique constraint",
-        "Model exported in __init__.py",
-        "Alembic migration created",
-        "uv run ruff check src/ passes"
+        "_upsert_food_logs(user_id, servings: list[Serving]) -> list[FoodLog] implemented",
+        "Generates hash from serving raw_data for deduplication",
+        "Skips servings that already exist (by hash)",
+        "Maps all fields from Serving to FoodLog including raw_data",
+        "Returns list of newly created FoodLog objects"
       ],
       "priority": 9,
       "passes": true
     },
     {
-      "id": "US-110",
-      "title": "Create mood analysis service",
-      "description": "Create backend/src/services/mood_service.py that uses Claude to analyze call transcripts for mood and concerns. Detect: confusion, distress, loneliness, health concerns, unusual behavior. Return structured analysis with confidence scores.",
+      "id": "US-010",
+      "title": "Implement sync service - biometric logs upsert",
+      "description": "Implement _upsert_biometric_logs method in CronometerSyncService. Transform pycronometer BiometricEntry objects to BiometricLog models with deduplication.",
       "acceptanceCriteria": [
-        "File backend/src/services/mood_service.py exists",
-        "Function analyze_mood(call_id, transcripts) -> MoodAnalysis",
-        "Uses Claude to detect sentiment and concerns",
-        "Returns structured MoodAnalysis object",
-        "Flags array contains specific concern types",
-        "Service exported in __init__.py",
-        "uv run ruff check src/ passes"
+        "_upsert_biometric_logs(user_id, entries: list[BiometricEntry]) -> list[BiometricLog] implemented",
+        "Generates hash from entry raw_data for deduplication",
+        "Skips entries that already exist (by hash)",
+        "Maps metric, value, unit fields correctly",
+        "Returns list of newly created BiometricLog objects"
       ],
       "priority": 10,
       "passes": true
     },
     {
-      "id": "US-111",
-      "title": "Create mood analysis API endpoint",
-      "description": "Add endpoint POST /calls/{id}/analyze-mood in calls router that runs mood analysis on a completed call. Store result in database. Return the analysis. Also add mood data to CallReadWithDetails response.",
+      "id": "US-011",
+      "title": "Implement sync service - health notes with BM parsing",
+      "description": "Implement _upsert_health_notes method and _parse_bowel_movement helper. Parse note content for 'Bowel Movement' keyword, extract Bristol scale and quantity score using regex.",
       "acceptanceCriteria": [
-        "POST /calls/{id}/analyze-mood endpoint exists",
-        "Returns 400 if call has no transcripts",
-        "Returns 409 if already analyzed",
-        "Saves MoodAnalysis to database",
-        "CallReadWithDetails schema includes mood_analysis field",
-        "uv run ruff check src/ passes"
+        "_upsert_health_notes(user_id, notes: list[Note]) -> list[HealthNote] implemented",
+        "_parse_bowel_movement(content: str) -> tuple[bool, int|None, int|None] implemented",
+        "Detects 'bowel movement' (case insensitive) in content",
+        "Extracts Bristol scale with regex like 'bristol\\s*(\\d)'",
+        "Extracts quantity with regex like 'quantity\\s*(\\d+)/10'",
+        "Sets is_bowel_movement, bristol_scale, quantity_score on HealthNote"
       ],
       "priority": 11,
       "passes": true
     },
     {
-      "id": "US-112",
-      "title": "Create APScheduler service",
-      "description": "Create backend/src/services/scheduler_service.py that uses APScheduler to manage scheduled calls. On startup, load all enabled schedules and create jobs. Provide functions to add/remove/update scheduled jobs. Jobs should call the trigger endpoint.",
+      "id": "US-012",
+      "title": "Complete sync_user method with pycronometer integration",
+      "description": "Complete the sync_user method to use pycronometer client: login with decrypted credentials, fetch servings/biometrics/notes, call upsert methods, update last_sync_at timestamp.",
       "acceptanceCriteria": [
-        "File backend/src/services/scheduler_service.py exists",
-        "AsyncIOScheduler configured with timezone support",
-        "Function start_scheduler() loads existing schedules",
-        "Function add_schedule_job(schedule) creates APScheduler job",
-        "Function remove_schedule_job(schedule_id) removes job",
-        "Jobs trigger calls via internal function (not HTTP)",
-        "Service exported in __init__.py",
-        "uv run ruff check src/ passes"
+        "sync_user creates CronometerClient instance",
+        "Logs in with decrypted email/password",
+        "Calls get_servings, get_biometrics, get_notes with date range",
+        "Calls all three _upsert methods",
+        "Updates last_sync_at on credential record",
+        "Returns SyncResult with counts",
+        "Handles pycronometer exceptions (CronometerAuthError, etc.)"
       ],
       "priority": 12,
       "passes": true
     },
     {
-      "id": "US-113",
-      "title": "Integrate scheduler with app lifecycle",
-      "description": "Update backend/src/main.py to start the scheduler on app startup and shut it down gracefully on shutdown. Update schedule CRUD endpoints to also update APScheduler jobs when schedules are created/updated/deleted.",
+      "id": "US-013",
+      "title": "Create Pydantic schemas for Cronometer API",
+      "description": "Create Pydantic schemas for API requests and responses: SaveCredentialsRequest, SyncRequest, SyncResponse, FoodLogResponse, HealthNoteResponse, CredentialStatusResponse.",
       "acceptanceCriteria": [
-        "Scheduler starts on app startup event",
-        "Scheduler shuts down on app shutdown event",
-        "POST /schedules also creates APScheduler job",
-        "PATCH /schedules updates APScheduler job",
-        "DELETE /schedules removes APScheduler job",
-        "uv run ruff check src/ passes"
+        "Schemas in backend/src/api/schemas/cronometer.py",
+        "SaveCredentialsRequest with email, password fields",
+        "SyncRequest with optional days_back field (default 7)",
+        "SyncResponse with food_logs_synced, biometric_logs_synced, health_notes_synced, synced_at",
+        "FoodLogResponse with all food log fields",
+        "HealthNoteResponse with all health note fields including parsed BM data",
+        "CredentialStatusResponse with has_credentials, last_sync_at"
       ],
       "priority": 13,
       "passes": true
     },
     {
-      "id": "US-114",
-      "title": "Update voice agent with memory context",
-      "description": "Update backend/src/agent/standup_agent.py to fetch user memories before starting conversation. Include relevant memories in the system prompt so the agent can reference past conversations and personalize the interaction.",
+      "id": "US-014",
+      "title": "Create Cronometer credentials API endpoints",
+      "description": "Create /api/cronometer/credentials endpoints: POST to save credentials (encrypted), GET to check status, DELETE to remove credentials.",
       "acceptanceCriteria": [
-        "Agent fetches user memories on session start",
-        "System prompt includes personalization section with memories",
-        "Agent can reference user's name, preferences, past topics",
-        "Memory context formatted clearly for LLM",
-        "uv run ruff check src/ passes"
+        "Router in backend/src/api/routes/cronometer.py",
+        "POST /credentials saves encrypted email/password for current user",
+        "GET /credentials/status returns whether credentials exist and last sync time",
+        "DELETE /credentials removes credentials for current user",
+        "All endpoints require authentication via get_current_user",
+        "Router registered in backend/src/api/routes/__init__.py"
       ],
       "priority": 14,
       "passes": true
     },
     {
-      "id": "US-115",
-      "title": "Create post-call processing pipeline",
-      "description": "Create backend/src/services/post_call_service.py that runs after a call completes: 1) Generate summary, 2) Extract memories, 3) Analyze mood, 4) Post to Slack if configured. Call this from the agent when conversation ends.",
+      "id": "US-015",
+      "title": "Create Cronometer sync API endpoint",
+      "description": "Create POST /api/cronometer/sync endpoint that triggers a manual sync for the current user using CronometerSyncService.",
       "acceptanceCriteria": [
-        "File backend/src/services/post_call_service.py exists",
-        "Function process_completed_call(call_id) runs full pipeline",
-        "Generates summary via summary_service",
-        "Extracts memories via memory_service",
-        "Analyzes mood via mood_service",
-        "Posts to Slack if user has Slack configured",
-        "Handles errors gracefully (one failure doesn't stop others)",
-        "uv run ruff check src/ passes"
+        "POST /sync endpoint in cronometer router",
+        "Accepts optional days_back parameter (default 7, max 90)",
+        "Calls CronometerSyncService.sync_user",
+        "Returns SyncResponse with counts and timestamp",
+        "Returns 404 if user has no credentials saved",
+        "Returns appropriate error if Cronometer login fails"
       ],
       "priority": 15,
       "passes": true
     },
     {
-      "id": "US-116",
-      "title": "Create analytics data aggregation",
-      "description": "Create backend/src/services/analytics_service.py with functions to compute user analytics: total_calls, total_duration_minutes, average_call_duration, calls_this_week, calls_this_month, mood_trend (array of recent sentiments), streak_days (consecutive days with calls).",
+      "id": "US-016",
+      "title": "Create food logs and health notes read endpoints",
+      "description": "Create GET endpoints for retrieving food logs and health notes by date range: GET /api/cronometer/food-logs, GET /api/cronometer/health-notes.",
       "acceptanceCriteria": [
-        "File backend/src/services/analytics_service.py exists",
-        "Function get_user_analytics(user_id) returns analytics dict",
-        "Computes all metrics listed in description",
-        "Mood trend includes last 10 calls",
-        "Streak calculation handles timezone correctly",
-        "Service exported in __init__.py",
-        "uv run ruff check src/ passes"
+        "GET /food-logs with start_date and end_date query params",
+        "GET /health-notes with start_date and end_date query params",
+        "Both filter by current user's ID",
+        "Both return list of appropriate response schemas",
+        "Results ordered by logged_at descending"
       ],
       "priority": 16,
       "passes": true
     },
     {
-      "id": "US-117",
-      "title": "Create analytics API endpoint",
-      "description": "Create GET /users/me/analytics endpoint that returns analytics for the current authenticated user. Include all metrics from analytics_service.",
+      "id": "US-017",
+      "title": "Create InsightsService - core structure and types",
+      "description": "Create InsightsService with TimeLagWindow enum, CorrelationResult dataclass, TRACKED_NUTRIENTS dict, NUTRIENT_GROUPS dict, and analyze_correlations method skeleton.",
       "acceptanceCriteria": [
-        "GET /users/me/analytics endpoint exists",
-        "Requires authentication",
-        "Returns UserAnalytics schema with all metrics",
-        "Schema defined in schemas.py",
-        "uv run ruff check src/ passes"
+        "Service in backend/src/services/insights_service.py",
+        "TimeLagWindow enum with HOURS_12, HOURS_24, HOURS_36, HOURS_48, HOURS_72",
+        "CorrelationResult dataclass with all fields from plan",
+        "TRACKED_NUTRIENTS dict mapping Cronometer columns to friendly names (50+ nutrients)",
+        "NUTRIENT_GROUPS dict grouping nutrients by category",
+        "analyze_correlations method skeleton that returns MultiLagCorrelationResponse"
       ],
       "priority": 17,
       "passes": true
     },
     {
-      "id": "US-118",
-      "title": "Create analytics dashboard page",
-      "description": "Create frontend/src/app/(dashboard)/analytics/page.tsx showing user analytics: call stats cards, mood trend chart (simple bar/line), call history timeline, streak display. Use React Query to fetch data.",
+      "id": "US-018",
+      "title": "Implement InsightsService - nutrient correlation analysis",
+      "description": "Implement _analyze_nutrient_correlations method using numpy/scipy. For each nutrient, calculate Pearson correlation with Bristol scores, high/low comparison, and statistical significance.",
       "acceptanceCriteria": [
-        "File frontend/src/app/(dashboard)/analytics/page.tsx exists",
-        "Shows total calls, average duration, streak",
-        "Displays mood trend visualization",
-        "Shows calls this week/month",
-        "Loading and error states handled",
-        "Added to sidebar navigation",
-        "npm run build passes"
+        "_analyze_nutrient_correlations method fully implemented",
+        "Uses scipy.stats.pearsonr for correlation",
+        "Calculates avg Bristol when nutrient intake high vs low (median split)",
+        "Sets is_significant based on p < 0.05",
+        "_get_nutrient_value helper extracts values from raw_data",
+        "Sorts results by absolute correlation strength"
       ],
       "priority": 18,
       "passes": true
     },
     {
-      "id": "US-119",
-      "title": "Create settings page with preferences",
-      "description": "Create frontend/src/app/(dashboard)/settings/page.tsx with sections: Profile (name, email, phone, timezone), Preferences (topics, interests, communication style), Notifications (Slack toggle), Danger Zone (delete account). Use React Query mutations.",
+      "id": "US-019",
+      "title": "Implement InsightsService - consistent correlations and insights",
+      "description": "Implement _find_consistent_correlations to identify nutrients significant across 2+ time windows, and _generate_insights to create human-readable insight strings.",
       "acceptanceCriteria": [
-        "File frontend/src/app/(dashboard)/settings/page.tsx exists",
-        "Profile section with editable fields",
-        "Preferences section with multi-select for topics/interests",
-        "Communication style dropdown",
-        "Slack integration toggle",
-        "Delete account button with confirmation",
-        "Added to sidebar navigation",
-        "npm run build passes"
+        "_find_consistent_correlations method implemented",
+        "Counts how many time windows each nutrient is significant in",
+        "Returns items significant in 2+ windows with avg correlation",
+        "_generate_insights method implemented",
+        "Generates baseline Bristol context (too hard/too loose)",
+        "Generates top 5 correlation insights with direction"
       ],
       "priority": 19,
       "passes": true
     },
     {
-      "id": "US-120",
-      "title": "Add mood indicator to call detail page",
-      "description": "Update frontend/src/app/(dashboard)/calls/[id]/page.tsx to display mood analysis if available: sentiment badge (colored), confidence percentage, any flags/concerns highlighted, analysis notes. Add 'Analyze Mood' button if not yet analyzed.",
+      "id": "US-020",
+      "title": "Complete analyze_correlations method",
+      "description": "Complete the analyze_correlations method: fetch BM notes and food logs from DB, run correlation analysis for each time lag, find consistent correlations, generate insights, return full response.",
       "acceptanceCriteria": [
-        "Mood section displays sentiment with color-coded badge",
-        "Shows confidence percentage",
-        "Displays flags as warning badges if present",
-        "Shows analysis notes",
-        "Analyze Mood button triggers POST /calls/{id}/analyze-mood",
-        "npm run build passes"
+        "analyze_correlations fetches HealthNotes where is_bowel_movement=True",
+        "Fetches FoodLogs for extended date range (to cover lag windows)",
+        "Loops through time_lags calling _analyze_nutrient_correlations",
+        "Calls _find_consistent_correlations and _generate_insights",
+        "Returns MultiLagCorrelationResponse with all data",
+        "Raises InsufficientDataError if not enough BMs"
       ],
       "priority": 20,
       "passes": true
     },
     {
-      "id": "US-121",
-      "title": "Add memories tab to call detail page",
-      "description": "Update call detail page to include a 'Memories' tab showing memories extracted from this call. Display memory type badge, content, and importance. Add 'Extract Memories' button if not yet extracted.",
+      "id": "US-021",
+      "title": "Create correlations API endpoint",
+      "description": "Create GET /api/cronometer/insights/correlations endpoint that calls InsightsService.analyze_correlations with query parameters.",
       "acceptanceCriteria": [
-        "Memories tab/section on call detail page",
-        "Lists memories with type badges",
-        "Shows importance indicator",
-        "Extract Memories button if no memories exist",
-        "npm run build passes"
+        "GET /insights/correlations endpoint in cronometer router",
+        "Query params: start_date, end_date, time_lags (list), min_sample_size, analysis_level",
+        "Validates time_lags are valid enum values",
+        "Returns MultiLagCorrelationResponse schema",
+        "Returns 400 if insufficient data for analysis"
       ],
       "priority": 21,
       "passes": true
     },
     {
-      "id": "US-122",
-      "title": "Create Twilio webhook handler",
-      "description": "Create backend/src/api/routes/webhooks.py with POST /webhooks/twilio/incoming endpoint to handle inbound calls. Validate Twilio signature, create call record, return TwiML to connect to LiveKit room. This enables 24/7 inbound calling.",
+      "id": "US-022",
+      "title": "Create Pydantic schemas for insights API",
+      "description": "Create Pydantic schemas for insights: CorrelationResultSchema, ConsistentCorrelationSchema, MultiLagCorrelationResponse with all nested structures.",
       "acceptanceCriteria": [
-        "File backend/src/api/routes/webhooks.py exists",
-        "POST /webhooks/twilio/incoming endpoint",
-        "Validates Twilio request signature",
-        "Looks up user by phone number",
-        "Creates call record with status in_progress",
-        "Returns TwiML XML to connect to LiveKit SIP",
-        "Router registered in __init__.py",
-        "uv run ruff check src/ passes"
+        "Schemas in backend/src/api/schemas/insights.py or added to cronometer.py",
+        "CorrelationResultSchema with all CorrelationResult fields",
+        "ConsistentCorrelationSchema for consistent correlations",
+        "MultiLagCorrelationResponse with baseline_bristol_score, total counts, results_by_lag, consistent_correlations, insights list"
       ],
       "priority": 22,
       "passes": true
     },
     {
-      "id": "US-123",
-      "title": "Add call direction tracking",
-      "description": "Update Call model to include direction field (enum: inbound, outbound). Update trigger endpoint to set direction=outbound. Update Twilio webhook to set direction=inbound. Update UI to show direction badge on calls.",
+      "id": "US-023",
+      "title": "Add unit tests for bowel movement parsing",
+      "description": "Write unit tests for _parse_bowel_movement function covering various note formats: standard format, missing Bristol, missing quantity, no BM keyword, case variations.",
       "acceptanceCriteria": [
-        "CallDirection enum added (inbound, outbound)",
-        "Call model has direction field with default outbound",
-        "Alembic migration adds direction column",
-        "Trigger endpoint sets direction=outbound",
-        "Twilio webhook sets direction=inbound",
-        "Call list shows direction badge",
-        "uv run ruff check src/ passes",
-        "npm run build passes"
+        "Tests in backend/tests/test_sync_service.py",
+        "Test standard format: 'Bowel Movement - quantity 5/10, Bristol 4'",
+        "Test with only Bristol: 'BM Bristol 3'",
+        "Test with only quantity: 'Bowel Movement quantity 7/10'",
+        "Test non-BM note returns (False, None, None)",
+        "Test case insensitivity"
       ],
       "priority": 23,
       "passes": true
     },
     {
-      "id": "US-124",
-      "title": "Enhance dashboard home with insights",
-      "description": "Update frontend/src/app/(dashboard)/page.tsx to show richer insights: mood trend mini-chart, recent memories carousel, upcoming scheduled call countdown, quick stats (calls this week, streak). Make it feel like a personalized home.",
+      "id": "US-024",
+      "title": "Add unit tests for correlation analysis",
+      "description": "Write unit tests for InsightsService correlation methods using synthetic data. Test correlation calculation, high/low comparison, and significance detection.",
       "acceptanceCriteria": [
-        "Dashboard shows mini mood trend (last 5 calls)",
-        "Shows 2-3 recent memories as cards",
-        "Countdown to next scheduled call",
-        "Quick stats row (calls this week, current streak)",
-        "Welcome message with user's name",
-        "npm run build passes"
+        "Tests in backend/tests/test_insights_service.py",
+        "Test with synthetic food logs and BM notes",
+        "Test positive correlation detection",
+        "Test negative correlation detection",
+        "Test insignificant correlation (high p-value)",
+        "Test _find_consistent_correlations with multi-window data"
       ],
       "priority": 24,
       "passes": true
     },
     {
-      "id": "US-125",
-      "title": "Add alert notifications for concerning moods",
-      "description": "Create Alert model (id, user_id, call_id, alert_type, message, acknowledged, created_at). When mood analysis flags concerns, create an alert. Show alert banner on dashboard. Allow dismissing alerts.",
+      "id": "US-025",
+      "title": "Create Cronometer API hooks",
+      "description": "Create React Query hooks for all Cronometer API endpoints in frontend/src/lib/api/cronometer.ts. Include hooks for credentials, sync, food logs, health notes, and insights correlations.",
       "acceptanceCriteria": [
-        "File backend/src/models/alert.py exists",
-        "Alert model with all fields",
-        "AlertType enum (mood_concern, missed_calls, etc)",
-        "Mood service creates alerts for negative/concerned sentiment",
-        "GET /alerts endpoint for user's unacknowledged alerts",
-        "POST /alerts/{id}/acknowledge endpoint",
-        "Dashboard shows alert banner if unacknowledged alerts exist",
-        "uv run ruff check src/ passes",
+        "File frontend/src/lib/api/cronometer.ts exists",
+        "useCronometerStatusQuery() - GET /cronometer/credentials/status",
+        "useSaveCronometerCredentialsMutation() - POST /cronometer/credentials",
+        "useDeleteCronometerCredentialsMutation() - DELETE /cronometer/credentials",
+        "useSyncCronometerMutation() - POST /cronometer/sync with days_back param",
+        "useFoodLogsQuery(startDate, endDate) - GET /cronometer/food-logs",
+        "useHealthNotesQuery(startDate, endDate) - GET /cronometer/health-notes",
+        "useCorrelationsQuery(params) - GET /cronometer/insights/correlations",
+        "TypeScript types for all response schemas",
+        "Exported from frontend/src/lib/api/index.ts",
         "npm run build passes"
       ],
       "priority": 25,
       "passes": true
     },
     {
-      "id": "US-126",
-      "title": "Write integration tests for new features",
-      "description": "Add integration tests for: auth middleware, preferences CRUD, mood analysis endpoint, analytics endpoint, webhook handler. Ensure all new endpoints have test coverage.",
+      "id": "US-026",
+      "title": "Add Cronometer credentials section to settings page",
+      "description": "Add a new 'Integrations' section to the settings page for managing Cronometer credentials. Show connection status, allow saving new credentials, and provide disconnect option.",
       "acceptanceCriteria": [
-        "Tests for auth middleware (valid token, invalid token, missing token)",
-        "Tests for preferences CRUD",
-        "Tests for mood analysis endpoint",
-        "Tests for analytics endpoint",
-        "Tests for Twilio webhook (with mocked signature)",
-        "All tests pass: uv run pytest tests/ -v"
+        "New 'Integrations' section in frontend/src/app/(dashboard)/settings/page.tsx",
+        "Shows Cronometer connection status (connected/not connected)",
+        "Shows last sync timestamp if connected",
+        "Form to enter Cronometer email and password",
+        "Save button calls useSaveCronometerCredentialsMutation",
+        "Disconnect button calls useDeleteCronometerCredentialsMutation with confirmation",
+        "Loading and error states handled",
+        "Password field uses type='password'",
+        "npm run build passes"
       ],
       "priority": 26,
       "passes": true
+    },
+    {
+      "id": "US-027",
+      "title": "Create Insights page layout and navigation",
+      "description": "Create the Insights dashboard page at frontend/src/app/(dashboard)/insights/page.tsx with basic layout, add to sidebar navigation. Include header, date range selector, and placeholder sections.",
+      "acceptanceCriteria": [
+        "File frontend/src/app/(dashboard)/insights/page.tsx exists",
+        "Page title 'Nutrition Insights'",
+        "Date range picker (start_date, end_date) defaulting to last 30 days",
+        "Placeholder sections for: Sync Status, Key Insights, Correlation Analysis",
+        "Added to sidebar navigation in frontend/src/app/(dashboard)/layout.tsx",
+        "Uses consistent styling with other dashboard pages",
+        "npm run build passes"
+      ],
+      "priority": 27,
+      "passes": false
+    },
+    {
+      "id": "US-028",
+      "title": "Add sync status and trigger to Insights page",
+      "description": "Add a sync status card to the Insights page showing last sync time and a 'Sync Now' button. Include days_back selector (7, 14, 30, 60, 90 days). Show sync progress and results.",
+      "acceptanceCriteria": [
+        "Sync status card shows 'Connected' or 'Not Connected' based on credentials status",
+        "Shows last_sync_at timestamp formatted nicely (e.g., '2 hours ago')",
+        "Days selector dropdown with options: 7, 14, 30, 60, 90",
+        "Sync Now button triggers useSyncCronometerMutation",
+        "Loading spinner during sync",
+        "Success toast showing sync counts (food logs, biometrics, notes)",
+        "Error handling if not connected (prompt to go to Settings)",
+        "npm run build passes"
+      ],
+      "priority": 28,
+      "passes": false
+    },
+    {
+      "id": "US-029",
+      "title": "Create correlation analysis controls",
+      "description": "Add analysis controls to the Insights page: time lag checkboxes, analysis level dropdown, min sample size input, and 'Run Analysis' button that calls the correlations API.",
+      "acceptanceCriteria": [
+        "Time lag multi-select checkboxes: 12h, 24h, 36h, 48h, 72h (default: 24h, 48h)",
+        "Analysis level dropdown: basic, standard, comprehensive (default: standard)",
+        "Min sample size input with default 5",
+        "Run Analysis button calls useCorrelationsQuery with all params",
+        "Disable button if no credentials or date range invalid",
+        "Loading state while fetching",
+        "npm run build passes"
+      ],
+      "priority": 29,
+      "passes": false
+    },
+    {
+      "id": "US-030",
+      "title": "Display correlation insights summary",
+      "description": "Create a Key Insights card that displays the human-readable insights from the correlation analysis. Show baseline Bristol score, sample counts, and the generated insight strings.",
+      "acceptanceCriteria": [
+        "Key Insights card at top of results section",
+        "Shows baseline Bristol score with color indicator (green 3-5, yellow 2/6, red 1/7)",
+        "Shows total BM samples and food log counts",
+        "Lists insight strings as bullet points",
+        "Empty state if no analysis run yet",
+        "Error state if insufficient data",
+        "npm run build passes"
+      ],
+      "priority": 30,
+      "passes": false
+    },
+    {
+      "id": "US-031",
+      "title": "Display correlation results table",
+      "description": "Create a sortable table showing detailed correlation results for each nutrient. Include columns for nutrient name, correlation coefficient, p-value, significance indicator, and Bristol comparison.",
+      "acceptanceCriteria": [
+        "Table with columns: Nutrient, Correlation, P-Value, Significant, High Intake Bristol, Low Intake Bristol",
+        "Sortable by clicking column headers (default: sort by |correlation|)",
+        "Color-coded correlation: green for positive, red for negative, gray for none",
+        "Significance shown as checkmark or badge",
+        "Bristol values show the average with trend arrow (up/down)",
+        "Tab selector to switch between time lags (24h, 48h, etc.)",
+        "npm run build passes"
+      ],
+      "priority": 31,
+      "passes": false
+    },
+    {
+      "id": "US-032",
+      "title": "Display consistent correlations highlight",
+      "description": "Create a 'Consistent Findings' section showing nutrients that are significant across multiple time windows. Highlight these as the most reliable insights.",
+      "acceptanceCriteria": [
+        "Consistent Findings section above detailed table",
+        "Shows nutrients significant in 2+ time windows",
+        "Displays: nutrient name, avg correlation, windows count, direction",
+        "Styled as highlighted cards or badges",
+        "Tooltip explaining what 'consistent' means",
+        "Empty state if no consistent correlations found",
+        "npm run build passes"
+      ],
+      "priority": 32,
+      "passes": false
+    },
+    {
+      "id": "US-033",
+      "title": "Add Bristol scale reference and help",
+      "description": "Add educational content explaining the Bristol Stool Scale and how to interpret correlation results. Include a collapsible help section or info tooltips.",
+      "acceptanceCriteria": [
+        "Bristol Scale reference card with types 1-7 descriptions",
+        "Visual icons or colors for each Bristol type",
+        "Explanation of what positive/negative correlation means",
+        "Help tooltip on 'Correlation' column explaining Pearson coefficient",
+        "Help tooltip on 'P-Value' explaining statistical significance",
+        "Collapsible or expandable to not clutter the UI",
+        "npm run build passes"
+      ],
+      "priority": 33,
+      "passes": false
     }
   ]
 }
