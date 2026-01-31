@@ -7,6 +7,14 @@ from .comparison_service import (
     ControlledComparisonService,
     InsufficientMatchesError,
 )
+from .food_correlation_service import (
+    FoodAnalysisResponse,
+    FoodCorrelationResult,
+    FoodCorrelationService,
+)
+from .food_correlation_service import (
+    InsufficientDataError as FoodInsufficientDataError,
+)
 from .granger_service import (
     GrangerCausalityService,
     GrangerResult,
@@ -50,6 +58,10 @@ __all__ = [
     "ControlledComparisonService",
     "CorrelationResult",
     "ExtractedMemory",
+    "FoodAnalysisResponse",
+    "FoodCorrelationResult",
+    "FoodCorrelationService",
+    "FoodInsufficientDataError",
     "GrangerCausalityService",
     "GrangerInsufficientDataError",
     "GrangerResult",
