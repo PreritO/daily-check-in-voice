@@ -256,10 +256,10 @@ export function useHealthNotesQuery(startDate: string, endDate: string) {
   });
 }
 
-export function useCorrelationsQuery(params: CorrelationsParams) {
+export function useCorrelationsQuery(params: CorrelationsParams, enabled: boolean = true) {
   return useQuery({
     queryKey: cronometerKeys.correlations(params),
     queryFn: () => getCorrelations(params),
-    enabled: !!params.startDate && !!params.endDate,
+    enabled: enabled && !!params.startDate && !!params.endDate,
   });
 }

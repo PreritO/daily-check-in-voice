@@ -6,7 +6,11 @@ import Link from "next/link";
 import {
   useCronometerStatusQuery,
   useSyncCronometerMutation,
+  useCorrelationsQuery,
   SyncResponse,
+  TimeLag,
+  AnalysisLevel,
+  MultiLagCorrelationResponse,
 } from "@/lib/api/cronometer";
 
 // =============================================================================
@@ -326,6 +330,306 @@ function SyncStatusCard() {
 }
 
 // =============================================================================
+// Time Lag Options
+// =============================================================================
+
+const TIME_LAG_OPTIONS: { value: TimeLag; label: string }[] = [
+  { value: 12, label: "12 hours" },
+  { value: 24, label: "24 hours" },
+  { value: 36, label: "36 hours" },
+  { value: 48, label: "48 hours" },
+  { value: 72, label: "72 hours" },
+];
+
+// =============================================================================
+// Correlation Analysis Card Component
+// =============================================================================
+
+interface CorrelationAnalysisCardProps {
+  startDate: string;
+  endDate: string;
+  timeLags: TimeLag[];
+  setTimeLags: (lags: TimeLag[]) => void;
+  analysisLevel: AnalysisLevel;
+  setAnalysisLevel: (level: AnalysisLevel) => void;
+  minSampleSize: number;
+  setMinSampleSize: (size: number) => void;
+  isCredentialsLoading: boolean;
+  hasCredentials: boolean;
+  correlationsData: MultiLagCorrelationResponse | undefined;
+  isCorrelationsLoading: boolean;
+  correlationsError: Error | null;
+  onRunAnalysis: () => void;
+}
+
+function CorrelationAnalysisCard({
+  startDate,
+  endDate,
+  timeLags,
+  setTimeLags,
+  analysisLevel,
+  setAnalysisLevel,
+  minSampleSize,
+  setMinSampleSize,
+  isCredentialsLoading,
+  hasCredentials,
+  correlationsData,
+  isCorrelationsLoading,
+  correlationsError,
+  onRunAnalysis,
+}: CorrelationAnalysisCardProps) {
+  const isDateRangeValid = startDate && endDate && startDate <= endDate;
+  const canRunAnalysis =
+    !isCredentialsLoading &&
+    hasCredentials &&
+    isDateRangeValid &&
+    timeLags.length > 0;
+
+  const handleTimeLagChange = (lag: TimeLag, checked: boolean) => {
+    if (checked) {
+      setTimeLags([...timeLags, lag].sort((a, b) => a - b));
+    } else {
+      setTimeLags(timeLags.filter((t) => t !== lag));
+    }
+  };
+
+  return (
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-[#E8E5EB] shadow-sm dark:bg-[#E8E5EB]/20">
+          <svg
+            className="h-6 w-6 text-[#6B5B7A]"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
+            />
+          </svg>
+        </div>
+        <div className="flex-1">
+          <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+            Correlation Analysis
+          </h2>
+          <p className="mt-1 text-base text-[#A89B86] dark:text-[#B8A99A]">
+            Explore how nutrients affect your digestion
+          </p>
+
+          {/* Controls Section */}
+          <div className="mt-6 space-y-6">
+            {/* Time Lag Checkboxes */}
+            <div>
+              <label className="mb-3 block text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                Time Lag Windows
+              </label>
+              <div className="flex flex-wrap gap-4">
+                {TIME_LAG_OPTIONS.map((option) => (
+                  <label
+                    key={option.value}
+                    className="flex cursor-pointer items-center gap-2"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={timeLags.includes(option.value)}
+                      onChange={(e) =>
+                        handleTimeLagChange(option.value, e.target.checked)
+                      }
+                      className="h-4 w-4 rounded border-[#DEDDDB] text-[#E8A0BF] focus:ring-[#E8A0BF] dark:border-[#3D3935]"
+                    />
+                    <span className="text-sm text-[#4A4543] dark:text-[#F5F3F0]">
+                      {option.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Analysis Level and Min Sample Size */}
+            <div className="flex flex-wrap gap-6">
+              {/* Analysis Level Dropdown */}
+              <div className="flex-1 min-w-[200px]">
+                <label
+                  htmlFor="analysis-level"
+                  className="mb-2 block text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]"
+                >
+                  Analysis Level
+                </label>
+                <select
+                  id="analysis-level"
+                  value={analysisLevel}
+                  onChange={(e) =>
+                    setAnalysisLevel(e.target.value as AnalysisLevel)
+                  }
+                  className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-2.5 text-sm text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+                >
+                  <option value="basic">Basic (Macros only)</option>
+                  <option value="standard">Standard</option>
+                  <option value="comprehensive">
+                    Comprehensive (All nutrients)
+                  </option>
+                </select>
+              </div>
+
+              {/* Min Sample Size Input */}
+              <div className="w-32">
+                <label
+                  htmlFor="min-sample-size"
+                  className="mb-2 block text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]"
+                >
+                  Min Samples
+                </label>
+                <input
+                  id="min-sample-size"
+                  type="number"
+                  min={3}
+                  max={20}
+                  value={minSampleSize}
+                  onChange={(e) => setMinSampleSize(Number(e.target.value))}
+                  className="w-full rounded-xl border border-[#DEDDDB] bg-white px-4 py-2.5 text-sm text-[#4A4543] shadow-sm transition-all duration-200 focus:border-[#E8A0BF] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/20 dark:border-[#3D3935] dark:bg-[#3D3935] dark:text-[#F5F3F0]"
+                />
+              </div>
+            </div>
+
+            {/* Run Analysis Button */}
+            <div>
+              <button
+                onClick={onRunAnalysis}
+                disabled={!canRunAnalysis || isCorrelationsLoading}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#E8A0BF] px-6 py-3 text-base font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#D890AF] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]/50 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-[#D890AF]"
+              >
+                {isCorrelationsLoading ? (
+                  <>
+                    <svg
+                      className="h-5 w-5 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                      />
+                    </svg>
+                    Run Analysis
+                  </>
+                )}
+              </button>
+
+              {/* Validation Messages */}
+              {!hasCredentials && !isCredentialsLoading && (
+                <p className="mt-2 text-sm text-[#F59E0B]">
+                  Connect your Cronometer account in Settings to run analysis.
+                </p>
+              )}
+              {timeLags.length === 0 && (
+                <p className="mt-2 text-sm text-[#F59E0B]">
+                  Select at least one time lag window.
+                </p>
+              )}
+              {!isDateRangeValid && (
+                <p className="mt-2 text-sm text-[#F59E0B]">
+                  Please select a valid date range.
+                </p>
+              )}
+            </div>
+
+            {/* Error Message */}
+            {correlationsError && (
+              <div className="rounded-lg bg-[#FFEBEE] p-3 text-sm text-[#C62828] dark:bg-[#F5A9A9]/20 dark:text-[#F5A9A9]">
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span>Failed to run analysis. Please try again.</span>
+                </div>
+              </div>
+            )}
+
+            {/* Results Summary */}
+            {correlationsData && !isCorrelationsLoading && (
+              <div className="rounded-lg bg-[#E8F5E9] p-4 dark:bg-[#A8D5BA]/20">
+                <h3 className="font-medium text-[#2E7D32] dark:text-[#A8D5BA]">
+                  Analysis Complete
+                </h3>
+                <div className="mt-2 space-y-1 text-sm text-[#4A4543] dark:text-[#F5F3F0]">
+                  <p>
+                    Analyzed {correlationsData.total_food_logs} food logs and{" "}
+                    {correlationsData.total_bowel_movements} bowel movements
+                  </p>
+                  <p>
+                    Baseline Bristol score:{" "}
+                    {correlationsData.baseline_bristol_score.toFixed(1)}
+                  </p>
+                  <p>
+                    Found {correlationsData.consistent_correlations.length}{" "}
+                    consistent correlations
+                  </p>
+                </div>
+                {correlationsData.insights.length > 0 && (
+                  <div className="mt-3 border-t border-[#A8D5BA]/30 pt-3">
+                    <h4 className="text-sm font-medium text-[#2E7D32] dark:text-[#A8D5BA]">
+                      Key Insights:
+                    </h4>
+                    <ul className="mt-1 list-inside list-disc space-y-1 text-sm text-[#4A4543] dark:text-[#F5F3F0]">
+                      {correlationsData.insights.slice(0, 3).map((insight, i) => (
+                        <li key={i}>{insight}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
 // Main Insights Page
 // =============================================================================
 
@@ -336,6 +640,38 @@ export default function InsightsPage() {
   const [endDate, setEndDate] = useState(() =>
     format(new Date(), "yyyy-MM-dd")
   );
+
+  // Correlation analysis controls state
+  const [timeLags, setTimeLags] = useState<TimeLag[]>([24, 48]);
+  const [analysisLevel, setAnalysisLevel] = useState<AnalysisLevel>("standard");
+  const [minSampleSize, setMinSampleSize] = useState(5);
+  const [analysisEnabled, setAnalysisEnabled] = useState(false);
+
+  // Queries
+  const { data: cronometerStatus, isLoading: isCredentialsLoading } =
+    useCronometerStatusQuery();
+  const hasCredentials = cronometerStatus?.has_credentials ?? false;
+
+  // Use a separate query key to control when the query runs
+  const correlationsQuery = useCorrelationsQuery(
+    {
+      startDate,
+      endDate,
+      timeLags,
+      minSampleSize,
+      analysisLevel,
+    },
+    analysisEnabled && hasCredentials
+  );
+
+  // Trigger analysis when button is clicked
+  const handleRunAnalysis = () => {
+    setAnalysisEnabled(true);
+    // Force refetch in case params changed but analysisEnabled was already true
+    if (analysisEnabled) {
+      correlationsQuery.refetch();
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -417,26 +753,21 @@ export default function InsightsPage() {
         />
 
         {/* Correlation Analysis */}
-        <PlaceholderCard
-          title="Correlation Analysis"
-          description="Explore how nutrients affect your digestion"
-          icon={
-            <svg
-              className="h-6 w-6 text-[#6B5B7A]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
-              />
-            </svg>
-          }
-          iconBgClass="bg-[#E8E5EB] dark:bg-[#E8E5EB]/20"
+        <CorrelationAnalysisCard
+          startDate={startDate}
+          endDate={endDate}
+          timeLags={timeLags}
+          setTimeLags={setTimeLags}
+          analysisLevel={analysisLevel}
+          setAnalysisLevel={setAnalysisLevel}
+          minSampleSize={minSampleSize}
+          setMinSampleSize={setMinSampleSize}
+          isCredentialsLoading={isCredentialsLoading}
+          hasCredentials={hasCredentials}
+          correlationsData={correlationsQuery.data}
+          isCorrelationsLoading={correlationsQuery.isFetching}
+          correlationsError={correlationsQuery.error}
+          onRunAnalysis={handleRunAnalysis}
         />
       </div>
     </div>
