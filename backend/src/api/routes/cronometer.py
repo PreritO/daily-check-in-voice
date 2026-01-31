@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.dependencies import get_or_create_user
 from src.api.schemas import (
     BristolEvent,
+    ComparisonResultSchema,
     CredentialStatusResponse,
     DailyTimelineData,
     FoodLogResponse,
@@ -28,8 +29,10 @@ from src.database import get_db
 from src.integrations.cronometer import CronometerSyncService
 from src.models import CronometerCredential, FoodLog, HealthNote, User
 from src.services import (
+    ControlledComparisonService,
     GrangerCausalityService,
     GrangerInsufficientDataError,
+    InsufficientMatchesError,
 )
 from src.services.insights_service import (
     InsightsService,
@@ -616,4 +619,84 @@ async def get_granger_causality(
         nutrients_tested=len(results),
         causal_nutrients_count=causal_count,
         results=results,
+    )
+
+
+@router.get("/insights/compare", response_model=ComparisonResultSchema)
+async def get_controlled_comparison(
+    start_date: date = Query(..., description="Start date (inclusive)"),
+    end_date: date = Query(..., description="End date (inclusive)"),
+    nutrient_key: str = Query(..., description="Nutrient to analyze (e.g., 'fiber_g')"),
+    control_factors: list[str] = Query(
+        default=["calories"],
+        description="Factors to control for",
+    ),
+    min_matched_pairs: int = Query(
+        default=5, ge=3, le=50, description="Min matched pairs required"
+    ),
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> ComparisonResultSchema:
+    """Run controlled comparison of Bristol outcomes on high vs low nutrient intake days.
+
+    This endpoint performs a controlled comparison analysis:
+    1. Splits days into high (top quartile) and low (bottom quartile) nutrient intake
+    2. Matches days with similar values for control factors
+    3. Compares average Bristol scores between matched groups
+    4. Calculates 95% confidence interval for the difference
+
+    Args:
+        start_date: Start date for analysis (inclusive).
+        end_date: End date for analysis (inclusive).
+        nutrient_key: Nutrient to analyze (e.g., "fiber_g", "protein_g").
+        control_factors: Other nutrients to control for (default: ["calories"]).
+        min_matched_pairs: Minimum number of matched pairs required (3-50).
+        current_user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        Comparison result with statistics including confidence interval.
+
+    Raises:
+        HTTPException: 400 if insufficient matched pairs found.
+    """
+    comparison_service = ControlledComparisonService(db)
+
+    try:
+        result = await comparison_service.compare(
+            user_id=current_user.id,
+            nutrient_key=nutrient_key,
+            start_date=start_date,
+            end_date=end_date,
+            control_factors=control_factors,
+            min_matched_pairs=min_matched_pairs,
+        )
+    except InsufficientMatchesError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+    logger.info(
+        "Controlled comparison completed",
+        user_id=str(current_user.id),
+        nutrient_key=nutrient_key,
+        start_date=str(start_date),
+        end_date=str(end_date),
+        matched_pairs=result.matched_pairs_count,
+        is_significant=result.is_significant,
+    )
+
+    return ComparisonResultSchema(
+        nutrient_key=result.nutrient_key,
+        nutrient_name=result.nutrient_name,
+        avg_bristol_high_intake=result.avg_bristol_high_intake,
+        avg_bristol_low_intake=result.avg_bristol_low_intake,
+        difference=result.difference,
+        confidence_interval_low=result.confidence_interval_low,
+        confidence_interval_high=result.confidence_interval_high,
+        high_intake_count=result.high_intake_count,
+        low_intake_count=result.low_intake_count,
+        matched_pairs_count=result.matched_pairs_count,
+        is_significant=result.is_significant,
     )

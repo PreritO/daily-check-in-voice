@@ -555,6 +555,22 @@ class ConsistentCorrelationSchema(BaseModel):
     direction: str = Field(..., description="Overall direction: positive, negative, or mixed")
 
 
+class ComparisonResultSchema(BaseModel):
+    """Schema for controlled comparison result."""
+
+    nutrient_key: str = Field(..., description="Nutrient identifier")
+    nutrient_name: str = Field(..., description="Human-readable nutrient name")
+    avg_bristol_high_intake: float = Field(..., description="Avg Bristol on high intake days")
+    avg_bristol_low_intake: float = Field(..., description="Avg Bristol on low intake days")
+    difference: float = Field(..., description="Difference (high - low)")
+    confidence_interval_low: float = Field(..., description="95% CI lower bound")
+    confidence_interval_high: float = Field(..., description="95% CI upper bound")
+    high_intake_count: int = Field(..., description="Sample size for high intake")
+    low_intake_count: int = Field(..., description="Sample size for low intake")
+    matched_pairs_count: int = Field(..., description="Number of matched day-pairs")
+    is_significant: bool = Field(..., description="True if statistically significant")
+
+
 class MultiLagCorrelationResponseSchema(BaseModel):
     """Schema for the complete correlation analysis response."""
 
