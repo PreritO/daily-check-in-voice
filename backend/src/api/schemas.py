@@ -457,3 +457,56 @@ class CredentialStatusResponse(BaseModel):
 
     has_credentials: bool = Field(..., description="Whether credentials are saved")
     last_sync_at: datetime | None = Field(None, description="Timestamp of last sync")
+
+
+# =============================================================================
+# Insights Schemas
+# =============================================================================
+
+
+class CorrelationResultSchema(BaseModel):
+    """Schema for a single nutrient correlation result."""
+
+    nutrient_name: str = Field(..., description="Human-readable nutrient name")
+    nutrient_key: str = Field(..., description="Internal nutrient key")
+    time_lag_hours: int = Field(..., description="Time lag window in hours")
+    correlation_coefficient: float = Field(..., description="Pearson correlation coefficient")
+    p_value: float = Field(..., description="Statistical p-value")
+    sample_size: int = Field(..., description="Number of data points analyzed")
+    is_significant: bool = Field(..., description="Whether p < 0.05")
+    avg_bristol_high_intake: float | None = Field(
+        None, description="Avg Bristol score when intake is high"
+    )
+    avg_bristol_low_intake: float | None = Field(
+        None, description="Avg Bristol score when intake is low"
+    )
+    intake_high_threshold: float | None = Field(None, description="75th percentile intake")
+    intake_low_threshold: float | None = Field(None, description="25th percentile intake")
+    direction: str = Field(..., description="Correlation direction: positive, negative, or none")
+
+
+class ConsistentCorrelationSchema(BaseModel):
+    """Schema for a nutrient with consistent correlation across time windows."""
+
+    nutrient_name: str = Field(..., description="Human-readable nutrient name")
+    nutrient_key: str = Field(..., description="Internal nutrient key")
+    windows_significant: int = Field(..., description="Number of windows with significance")
+    avg_correlation: float = Field(..., description="Average correlation coefficient")
+    direction: str = Field(..., description="Overall direction: positive, negative, or mixed")
+
+
+class MultiLagCorrelationResponseSchema(BaseModel):
+    """Schema for the complete correlation analysis response."""
+
+    baseline_bristol_score: float = Field(..., description="Average Bristol score")
+    total_bowel_movements: int = Field(..., description="Total BMs analyzed")
+    total_food_logs: int = Field(..., description="Total food logs analyzed")
+    analysis_start_date: date = Field(..., description="Start of analysis period")
+    analysis_end_date: date = Field(..., description="End of analysis period")
+    results_by_lag: dict[int, list[CorrelationResultSchema]] = Field(
+        default_factory=dict, description="Results keyed by time lag hours"
+    )
+    consistent_correlations: list[ConsistentCorrelationSchema] = Field(
+        default_factory=list, description="Nutrients with consistent correlations"
+    )
+    insights: list[str] = Field(default_factory=list, description="Human-readable insights")

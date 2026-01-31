@@ -1,6 +1,7 @@
 """Cronometer integration API endpoints."""
 
 from datetime import UTC, date, datetime
+from typing import Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -13,6 +14,7 @@ from src.api.schemas import (
     CredentialStatusResponse,
     FoodLogResponse,
     HealthNoteResponse,
+    MultiLagCorrelationResponseSchema,
     SaveCredentialsRequest,
     SyncRequest,
     SyncResponse,
@@ -20,6 +22,11 @@ from src.api.schemas import (
 from src.database import get_db
 from src.integrations.cronometer import CronometerSyncService
 from src.models import CronometerCredential, FoodLog, HealthNote, User
+from src.services.insights_service import (
+    InsightsService,
+    InsufficientDataError,
+    TimeLagWindow,
+)
 from src.utils.encryption import encrypt_string
 
 logger = structlog.get_logger()
@@ -256,3 +263,116 @@ async def get_health_notes(
         .order_by(HealthNote.logged_at.desc())
     )
     return list(result.scalars().all())
+
+
+# Valid time lag values for query parameter validation
+VALID_TIME_LAGS = {12, 24, 36, 48, 72}
+
+
+@router.get("/insights/correlations", response_model=MultiLagCorrelationResponseSchema)
+async def get_correlations(
+    start_date: date = Query(..., description="Start date (inclusive)"),
+    end_date: date = Query(..., description="End date (inclusive)"),
+    time_lags: list[int] = Query(
+        default=[12, 24, 36, 48, 72],
+        description="Time lag windows in hours (valid: 12, 24, 36, 48, 72)",
+    ),
+    min_sample_size: int = Query(default=5, ge=3, le=100, description="Min BM samples required"),
+    analysis_level: Literal["basic", "standard", "comprehensive"] = Query(
+        default="standard", description="Level of nutrient analysis"
+    ),
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> MultiLagCorrelationResponseSchema:
+    """Analyze correlations between nutrient intake and bowel movement outcomes.
+
+    Args:
+        start_date: Start date for analysis (inclusive).
+        end_date: End date for analysis (inclusive).
+        time_lags: List of time lag windows in hours to analyze.
+        min_sample_size: Minimum number of BM samples required.
+        analysis_level: basic (macros), standard, or comprehensive (all nutrients).
+        current_user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        Correlation analysis results with insights.
+
+    Raises:
+        HTTPException: 400 if invalid time_lags or insufficient data.
+    """
+    # Validate time_lags
+    invalid_lags = [lag for lag in time_lags if lag not in VALID_TIME_LAGS]
+    if invalid_lags:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid time_lags: {invalid_lags}. Valid values: {sorted(VALID_TIME_LAGS)}",
+        )
+
+    # Convert to TimeLagWindow enum values
+    time_lag_enums = [TimeLagWindow(lag) for lag in time_lags]
+
+    # Run correlation analysis
+    insights_service = InsightsService(db)
+    try:
+        result = await insights_service.analyze_correlations(
+            user_id=current_user.id,
+            start_date=start_date,
+            end_date=end_date,
+            time_lags=time_lag_enums,
+            min_sample_size=min_sample_size,
+            analysis_level=analysis_level,
+        )
+    except InsufficientDataError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+    logger.info(
+        "Correlation analysis completed",
+        user_id=str(current_user.id),
+        total_bms=result.total_bowel_movements,
+        total_food_logs=result.total_food_logs,
+        consistent_correlations=len(result.consistent_correlations),
+    )
+
+    # Convert dataclass to Pydantic schema
+    return MultiLagCorrelationResponseSchema(
+        baseline_bristol_score=result.baseline_bristol_score,
+        total_bowel_movements=result.total_bowel_movements,
+        total_food_logs=result.total_food_logs,
+        analysis_start_date=result.analysis_start_date,
+        analysis_end_date=result.analysis_end_date,
+        results_by_lag={
+            lag: [
+                {
+                    "nutrient_name": r.nutrient_name,
+                    "nutrient_key": r.nutrient_key,
+                    "time_lag_hours": r.time_lag_hours,
+                    "correlation_coefficient": r.correlation_coefficient,
+                    "p_value": r.p_value,
+                    "sample_size": r.sample_size,
+                    "is_significant": r.is_significant,
+                    "avg_bristol_high_intake": r.avg_bristol_high_intake,
+                    "avg_bristol_low_intake": r.avg_bristol_low_intake,
+                    "intake_high_threshold": r.intake_high_threshold,
+                    "intake_low_threshold": r.intake_low_threshold,
+                    "direction": r.direction,
+                }
+                for r in results
+            ]
+            for lag, results in result.results_by_lag.items()
+        },
+        consistent_correlations=[
+            {
+                "nutrient_name": c.nutrient_name,
+                "nutrient_key": c.nutrient_key,
+                "windows_significant": c.windows_significant,
+                "avg_correlation": c.avg_correlation,
+                "direction": c.direction,
+            }
+            for c in result.consistent_correlations
+        ],
+        insights=result.insights,
+    )
