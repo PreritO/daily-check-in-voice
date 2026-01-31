@@ -5,11 +5,11 @@ import json
 from dataclasses import dataclass
 from uuid import UUID
 
-from pycronometer import Serving
+from pycronometer import BiometricEntry, Serving
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import CronometerCredential, FoodLog
+from src.models import BiometricLog, CronometerCredential, FoodLog
 from src.utils.encryption import decrypt_string
 
 
@@ -149,6 +149,50 @@ class CronometerSyncService:
 
         return new_logs
 
+    async def _upsert_biometric_logs(
+        self, user_id: UUID, entries: list[BiometricEntry]
+    ) -> list[BiometricLog]:
+        """Upsert biometric log entries from Cronometer.
+
+        Args:
+            user_id: The user's ID.
+            entries: List of BiometricEntry objects from pycronometer.
+
+        Returns:
+            List of newly created BiometricLog objects (excludes duplicates).
+        """
+        if not entries:
+            return []
+
+        # Get existing hashes for deduplication
+        existing_hashes = await self._get_existing_hashes(user_id, "biometric_logs")
+
+        new_logs: list[BiometricLog] = []
+        for entry in entries:
+            # Generate hash from raw_data
+            cronometer_hash = self._generate_hash(entry.raw_data)
+
+            # Skip if already exists
+            if cronometer_hash in existing_hashes:
+                continue
+
+            biometric_log = BiometricLog(
+                user_id=user_id,
+                logged_at=entry.logged_at,
+                metric_type=entry.metric,
+                value=entry.value,
+                unit=entry.unit,
+                raw_data=entry.raw_data,
+                cronometer_hash=cronometer_hash,
+            )
+            self._db.add(biometric_log)
+            new_logs.append(biometric_log)
+
+        if new_logs:
+            await self._db.flush()
+
+        return new_logs
+
     async def _get_existing_hashes(self, user_id: UUID, table: str) -> set[str]:
         """Get existing cronometer_hash values for a user.
 
@@ -163,8 +207,12 @@ class CronometerSyncService:
             result = await self._db.execute(
                 select(FoodLog.cronometer_hash).where(FoodLog.user_id == user_id)
             )
+        elif table == "biometric_logs":
+            result = await self._db.execute(
+                select(BiometricLog.cronometer_hash).where(BiometricLog.user_id == user_id)
+            )
         else:
-            # Will be extended for other tables in US-010 and US-011
+            # Will be extended for health_notes in US-011
             return set()
 
         return {row[0] for row in result.fetchall()}
