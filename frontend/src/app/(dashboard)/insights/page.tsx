@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { format, subDays, formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import {
@@ -11,6 +11,7 @@ import {
   TimeLag,
   AnalysisLevel,
   MultiLagCorrelationResponse,
+  CorrelationResult,
 } from "@/lib/api/cronometer";
 
 // =============================================================================
@@ -485,6 +486,239 @@ function KeyInsightsCard({ data }: KeyInsightsCardProps) {
 }
 
 // =============================================================================
+// Correlation Results Table Component
+// =============================================================================
+
+interface CorrelationResultsTableProps {
+  data: MultiLagCorrelationResponse;
+}
+
+type SortField =
+  | "nutrient_name"
+  | "correlation_coefficient"
+  | "p_value"
+  | "avg_bristol_high_intake"
+  | "avg_bristol_low_intake";
+type SortDirection = "asc" | "desc";
+
+function CorrelationResultsTable({ data }: CorrelationResultsTableProps) {
+  // Get available time lags from the data
+  const availableLags = Object.keys(data.results_by_lag)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  const [selectedLag, setSelectedLag] = useState<number>(
+    availableLags[0] ?? 24
+  );
+  const [sortField, setSortField] = useState<SortField>("correlation_coefficient");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  // Get results for selected time lag
+  const results: CorrelationResult[] = data.results_by_lag[selectedLag] ?? [];
+
+  // Sort results
+  const sortedResults = useMemo(() => {
+    return [...results].sort((a, b) => {
+      if (sortField === "nutrient_name") {
+        return sortDirection === "asc"
+          ? a.nutrient_name.localeCompare(b.nutrient_name)
+          : b.nutrient_name.localeCompare(a.nutrient_name);
+      }
+
+      let aVal: number;
+      let bVal: number;
+
+      // For correlation, sort by absolute value
+      if (sortField === "correlation_coefficient") {
+        aVal = Math.abs(a.correlation_coefficient);
+        bVal = Math.abs(b.correlation_coefficient);
+      } else if (sortField === "avg_bristol_high_intake") {
+        aVal = a.avg_bristol_high_intake ?? 0;
+        bVal = b.avg_bristol_high_intake ?? 0;
+      } else if (sortField === "avg_bristol_low_intake") {
+        aVal = a.avg_bristol_low_intake ?? 0;
+        bVal = b.avg_bristol_low_intake ?? 0;
+      } else {
+        aVal = a[sortField] ?? 0;
+        bVal = b[sortField] ?? 0;
+      }
+
+      return sortDirection === "desc" ? bVal - aVal : aVal - bVal;
+    });
+  }, [results, sortField, sortDirection]);
+
+  // Handle sort click
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  };
+
+  // Get correlation color
+  const getCorrelationColor = (correlation: number): string => {
+    if (Math.abs(correlation) < 0.1) return "text-[#A89B86] dark:text-[#B8A99A]"; // gray
+    if (correlation > 0) return "text-[#2E7D32] dark:text-[#A8D5BA]"; // green
+    return "text-[#C62828] dark:text-[#F5A9A9]"; // red
+  };
+
+  // Get trend arrow
+  const getTrendArrow = (
+    highBristol: number | null,
+    lowBristol: number | null
+  ): React.ReactNode => {
+    if (highBristol === null || lowBristol === null) return null;
+    const diff = highBristol - lowBristol;
+    if (Math.abs(diff) < 0.1) return null;
+    if (diff > 0) {
+      return <span className="text-[#2E7D32] dark:text-[#A8D5BA]">↑</span>;
+    }
+    return <span className="text-[#C62828] dark:text-[#F5A9A9]">↓</span>;
+  };
+
+  // Get sort indicator
+  const getSortIndicator = (field: SortField): string => {
+    if (sortField !== field) return "";
+    return sortDirection === "asc" ? " ↑" : " ↓";
+  };
+
+  if (availableLags.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white p-6 shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+      <h2 className="font-serif text-xl font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+        Detailed Correlation Results
+      </h2>
+
+      {/* Time Lag Tabs */}
+      <div className="mt-4 flex flex-wrap gap-2">
+        {availableLags.map((lag) => (
+          <button
+            key={lag}
+            onClick={() => setSelectedLag(lag)}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              selectedLag === lag
+                ? "bg-[#E8A0BF] text-white"
+                : "border border-[#DEDDDB] text-[#4A4543] hover:bg-[#E8E5EB] dark:border-[#3D3935] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
+            }`}
+          >
+            {lag}h
+          </button>
+        ))}
+      </div>
+
+      {/* Table */}
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-[#DEDDDB] dark:border-[#3D3935]">
+              <th
+                className="cursor-pointer p-3 text-left text-sm font-medium text-[#A89B86] hover:text-[#4A4543] dark:text-[#B8A99A] dark:hover:text-[#F5F3F0]"
+                onClick={() => handleSort("nutrient_name")}
+              >
+                Nutrient{getSortIndicator("nutrient_name")}
+              </th>
+              <th
+                className="cursor-pointer p-3 text-right text-sm font-medium text-[#A89B86] hover:text-[#4A4543] dark:text-[#B8A99A] dark:hover:text-[#F5F3F0]"
+                onClick={() => handleSort("correlation_coefficient")}
+              >
+                Correlation{getSortIndicator("correlation_coefficient")}
+              </th>
+              <th
+                className="cursor-pointer p-3 text-right text-sm font-medium text-[#A89B86] hover:text-[#4A4543] dark:text-[#B8A99A] dark:hover:text-[#F5F3F0]"
+                onClick={() => handleSort("p_value")}
+              >
+                P-Value{getSortIndicator("p_value")}
+              </th>
+              <th className="p-3 text-center text-sm font-medium text-[#A89B86] dark:text-[#B8A99A]">
+                Significant
+              </th>
+              <th
+                className="cursor-pointer p-3 text-right text-sm font-medium text-[#A89B86] hover:text-[#4A4543] dark:text-[#B8A99A] dark:hover:text-[#F5F3F0]"
+                onClick={() => handleSort("avg_bristol_high_intake")}
+              >
+                High Intake{getSortIndicator("avg_bristol_high_intake")}
+              </th>
+              <th
+                className="cursor-pointer p-3 text-right text-sm font-medium text-[#A89B86] hover:text-[#4A4543] dark:text-[#B8A99A] dark:hover:text-[#F5F3F0]"
+                onClick={() => handleSort("avg_bristol_low_intake")}
+              >
+                Low Intake{getSortIndicator("avg_bristol_low_intake")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedResults.map((result, index) => (
+              <tr
+                key={result.nutrient_name}
+                className={`border-b border-[#DEDDDB]/50 dark:border-[#3D3935]/50 ${
+                  index % 2 === 0
+                    ? "bg-transparent"
+                    : "bg-[#FDFBF7] dark:bg-[#3D3935]/30"
+                }`}
+              >
+                <td className="p-3 text-sm text-[#4A4543] dark:text-[#F5F3F0]">
+                  {result.nutrient_name}
+                </td>
+                <td
+                  className={`p-3 text-right text-sm font-medium ${getCorrelationColor(result.correlation_coefficient)}`}
+                >
+                  {result.correlation_coefficient.toFixed(3)}
+                </td>
+                <td className="p-3 text-right text-sm text-[#4A4543] dark:text-[#F5F3F0]">
+                  {result.p_value.toFixed(4)}
+                </td>
+                <td className="p-3 text-center">
+                  {result.is_significant ? (
+                    <span className="inline-flex items-center rounded-full bg-[#E8F5E9] px-2 py-1 text-xs font-medium text-[#2E7D32] dark:bg-[#A8D5BA]/20 dark:text-[#A8D5BA]">
+                      ✓
+                    </span>
+                  ) : (
+                    <span className="text-[#A89B86] dark:text-[#B8A99A]">
+                      -
+                    </span>
+                  )}
+                </td>
+                <td className="p-3 text-right text-sm text-[#4A4543] dark:text-[#F5F3F0]">
+                  {result.avg_bristol_high_intake !== null ? (
+                    <>
+                      {result.avg_bristol_high_intake.toFixed(1)}{" "}
+                      {getTrendArrow(
+                        result.avg_bristol_high_intake,
+                        result.avg_bristol_low_intake
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-[#A89B86] dark:text-[#B8A99A]">-</span>
+                  )}
+                </td>
+                <td className="p-3 text-right text-sm text-[#4A4543] dark:text-[#F5F3F0]">
+                  {result.avg_bristol_low_intake !== null ? (
+                    result.avg_bristol_low_intake.toFixed(1)
+                  ) : (
+                    <span className="text-[#A89B86] dark:text-[#B8A99A]">-</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {sortedResults.length === 0 && (
+        <p className="mt-4 text-center text-sm text-[#A89B86] dark:text-[#B8A99A]">
+          No correlation results for this time lag.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
 // Insufficient Data Card Component
 // =============================================================================
 
@@ -934,6 +1168,13 @@ export default function InsightsPage() {
         {correlationsQuery.data && !correlationsQuery.isFetching && (
           <KeyInsightsCard data={correlationsQuery.data} />
         )}
+
+        {/* Correlation Results Table - show when analysis has results */}
+        {correlationsQuery.data &&
+          !correlationsQuery.isFetching &&
+          Object.keys(correlationsQuery.data.results_by_lag).length > 0 && (
+            <CorrelationResultsTable data={correlationsQuery.data} />
+          )}
 
         {/* Insufficient Data - show when there's an insufficient data error */}
         {correlationsQuery.error &&
