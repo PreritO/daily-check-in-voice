@@ -1,11 +1,13 @@
 """Insights service for analyzing correlations between nutrition and bowel movements."""
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timedelta
 from enum import Enum
 from uuid import UUID
 
+import numpy as np
 import structlog
+from scipy import stats
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = structlog.get_logger()
@@ -344,26 +346,133 @@ class InsightsService:
         except (TypeError, ValueError):
             return None
 
-    async def _analyze_nutrient_correlations(
+    def _analyze_nutrient_correlations(
         self,
-        bm_data: list[tuple[float, float]],  # (bristol_score, timestamp)
-        food_data: list[dict],
+        bm_data: list[tuple[int, datetime]],  # (bristol_score, bm_time)
+        food_data: list[dict],  # list of {logged_at: datetime, raw_data: dict}
         time_lag: TimeLagWindow,
         nutrients_to_analyze: list[str],
     ) -> list[CorrelationResult]:
         """Analyze correlations for a specific time lag window.
 
+        For each BM event, we aggregate all food consumed in the time window
+        BEFORE the BM (e.g., 24-48 hours before for HOURS_24 lag).
+
         Args:
-            bm_data: List of (bristol_score, timestamp) tuples.
-            food_data: List of food log dictionaries with raw_data.
+            bm_data: List of (bristol_score, bm_time) tuples.
+            food_data: List of food log dicts with logged_at and raw_data.
             time_lag: The time window to analyze.
             nutrients_to_analyze: List of nutrient keys to analyze.
 
         Returns:
-            List of CorrelationResult objects for each nutrient.
+            List of CorrelationResult objects, sorted by abs correlation.
         """
-        # Placeholder - will be implemented in US-018
-        return []
+        results: list[CorrelationResult] = []
+        lag_hours = time_lag.value
+
+        # For each BM, find food consumed in the window [bm_time - lag, bm_time]
+        # Build nutrient totals for each BM event
+        bm_nutrient_totals: dict[str, list[tuple[float, float]]] = {
+            key: [] for key in nutrients_to_analyze
+        }
+
+        for bristol_score, bm_time in bm_data:
+            window_start = bm_time - timedelta(hours=lag_hours)
+            window_end = bm_time
+
+            # Sum nutrients from food in this window
+            nutrient_sums: dict[str, float] = {key: 0.0 for key in nutrients_to_analyze}
+
+            for food in food_data:
+                food_time = food.get("logged_at")
+                if food_time is None:
+                    continue
+                if window_start <= food_time <= window_end:
+                    raw_data = food.get("raw_data", {})
+                    for key in nutrients_to_analyze:
+                        value = self._get_nutrient_value(raw_data, key)
+                        if value is not None:
+                            nutrient_sums[key] += value
+
+            # Store the (nutrient_total, bristol_score) pair for each nutrient
+            for key in nutrients_to_analyze:
+                bm_nutrient_totals[key].append((nutrient_sums[key], float(bristol_score)))
+
+        # Now compute correlations for each nutrient
+        for nutrient_key in nutrients_to_analyze:
+            pairs = bm_nutrient_totals[nutrient_key]
+            sample_size = len(pairs)
+
+            # Need at least 3 data points for meaningful correlation
+            if sample_size < 3:
+                continue
+
+            nutrient_values = np.array([p[0] for p in pairs])
+            bristol_values = np.array([p[1] for p in pairs])
+
+            # Skip if no variance in either variable
+            if np.std(nutrient_values) == 0 or np.std(bristol_values) == 0:
+                continue
+
+            # Calculate Pearson correlation
+            try:
+                corr_coef, p_value = stats.pearsonr(nutrient_values, bristol_values)
+            except Exception:
+                continue
+
+            # Handle NaN values
+            if np.isnan(corr_coef) or np.isnan(p_value):
+                continue
+
+            is_significant = p_value < 0.05
+
+            # Determine direction
+            if abs(corr_coef) < 0.1:
+                direction = "none"
+            elif corr_coef > 0:
+                direction = "positive"
+            else:
+                direction = "negative"
+
+            # Calculate high/low intake comparison using median split
+            median_intake = float(np.median(nutrient_values))
+
+            high_mask = nutrient_values >= median_intake
+            low_mask = nutrient_values < median_intake
+
+            high_bristols = bristol_values[high_mask]
+            low_bristols = bristol_values[low_mask]
+
+            avg_bristol_high = float(np.mean(high_bristols)) if len(high_bristols) > 0 else None
+            avg_bristol_low = float(np.mean(low_bristols)) if len(low_bristols) > 0 else None
+
+            # Calculate thresholds (25th and 75th percentile)
+            intake_low_threshold = float(np.percentile(nutrient_values, 25))
+            intake_high_threshold = float(np.percentile(nutrient_values, 75))
+
+            results.append(
+                CorrelationResult(
+                    nutrient_name=TRACKED_NUTRIENTS.get(nutrient_key, nutrient_key),
+                    nutrient_key=nutrient_key,
+                    time_lag_hours=lag_hours,
+                    correlation_coefficient=round(float(corr_coef), 4),
+                    p_value=round(float(p_value), 4),
+                    sample_size=sample_size,
+                    is_significant=is_significant,
+                    avg_bristol_high_intake=round(avg_bristol_high, 2)
+                    if avg_bristol_high
+                    else None,
+                    avg_bristol_low_intake=round(avg_bristol_low, 2) if avg_bristol_low else None,
+                    intake_high_threshold=round(intake_high_threshold, 2),
+                    intake_low_threshold=round(intake_low_threshold, 2),
+                    direction=direction,
+                )
+            )
+
+        # Sort by absolute correlation strength (strongest first)
+        results.sort(key=lambda r: abs(r.correlation_coefficient), reverse=True)
+
+        return results
 
     def _find_consistent_correlations(
         self,
