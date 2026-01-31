@@ -10,3 +10,6 @@ export type {
   ComparisonResult,
   ControlledComparisonProps,
 } from "./ControlledComparison";
+
+export { FoodAnalysis } from "./FoodAnalysis";
+export type { FoodAnalysisProps } from "./FoodAnalysis";

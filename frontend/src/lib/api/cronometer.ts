@@ -415,3 +415,76 @@ export function useDeleteInterventionMutation() {
     },
   });
 }
+
+// =============================================================================
+// Food Correlation Types
+// =============================================================================
+
+export interface FoodCorrelationResult {
+  food_name: string;
+  times_eaten: number;
+  avg_bristol_after: number | null;
+  correlation: number;
+  p_value: number;
+  is_significant: boolean;
+  is_trigger: boolean;
+  avg_bristol_when_eaten: number | null;
+  avg_bristol_when_not_eaten: number | null;
+}
+
+export interface FoodAnalysisResponse {
+  total_foods_analyzed: number;
+  total_food_logs: number;
+  total_bristol_events: number;
+  analysis_start_date: string;
+  analysis_end_date: string;
+  results: FoodCorrelationResult[];
+  trigger_foods: FoodCorrelationResult[];
+}
+
+export interface FoodAnalysisParams {
+  startDate: string;
+  endDate: string;
+  minOccurrences?: number;
+  timeLagHours?: number;
+}
+
+// =============================================================================
+// Food Correlation Query Keys
+// =============================================================================
+
+export const foodAnalysisKeys = {
+  all: ["foodAnalysis"] as const,
+  analysis: (params: FoodAnalysisParams) => [...foodAnalysisKeys.all, params] as const,
+};
+
+// =============================================================================
+// Food Correlation API Functions
+// =============================================================================
+
+async function getFoodAnalysis(params: FoodAnalysisParams): Promise<FoodAnalysisResponse> {
+  const searchParams = new URLSearchParams({
+    start_date: params.startDate,
+    end_date: params.endDate,
+  });
+  if (params.minOccurrences) {
+    searchParams.append("min_occurrences", params.minOccurrences.toString());
+  }
+  if (params.timeLagHours) {
+    searchParams.append("time_lag_hours", params.timeLagHours.toString());
+  }
+  const response = await apiClient.get(`/cronometer/insights/foods?${searchParams.toString()}`);
+  return response.data;
+}
+
+// =============================================================================
+// Food Correlation Hooks
+// =============================================================================
+
+export function useFoodAnalysisQuery(params: FoodAnalysisParams, enabled: boolean = true) {
+  return useQuery({
+    queryKey: foodAnalysisKeys.analysis(params),
+    queryFn: () => getFoodAnalysis(params),
+    enabled: enabled && !!params.startDate && !!params.endDate,
+  });
+}
