@@ -2,14 +2,15 @@
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from uuid import UUID
 
-from pycronometer import BiometricEntry, Serving
+from pycronometer import BiometricEntry, Note, Serving
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import BiometricLog, CronometerCredential, FoodLog
+from src.models import BiometricLog, CronometerCredential, FoodLog, HealthNote
 from src.utils.encryption import decrypt_string
 
 
@@ -193,6 +194,79 @@ class CronometerSyncService:
 
         return new_logs
 
+    async def _upsert_health_notes(self, user_id: UUID, notes: list[Note]) -> list[HealthNote]:
+        """Upsert health notes from Cronometer with bowel movement parsing.
+
+        Args:
+            user_id: The user's ID.
+            notes: List of Note objects from pycronometer.
+
+        Returns:
+            List of newly created HealthNote objects (excludes duplicates).
+        """
+        if not notes:
+            return []
+
+        # Get existing hashes for deduplication
+        existing_hashes = await self._get_existing_hashes(user_id, "health_notes")
+
+        new_notes: list[HealthNote] = []
+        for note in notes:
+            # Generate hash from raw_data
+            cronometer_hash = self._generate_hash(note.raw_data)
+
+            # Skip if already exists
+            if cronometer_hash in existing_hashes:
+                continue
+
+            # Parse bowel movement info from content
+            is_bm, bristol_scale, quantity_score = self._parse_bowel_movement(note.content)
+
+            health_note = HealthNote(
+                user_id=user_id,
+                logged_at=note.logged_at,
+                content=note.content,
+                is_bowel_movement=is_bm,
+                bristol_scale=bristol_scale,
+                quantity_score=quantity_score,
+                raw_data=note.raw_data,
+                cronometer_hash=cronometer_hash,
+            )
+            self._db.add(health_note)
+            new_notes.append(health_note)
+
+        if new_notes:
+            await self._db.flush()
+
+        return new_notes
+
+    def _parse_bowel_movement(self, content: str) -> tuple[bool, int | None, int | None]:
+        """Parse bowel movement information from note content.
+
+        Args:
+            content: The note content string.
+
+        Returns:
+            Tuple of (is_bowel_movement, bristol_scale, quantity_score).
+            Bristol scale is 1-7, quantity_score is 1-10, both nullable.
+        """
+        # Check if this is a bowel movement note (case insensitive)
+        content_lower = content.lower()
+        is_bm = "bowel movement" in content_lower or "bm" in content_lower.split()
+
+        if not is_bm:
+            return False, None, None
+
+        # Extract Bristol scale (e.g., "Bristol 4" or "bristol 4")
+        bristol_match = re.search(r"bristol\s*(\d)", content, re.IGNORECASE)
+        bristol_scale = int(bristol_match.group(1)) if bristol_match else None
+
+        # Extract quantity score (e.g., "quantity 5/10" or "quantity 7/10")
+        quantity_match = re.search(r"quantity\s*(\d+)/10", content, re.IGNORECASE)
+        quantity_score = int(quantity_match.group(1)) if quantity_match else None
+
+        return True, bristol_scale, quantity_score
+
     async def _get_existing_hashes(self, user_id: UUID, table: str) -> set[str]:
         """Get existing cronometer_hash values for a user.
 
@@ -211,8 +285,11 @@ class CronometerSyncService:
             result = await self._db.execute(
                 select(BiometricLog.cronometer_hash).where(BiometricLog.user_id == user_id)
             )
+        elif table == "health_notes":
+            result = await self._db.execute(
+                select(HealthNote.cronometer_hash).where(HealthNote.user_id == user_id)
+            )
         else:
-            # Will be extended for health_notes in US-011
             return set()
 
         return {row[0] for row in result.fetchall()}
