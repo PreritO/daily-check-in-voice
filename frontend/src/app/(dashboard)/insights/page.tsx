@@ -597,6 +597,152 @@ function ConsistentFindingsCard({
 }
 
 // =============================================================================
+// Table Header Tooltip Component
+// =============================================================================
+
+function TableHeaderTooltip({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="relative ml-1 inline-block">
+      <button
+        type="button"
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#E8E5EB] text-[10px] text-[#6B5B7A] hover:bg-[#DEDDDB] dark:bg-[#3D3935] dark:text-[#B8A99A]"
+      >
+        ?
+      </button>
+      {show && (
+        <div className="absolute bottom-full left-1/2 z-20 mb-2 w-48 -translate-x-1/2 rounded-lg bg-[#4A4543] p-2 text-xs text-white shadow-lg dark:bg-[#F5F3F0] dark:text-[#4A4543]">
+          {text}
+        </div>
+      )}
+    </span>
+  );
+}
+
+// =============================================================================
+// Bristol Scale Reference Component
+// =============================================================================
+
+function BristolScaleReference() {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const bristolTypes = [
+    { type: 1, description: "Separate hard lumps", color: "#C62828", label: "Constipation" },
+    { type: 2, description: "Lumpy and sausage-like", color: "#E57373", label: "Mild constipation" },
+    { type: 3, description: "Sausage with cracks", color: "#A8D5BA", label: "Normal" },
+    { type: 4, description: "Smooth and soft", color: "#4CAF50", label: "Ideal" },
+    { type: 5, description: "Soft blobs with clear edges", color: "#A8D5BA", label: "Normal" },
+    { type: 6, description: "Fluffy pieces with ragged edges", color: "#FFB74D", label: "Mild diarrhea" },
+    { type: 7, description: "Watery, no solid pieces", color: "#FF7043", label: "Diarrhea" },
+  ];
+
+  return (
+    <div className="card-hover rounded-2xl border border-[#DEDDDB] bg-white shadow-sm dark:border-[#3D3935] dark:bg-[#363230]">
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center justify-between p-6"
+      >
+        <div className="flex items-center gap-3">
+          <svg className="h-6 w-6 text-[#E8A0BF]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="font-serif text-lg font-semibold text-[#4A4543] dark:text-[#F5F3F0]">
+            Bristol Stool Scale &amp; How to Read Results
+          </span>
+        </div>
+        <svg
+          className={`h-5 w-5 text-[#A89B86] transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {isExpanded && (
+        <div className="border-t border-[#DEDDDB] p-6 dark:border-[#3D3935]">
+          {/* Bristol Scale Grid */}
+          <div>
+            <h3 className="font-medium text-[#4A4543] dark:text-[#F5F3F0]">Bristol Stool Scale</h3>
+            <p className="mt-1 text-sm text-[#A89B86] dark:text-[#B8A99A]">
+              A medical classification of stool types
+            </p>
+            <div className="mt-4 grid gap-2">
+              {bristolTypes.map((item) => (
+                <div
+                  key={item.type}
+                  className="flex items-center gap-3 rounded-lg p-2"
+                  style={{ backgroundColor: `${item.color}15` }}
+                >
+                  <div
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white"
+                    style={{ backgroundColor: item.color }}
+                  >
+                    {item.type}
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                      Type {item.type}: {item.description}
+                    </span>
+                    <span className="ml-2 text-xs text-[#A89B86] dark:text-[#B8A99A]">
+                      ({item.label})
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Correlation Explanation */}
+          <div className="mt-6 border-t border-[#DEDDDB] pt-6 dark:border-[#3D3935]">
+            <h3 className="font-medium text-[#4A4543] dark:text-[#F5F3F0]">Understanding Correlations</h3>
+            <div className="mt-4 space-y-4">
+              <div className="rounded-lg bg-[#E8F5E9] p-4 dark:bg-[#A8D5BA]/20">
+                <h4 className="font-medium text-[#2E7D32] dark:text-[#A8D5BA]">Positive Correlation (&uarr;)</h4>
+                <p className="mt-1 text-sm text-[#4A4543] dark:text-[#F5F3F0]">
+                  When you eat more of this nutrient, your Bristol score tends to be higher (looser stools).
+                </p>
+              </div>
+              <div className="rounded-lg bg-[#FFEBEE] p-4 dark:bg-[#F5A9A9]/20">
+                <h4 className="font-medium text-[#C62828] dark:text-[#F5A9A9]">Negative Correlation (&darr;)</h4>
+                <p className="mt-1 text-sm text-[#4A4543] dark:text-[#F5F3F0]">
+                  When you eat more of this nutrient, your Bristol score tends to be lower (firmer stools).
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Statistical Terms */}
+          <div className="mt-6 border-t border-[#DEDDDB] pt-6 dark:border-[#3D3935]">
+            <h3 className="font-medium text-[#4A4543] dark:text-[#F5F3F0]">Statistical Terms</h3>
+            <div className="mt-4 space-y-3">
+              <div className="rounded-lg bg-[#FDFBF7] p-4 dark:bg-[#3D3935]/50">
+                <h4 className="font-medium text-[#4A4543] dark:text-[#F5F3F0]">Correlation Coefficient</h4>
+                <p className="mt-1 text-sm text-[#A89B86] dark:text-[#B8A99A]">
+                  A value from -1 to +1 measuring the strength and direction of the relationship.
+                  Values closer to &plusmn;1 indicate stronger relationships; values near 0 indicate weak or no relationship.
+                </p>
+              </div>
+              <div className="rounded-lg bg-[#FDFBF7] p-4 dark:bg-[#3D3935]/50">
+                <h4 className="font-medium text-[#4A4543] dark:text-[#F5F3F0]">P-Value</h4>
+                <p className="mt-1 text-sm text-[#A89B86] dark:text-[#B8A99A]">
+                  The probability that this correlation occurred by chance. A p-value below 0.05 (&check;) means the result is statistically significant — there&apos;s less than 5% chance it&apos;s random.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
 // Correlation Results Table Component
 // =============================================================================
 
@@ -737,13 +883,19 @@ function CorrelationResultsTable({ data }: CorrelationResultsTableProps) {
                 className="cursor-pointer p-3 text-right text-sm font-medium text-[#A89B86] hover:text-[#4A4543] dark:text-[#B8A99A] dark:hover:text-[#F5F3F0]"
                 onClick={() => handleSort("correlation_coefficient")}
               >
-                Correlation{getSortIndicator("correlation_coefficient")}
+                <span className="inline-flex items-center">
+                  Correlation{getSortIndicator("correlation_coefficient")}
+                  <TableHeaderTooltip text="Pearson coefficient (-1 to +1). Stronger = closer to +/-1." />
+                </span>
               </th>
               <th
                 className="cursor-pointer p-3 text-right text-sm font-medium text-[#A89B86] hover:text-[#4A4543] dark:text-[#B8A99A] dark:hover:text-[#F5F3F0]"
                 onClick={() => handleSort("p_value")}
               >
-                P-Value{getSortIndicator("p_value")}
+                <span className="inline-flex items-center">
+                  P-Value{getSortIndicator("p_value")}
+                  <TableHeaderTooltip text="Values below 0.05 are statistically significant." />
+                </span>
               </th>
               <th className="p-3 text-center text-sm font-medium text-[#A89B86] dark:text-[#B8A99A]">
                 Significant
@@ -1325,6 +1477,9 @@ export default function InsightsPage() {
             iconBgClass="bg-[#E8F5E9] dark:bg-[#A8D5BA]/20"
           />
         )}
+
+        {/* Help Reference - always visible */}
+        <BristolScaleReference />
       </div>
     </div>
   );
