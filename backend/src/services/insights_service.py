@@ -486,10 +486,64 @@ class InsightsService:
             min_windows: Minimum number of windows for "consistent" status.
 
         Returns:
-            List of ConsistentCorrelation objects.
+            List of ConsistentCorrelation objects, sorted by windows_significant.
         """
-        # Placeholder - will be implemented in US-019
-        return []
+        # Track significance and correlations across windows for each nutrient
+        nutrient_stats: dict[str, dict] = {}
+
+        for _lag_hours, results in results_by_lag.items():
+            for result in results:
+                if result.nutrient_key not in nutrient_stats:
+                    nutrient_stats[result.nutrient_key] = {
+                        "name": result.nutrient_name,
+                        "windows_significant": 0,
+                        "correlations": [],
+                        "directions": [],
+                    }
+
+                if result.is_significant:
+                    nutrient_stats[result.nutrient_key]["windows_significant"] += 1
+                    nutrient_stats[result.nutrient_key]["correlations"].append(
+                        result.correlation_coefficient
+                    )
+                    nutrient_stats[result.nutrient_key]["directions"].append(result.direction)
+
+        # Filter to nutrients significant in >= min_windows
+        consistent: list[ConsistentCorrelation] = []
+
+        for nutrient_key, nutrient_data in nutrient_stats.items():
+            if nutrient_data["windows_significant"] >= min_windows:
+                correlations = nutrient_data["correlations"]
+                avg_corr = sum(correlations) / len(correlations) if correlations else 0.0
+
+                # Determine overall direction (most common non-"none" direction)
+                directions = [d for d in nutrient_data["directions"] if d != "none"]
+                if directions:
+                    positive_count = sum(1 for d in directions if d == "positive")
+                    negative_count = sum(1 for d in directions if d == "negative")
+                    if positive_count > negative_count:
+                        direction = "positive"
+                    elif negative_count > positive_count:
+                        direction = "negative"
+                    else:
+                        direction = "mixed"
+                else:
+                    direction = "none"
+
+                consistent.append(
+                    ConsistentCorrelation(
+                        nutrient_name=nutrient_data["name"],
+                        nutrient_key=nutrient_key,
+                        windows_significant=nutrient_data["windows_significant"],
+                        avg_correlation=round(avg_corr, 4),
+                        direction=direction,
+                    )
+                )
+
+        # Sort by number of significant windows (most first), then by avg correlation
+        consistent.sort(key=lambda c: (c.windows_significant, abs(c.avg_correlation)), reverse=True)
+
+        return consistent
 
     def _generate_insights(
         self,
@@ -507,5 +561,51 @@ class InsightsService:
         Returns:
             List of insight strings.
         """
-        # Placeholder - will be implemented in US-019
-        return []
+        insights: list[str] = []
+
+        # Baseline Bristol context
+        if baseline_bristol < 3:
+            insights.append(
+                f"Your average Bristol score is {baseline_bristol:.1f}, which tends toward "
+                "the harder/constipation end of the scale (1-2). Consider foods that may "
+                "help with regularity."
+            )
+        elif baseline_bristol > 5:
+            insights.append(
+                f"Your average Bristol score is {baseline_bristol:.1f}, which tends toward "
+                "the looser/diarrhea end of the scale (6-7). Consider foods that may help "
+                "firm things up."
+            )
+        else:
+            insights.append(
+                f"Your average Bristol score is {baseline_bristol:.1f}, which is in the "
+                "healthy range (3-5). Keep up the good work!"
+            )
+
+        # Top correlation insights (up to 5)
+        for corr in consistent_correlations[:5]:
+            if corr.direction == "positive":
+                direction_text = "associated with higher (looser) Bristol scores"
+                recommendation = "Consider moderating intake if you experience loose stools."
+            elif corr.direction == "negative":
+                direction_text = "associated with lower (firmer) Bristol scores"
+                recommendation = "Consider increasing intake if you experience constipation."
+            else:
+                direction_text = "has a mixed relationship with Bristol scores"
+                recommendation = "The relationship varies across different time windows."
+
+            insights.append(
+                f"{corr.nutrient_name}: Significant across {corr.windows_significant} time "
+                f"windows (avg correlation: {corr.avg_correlation:.2f}). This nutrient is "
+                f"{direction_text}. {recommendation}"
+            )
+
+        # If no consistent correlations, provide general insight
+        if not consistent_correlations:
+            insights.append(
+                "No nutrients showed consistent significant correlations across multiple "
+                "time windows. This could mean your diet is well-balanced, or more data "
+                "is needed for reliable patterns to emerge."
+            )
+
+        return insights
