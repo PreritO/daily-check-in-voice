@@ -2,6 +2,11 @@
 
 from .analytics_service import MoodTrendItem, UserAnalytics, get_user_analytics
 from .auth_service import AuthError, TokenPayload, verify_supabase_token
+from .comparison_service import (
+    ComparisonResult,
+    ControlledComparisonService,
+    InsufficientMatchesError,
+)
 from .granger_service import (
     GrangerCausalityService,
     GrangerResult,
@@ -40,7 +45,9 @@ from .summary_service import StandupSummary, generate_summary
 
 __all__ = [
     "AuthError",
+    "ComparisonResult",
     "ConsistentCorrelation",
+    "ControlledComparisonService",
     "CorrelationResult",
     "ExtractedMemory",
     "GrangerCausalityService",
@@ -48,6 +55,7 @@ __all__ = [
     "GrangerResult",
     "InsightsService",
     "InsufficientDataError",
+    "InsufficientMatchesError",
     "MemoryExtractionResult",
     "MoodAnalysisResult",
     "MoodTrendItem",
