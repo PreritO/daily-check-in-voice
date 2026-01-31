@@ -597,6 +597,41 @@ class MultiLagCorrelationResponseSchema(BaseModel):
 
 
 # =============================================================================
+# Food Correlation Schemas
+# =============================================================================
+
+
+class FoodCorrelationResultSchema(BaseModel):
+    """Schema for a single food correlation result."""
+
+    food_name: str = Field(..., description="Name of the food")
+    times_eaten: int = Field(..., description="Number of times food was eaten")
+    avg_bristol_after: float | None = Field(None, description="Avg Bristol after eating")
+    correlation: float = Field(..., description="Correlation coefficient")
+    p_value: float = Field(..., description="Statistical p-value")
+    is_significant: bool = Field(..., description="True if p < 0.05")
+    is_trigger: bool = Field(..., description="True if food is a trigger")
+    avg_bristol_when_eaten: float | None = Field(None, description="Avg Bristol when food eaten")
+    avg_bristol_when_not_eaten: float | None = Field(None, description="Avg Bristol when not eaten")
+
+
+class FoodAnalysisResponseSchema(BaseModel):
+    """Schema for food analysis response."""
+
+    total_foods_analyzed: int = Field(..., description="Number of foods analyzed")
+    total_food_logs: int = Field(..., description="Total food logs in period")
+    total_bristol_events: int = Field(..., description="Total Bristol events in period")
+    analysis_start_date: date = Field(..., description="Start of analysis period")
+    analysis_end_date: date = Field(..., description="End of analysis period")
+    results: list[FoodCorrelationResultSchema] = Field(
+        default_factory=list, description="All food correlations"
+    )
+    trigger_foods: list[FoodCorrelationResultSchema] = Field(
+        default_factory=list, description="Foods identified as triggers"
+    )
+
+
+# =============================================================================
 # Intervention Schemas
 # =============================================================================
 

@@ -15,6 +15,8 @@ from src.api.schemas import (
     ComparisonResultSchema,
     CredentialStatusResponse,
     DailyTimelineData,
+    FoodAnalysisResponseSchema,
+    FoodCorrelationResultSchema,
     FoodLogResponse,
     GrangerResponse,
     GrangerResultSchema,
@@ -30,6 +32,8 @@ from src.integrations.cronometer import CronometerSyncService
 from src.models import CronometerCredential, FoodLog, HealthNote, User
 from src.services import (
     ControlledComparisonService,
+    FoodCorrelationService,
+    FoodInsufficientDataError,
     GrangerCausalityService,
     GrangerInsufficientDataError,
     InsufficientMatchesError,
@@ -699,4 +703,92 @@ async def get_controlled_comparison(
         low_intake_count=result.low_intake_count,
         matched_pairs_count=result.matched_pairs_count,
         is_significant=result.is_significant,
+    )
+
+
+@router.get("/insights/foods", response_model=FoodAnalysisResponseSchema)
+async def get_food_correlations(
+    start_date: date = Query(..., description="Start date for analysis"),
+    end_date: date = Query(..., description="End date for analysis"),
+    min_occurrences: int = Query(default=3, ge=1, le=20, description="Min times food eaten"),
+    time_lag_hours: int = Query(default=24, ge=6, le=72, description="Hours after eating to check"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_or_create_user),
+) -> FoodAnalysisResponseSchema:
+    """
+    Analyze correlations between specific foods and Bristol outcomes.
+
+    Returns foods sorted by correlation strength, with trigger foods highlighted.
+    """
+    logger.info(
+        "Running food correlation analysis",
+        user_id=str(current_user.id),
+        start_date=str(start_date),
+        end_date=str(end_date),
+        min_occurrences=min_occurrences,
+        time_lag_hours=time_lag_hours,
+    )
+
+    service = FoodCorrelationService(db)
+
+    try:
+        result = await service.analyze_foods(
+            user_id=current_user.id,
+            start_date=start_date,
+            end_date=end_date,
+            min_occurrences=min_occurrences,
+            time_lag_hours=time_lag_hours,
+        )
+    except FoodInsufficientDataError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+
+    logger.info(
+        "Food correlation analysis completed",
+        user_id=str(current_user.id),
+        foods_analyzed=result.total_foods_analyzed,
+        trigger_foods=len(result.trigger_foods),
+    )
+
+    # Convert dataclass results to Pydantic schemas
+    results_schemas = [
+        FoodCorrelationResultSchema(
+            food_name=r.food_name,
+            times_eaten=r.times_eaten,
+            avg_bristol_after=r.avg_bristol_after,
+            correlation=r.correlation,
+            p_value=r.p_value,
+            is_significant=r.is_significant,
+            is_trigger=r.is_trigger,
+            avg_bristol_when_eaten=r.avg_bristol_when_eaten,
+            avg_bristol_when_not_eaten=r.avg_bristol_when_not_eaten,
+        )
+        for r in result.results
+    ]
+
+    trigger_schemas = [
+        FoodCorrelationResultSchema(
+            food_name=r.food_name,
+            times_eaten=r.times_eaten,
+            avg_bristol_after=r.avg_bristol_after,
+            correlation=r.correlation,
+            p_value=r.p_value,
+            is_significant=r.is_significant,
+            is_trigger=r.is_trigger,
+            avg_bristol_when_eaten=r.avg_bristol_when_eaten,
+            avg_bristol_when_not_eaten=r.avg_bristol_when_not_eaten,
+        )
+        for r in result.trigger_foods
+    ]
+
+    return FoodAnalysisResponseSchema(
+        total_foods_analyzed=result.total_foods_analyzed,
+        total_food_logs=result.total_food_logs,
+        total_bristol_events=result.total_bristol_events,
+        analysis_start_date=result.analysis_start_date,
+        analysis_end_date=result.analysis_end_date,
+        results=results_schemas,
+        trigger_foods=trigger_schemas,
     )
