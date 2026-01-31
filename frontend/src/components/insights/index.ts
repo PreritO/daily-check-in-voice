@@ -16,3 +16,10 @@ export type { FoodAnalysisProps } from "./FoodAnalysis";
 
 export { TriggerFoods } from "./TriggerFoods";
 export type { TriggerFoodsProps } from "./TriggerFoods";
+
+export { OptimalRanges, useOptimalRangesQuery } from "./OptimalRanges";
+export type {
+  OptimalRange,
+  OptimalRangesResponse,
+  OptimalRangesProps,
+} from "./OptimalRanges";
