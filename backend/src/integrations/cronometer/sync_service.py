@@ -4,9 +4,11 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
-from pycronometer import BiometricEntry, Note, Serving
+from pycronometer import BiometricEntry, CronometerClient, Note, Serving
+from pycronometer.exceptions import CronometerAuthError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -46,22 +48,54 @@ class CronometerSyncService:
 
         Raises:
             ValueError: If user has no Cronometer credentials configured.
+            CronometerAuthError: If login to Cronometer fails.
         """
         # Get and decrypt credentials
         email, password = await self._get_credentials(user_id)
 
-        # TODO: Implement in US-012:
-        # 1. Create CronometerClient instance
-        # 2. Login with credentials
-        # 3. Fetch servings, biometrics, notes
-        # 4. Call upsert methods
-        # 5. Update last_sync_at
+        # Create client and login
+        client = CronometerClient()
+        try:
+            client.login(email, password)
+        except CronometerAuthError:
+            raise
+
+        # Calculate date range
+        end_date = date.today()
+        start_date = end_date - timedelta(days=days_back)
+
+        # Fetch data from Cronometer
+        servings = client.get_servings(start_date, end_date)
+        biometrics = client.get_biometrics(start_date, end_date)
+        notes = client.get_notes(start_date, end_date)
+
+        # Upsert data
+        food_logs = await self._upsert_food_logs(user_id, servings)
+        biometric_logs = await self._upsert_biometric_logs(user_id, biometrics)
+        health_notes = await self._upsert_health_notes(user_id, notes)
+
+        # Update last_sync_at timestamp
+        await self._update_last_sync(user_id)
 
         return SyncResult(
-            food_logs_synced=0,
-            biometric_logs_synced=0,
-            health_notes_synced=0,
+            food_logs_synced=len(food_logs),
+            biometric_logs_synced=len(biometric_logs),
+            health_notes_synced=len(health_notes),
         )
+
+    async def _update_last_sync(self, user_id: UUID) -> None:
+        """Update the last_sync_at timestamp on the credential record.
+
+        Args:
+            user_id: The user's ID.
+        """
+        result = await self._db.execute(
+            select(CronometerCredential).where(CronometerCredential.user_id == user_id)
+        )
+        credential = result.scalar_one_or_none()
+        if credential:
+            credential.last_sync_at = datetime.now(UTC)
+            await self._db.flush()
 
     async def _get_credentials(self, user_id: UUID) -> tuple[str, str]:
         """Get decrypted Cronometer credentials for a user.
