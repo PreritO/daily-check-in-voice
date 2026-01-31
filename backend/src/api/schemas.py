@@ -6,7 +6,15 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from src.models import AlertType, CallDirection, CallStatus, MemoryType, SentimentType, Speaker
+from src.models import (
+    AlertType,
+    CallDirection,
+    CallStatus,
+    InterventionStatus,
+    MemoryType,
+    SentimentType,
+    Speaker,
+)
 from src.models.preferences import CallDurationPreference, CommunicationStyle, ThemeMode
 
 # =============================================================================
@@ -586,3 +594,64 @@ class MultiLagCorrelationResponseSchema(BaseModel):
         default_factory=list, description="Nutrients with consistent correlations"
     )
     insights: list[str] = Field(default_factory=list, description="Human-readable insights")
+
+
+# =============================================================================
+# Intervention Schemas
+# =============================================================================
+
+
+class InterventionCreate(BaseModel):
+    """Schema for creating an intervention."""
+
+    title: str = Field(..., max_length=200)
+    description: str | None = None
+    hypothesis: str | None = None
+    nutrient_key: str | None = Field(None, max_length=100)
+    target_value: float | None = None
+    start_date: date
+    end_date: date | None = None
+    status: InterventionStatus = InterventionStatus.PLANNED
+
+
+class InterventionUpdate(BaseModel):
+    """Schema for updating an intervention."""
+
+    title: str | None = Field(None, max_length=200)
+    description: str | None = None
+    hypothesis: str | None = None
+    nutrient_key: str | None = Field(None, max_length=100)
+    target_value: float | None = None
+    end_date: date | None = None
+    status: InterventionStatus | None = None
+    outcome_notes: str | None = None
+
+
+class InterventionRead(BaseModel):
+    """Schema for reading intervention data."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    title: str
+    description: str | None
+    hypothesis: str | None
+    nutrient_key: str | None
+    target_value: float | None
+    start_date: date
+    end_date: date | None
+    status: InterventionStatus
+    outcome_notes: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class InterventionWithAnalysis(InterventionRead):
+    """Schema with Bristol comparison analysis."""
+
+    avg_bristol_before: float | None = None  # Average Bristol before start_date
+    avg_bristol_during: float | None = None  # Average Bristol during intervention
+    bristol_difference: float | None = None  # during - before
+    days_before_analyzed: int = 0
+    days_during_analyzed: int = 0

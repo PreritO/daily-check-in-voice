@@ -6,6 +6,7 @@ from .alerts import router as alerts_router
 from .calls import router as calls_router
 from .cronometer import router as cronometer_router
 from .health import router as health_router
+from .interventions import router as interventions_router
 from .preferences import router as preferences_router
 from .schedules import router as schedules_router
 from .summaries import router as summaries_router
@@ -23,3 +24,4 @@ api_router.include_router(preferences_router, prefix="/preferences", tags=["pref
 api_router.include_router(webhooks_router, prefix="/webhooks", tags=["webhooks"])
 api_router.include_router(alerts_router, prefix="/alerts", tags=["alerts"])
 api_router.include_router(cronometer_router, prefix="/cronometer", tags=["cronometer"])
+api_router.include_router(interventions_router, prefix="/interventions", tags=["Interventions"])
