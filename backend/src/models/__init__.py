@@ -6,6 +6,7 @@ from .biometric_log import BiometricLog
 from .call import Call, CallDirection, CallStatus
 from .cronometer_credential import CronometerCredential
 from .food_log import FoodLog
+from .health_note import HealthNote
 from .memory import ConversationMemory, MemoryType
 from .mood import MoodAnalysis, SentimentType
 from .preferences import CallDurationPreference, CommunicationStyle, ThemeMode, UserPreferences
@@ -27,6 +28,7 @@ __all__ = [
     "ConversationMemory",
     "CronometerCredential",
     "FoodLog",
+    "HealthNote",
     "MemoryType",
     "MoodAnalysis",
     "Schedule",
