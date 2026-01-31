@@ -10,3 +10,5 @@ export type {
   TimelineResponse,
   TimeSeriesChartProps,
 } from "./TimeSeriesChart";
+export { BoxPlot } from "./BoxPlot";
+export type { BoxPlotDataPoint, BoxPlotProps } from "./BoxPlot";
