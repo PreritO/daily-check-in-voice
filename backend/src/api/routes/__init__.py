@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from .alerts import router as alerts_router
 from .calls import router as calls_router
+from .cronometer import router as cronometer_router
 from .health import router as health_router
 from .preferences import router as preferences_router
 from .schedules import router as schedules_router
@@ -21,3 +22,4 @@ api_router.include_router(summaries_router, prefix="/summaries", tags=["summarie
 api_router.include_router(preferences_router, prefix="/preferences", tags=["preferences"])
 api_router.include_router(webhooks_router, prefix="/webhooks", tags=["webhooks"])
 api_router.include_router(alerts_router, prefix="/alerts", tags=["alerts"])
+api_router.include_router(cronometer_router, prefix="/cronometer", tags=["cronometer"])
