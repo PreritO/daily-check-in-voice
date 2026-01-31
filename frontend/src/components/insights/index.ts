@@ -13,3 +13,6 @@ export type {
 
 export { FoodAnalysis } from "./FoodAnalysis";
 export type { FoodAnalysisProps } from "./FoodAnalysis";
+
+export { TriggerFoods } from "./TriggerFoods";
+export type { TriggerFoodsProps } from "./TriggerFoods";
