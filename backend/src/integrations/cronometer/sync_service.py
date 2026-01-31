@@ -94,7 +94,8 @@ class CronometerSyncService:
         )
         credential = result.scalar_one_or_none()
         if credential:
-            credential.last_sync_at = datetime.now(UTC)
+            # Use naive datetime (no timezone) to match DB column type
+            credential.last_sync_at = datetime.now(UTC).replace(tzinfo=None)
             await self._db.flush()
 
     async def _get_credentials(self, user_id: UUID) -> tuple[str, str]:
@@ -187,11 +188,15 @@ class CronometerSyncService:
 
         return new_logs
 
-    # High-frequency Apple Health metrics to skip (too granular for our use case)
+    # High-frequency Apple Health metrics to skip entirely
     SKIPPED_BIOMETRIC_TYPES = frozenset({
         "Heart Rate (Apple Health)",
-        "Resting Heart Rate (Apple Health)",
         "Walking Heart Rate Average (Apple Health)",
+    })
+
+    # Metrics to downsample to one reading per day
+    DAILY_SAMPLED_BIOMETRIC_TYPES = frozenset({
+        "Resting Heart Rate (Apple Health)",
         "Heart Rate Variability (Apple Health)",
     })
 
@@ -200,8 +205,8 @@ class CronometerSyncService:
     ) -> list[BiometricLog]:
         """Upsert biometric log entries from Cronometer.
 
-        Filters out high-frequency Apple Health metrics (heart rate) that are
-        captured every minute, as they add noise without actionable insights.
+        Filters out high-frequency Apple Health metrics (heart rate) and
+        downsamples certain metrics to one reading per day.
 
         Args:
             user_id: The user's ID.
@@ -216,11 +221,29 @@ class CronometerSyncService:
         # Get existing hashes for deduplication
         existing_hashes = await self._get_existing_hashes(user_id, "biometric_logs")
 
+        # Get existing daily entries for downsampled metrics
+        existing_daily_entries = await self._get_existing_daily_biometrics(user_id)
+
+        # Track daily entries added in current batch: {(metric_type, date): True}
+        batch_daily_entries: set[tuple[str, date]] = set()
+
         new_logs: list[BiometricLog] = []
         for entry in entries:
-            # Skip high-frequency Apple Health metrics
+            # Skip high-frequency Apple Health metrics entirely
             if entry.metric in self.SKIPPED_BIOMETRIC_TYPES:
                 continue
+
+            # For daily-sampled metrics, only keep one per day
+            if entry.metric in self.DAILY_SAMPLED_BIOMETRIC_TYPES:
+                entry_date = entry.logged_at.date()
+                daily_key = (entry.metric, entry_date)
+
+                # Skip if we already have this metric for this day (in DB or batch)
+                if daily_key in existing_daily_entries or daily_key in batch_daily_entries:
+                    continue
+
+                # Track that we're adding this metric for this day
+                batch_daily_entries.add(daily_key)
 
             # Generate hash from raw_data
             cronometer_hash = self._generate_hash(entry.raw_data)
@@ -248,6 +271,29 @@ class CronometerSyncService:
             await self._db.flush()
 
         return new_logs
+
+    async def _get_existing_daily_biometrics(self, user_id: UUID) -> set[tuple[str, date]]:
+        """Get existing (metric_type, date) pairs for daily-sampled biometrics.
+
+        Args:
+            user_id: The user's ID.
+
+        Returns:
+            Set of (metric_type, date) tuples that already exist.
+        """
+        from sqlalchemy import func
+
+        result = await self._db.execute(
+            select(
+                BiometricLog.metric_type,
+                func.date(BiometricLog.logged_at).label("log_date"),
+            )
+            .where(BiometricLog.user_id == user_id)
+            .where(BiometricLog.metric_type.in_(self.DAILY_SAMPLED_BIOMETRIC_TYPES))
+            .distinct()
+        )
+
+        return {(row[0], row[1]) for row in result.fetchall()}
 
     async def _upsert_health_notes(self, user_id: UUID, notes: list[Note]) -> list[HealthNote]:
         """Upsert health notes from Cronometer with bowel movement parsing.
