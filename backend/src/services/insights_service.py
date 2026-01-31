@@ -8,7 +8,10 @@ from uuid import UUID
 import numpy as np
 import structlog
 from scipy import stats
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.models import FoodLog, HealthNote
 
 logger = structlog.get_logger()
 
@@ -313,17 +316,112 @@ class InsightsService:
             analysis_level=analysis_level,
         )
 
-        # Placeholder implementation - will be completed in US-020
-        # For now, return an empty response structure
+        # Determine which nutrients to analyze based on level
+        if analysis_level == "basic":
+            # Only macronutrients
+            nutrients_to_analyze = NUTRIENT_GROUPS["Macronutrients"]
+        elif analysis_level == "comprehensive":
+            # All nutrients
+            nutrients_to_analyze = list(TRACKED_NUTRIENTS.keys())
+        else:
+            # Standard: macros + minerals + vitamins
+            nutrients_to_analyze = (
+                NUTRIENT_GROUPS["Macronutrients"]
+                + NUTRIENT_GROUPS["Minerals"]
+                + NUTRIENT_GROUPS["Water-Soluble Vitamins"]
+                + NUTRIENT_GROUPS["Fat-Soluble Vitamins"]
+            )
+
+        # Convert dates to datetimes for queries
+        start_dt = datetime.combine(start_date, datetime.min.time())
+        end_dt = datetime.combine(end_date, datetime.max.time())
+
+        # Fetch bowel movement health notes
+        bm_result = await self.db.execute(
+            select(HealthNote)
+            .where(HealthNote.user_id == user_id)
+            .where(HealthNote.is_bowel_movement.is_(True))
+            .where(HealthNote.logged_at >= start_dt)
+            .where(HealthNote.logged_at <= end_dt)
+            .where(HealthNote.bristol_scale.isnot(None))
+            .order_by(HealthNote.logged_at)
+        )
+        bm_notes = list(bm_result.scalars().all())
+
+        if len(bm_notes) < min_sample_size:
+            raise InsufficientDataError(
+                f"Need at least {min_sample_size} bowel movements with Bristol scores, "
+                f"but only found {len(bm_notes)}."
+            )
+
+        # Calculate max lag for extended food log query
+        max_lag_hours = max(t.value for t in time_lags)
+        extended_start_dt = start_dt - timedelta(hours=max_lag_hours)
+
+        # Fetch food logs for extended range
+        food_result = await self.db.execute(
+            select(FoodLog)
+            .where(FoodLog.user_id == user_id)
+            .where(FoodLog.logged_at >= extended_start_dt)
+            .where(FoodLog.logged_at <= end_dt)
+            .order_by(FoodLog.logged_at)
+        )
+        food_logs = list(food_result.scalars().all())
+
+        # Prepare BM data as (bristol_score, bm_time) tuples
+        bm_data: list[tuple[int, datetime]] = [
+            (note.bristol_scale, note.logged_at)  # type: ignore[misc]
+            for note in bm_notes
+            if note.bristol_scale is not None and note.logged_at is not None
+        ]
+
+        # Prepare food data as list of dicts
+        food_data: list[dict] = [
+            {"logged_at": log.logged_at, "raw_data": log.raw_data or {}} for log in food_logs
+        ]
+
+        # Calculate baseline Bristol score
+        bristol_scores = [bm[0] for bm in bm_data]
+        baseline_bristol = float(np.mean(bristol_scores)) if bristol_scores else 0.0
+
+        # Run correlation analysis for each time lag
+        results_by_lag: dict[int, list[CorrelationResult]] = {}
+        for time_lag in time_lags:
+            results = self._analyze_nutrient_correlations(
+                bm_data=bm_data,
+                food_data=food_data,
+                time_lag=time_lag,
+                nutrients_to_analyze=nutrients_to_analyze,
+            )
+            results_by_lag[time_lag.value] = results
+
+        # Find consistent correlations across windows
+        consistent_correlations = self._find_consistent_correlations(results_by_lag)
+
+        # Generate human-readable insights
+        insights = self._generate_insights(
+            baseline_bristol=baseline_bristol,
+            consistent_correlations=consistent_correlations,
+            results_by_lag=results_by_lag,
+        )
+
+        self.logger.info(
+            "correlation_analysis_complete",
+            user_id=str(user_id),
+            total_bms=len(bm_notes),
+            total_food_logs=len(food_logs),
+            consistent_correlations=len(consistent_correlations),
+        )
+
         return MultiLagCorrelationResponse(
-            baseline_bristol_score=0.0,
-            total_bowel_movements=0,
-            total_food_logs=0,
+            baseline_bristol_score=round(baseline_bristol, 2),
+            total_bowel_movements=len(bm_notes),
+            total_food_logs=len(food_logs),
             analysis_start_date=start_date,
             analysis_end_date=end_date,
-            results_by_lag={},
-            consistent_correlations=[],
-            insights=[],
+            results_by_lag=results_by_lag,
+            consistent_correlations=consistent_correlations,
+            insights=insights,
         )
 
     def _get_nutrient_value(self, raw_data: dict, nutrient_key: str) -> float | None:
