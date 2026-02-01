@@ -29,7 +29,7 @@ import {
   ScatterPlot,
   ScatterDataPoint,
   CorrelationHeatmap,
-  // TimeSeriesChart, // Will be used when timeline API is available
+  TimeSeriesChart,
   // BoxPlot, // Will be used when detailed data API is available
   // CalendarHeatmap, // Will be used when health notes API is available
   LagCorrelationChart,
@@ -490,18 +490,6 @@ function SyncStatusCard() {
     </div>
   );
 }
-
-// =============================================================================
-// Time Lag Options
-// =============================================================================
-
-const TIME_LAG_OPTIONS: { value: TimeLag; label: string }[] = [
-  { value: 12, label: "12 hours" },
-  { value: 24, label: "24 hours" },
-  { value: 36, label: "36 hours" },
-  { value: 48, label: "48 hours" },
-  { value: 72, label: "72 hours" },
-];
 
 // =============================================================================
 // Key Insights Card Component
@@ -1747,33 +1735,66 @@ function VisualizationsTab({
         );
 
       case "timeseries":
-        // TimeSeriesChart needs timeline API data
-        return (
-          <div className="rounded-lg bg-[#FDFBF7] p-6 dark:bg-[#3D3935]/50">
-            <div className="flex items-center justify-center py-8">
-              <div className="text-center">
-                <svg
-                  className="mx-auto h-12 w-12 text-[#A89B86] dark:text-[#B8A99A]"
-                  fill="none"
+        // Show loading state if timeline is loading
+        if (isTimelineLoading) {
+          return (
+            <div className="flex items-center justify-center py-12">
+              <svg
+                className="h-8 w-8 animate-spin text-[#E8A0BF]"
+                fill="none"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
                   stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
-                  />
-                </svg>
-                <h3 className="mt-3 text-lg font-medium text-[#4A4543] dark:text-[#F5F3F0]">
-                  Time Series - Coming Soon
-                </h3>
-                <p className="mt-1 text-sm text-[#A89B86] dark:text-[#B8A99A]">
-                  This chart requires daily timeline data from the API. Check back soon!
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              <span className="ml-3 text-[#4A4543] dark:text-[#F5F3F0]">
+                Loading timeline data...
+              </span>
+            </div>
+          );
+        }
+
+        // Show empty state if no timeline data
+        if (!timelineData || !timelineData.daily_data || timelineData.daily_data.length === 0) {
+          return (
+            <div className="flex items-center justify-center py-12 text-center">
+              <div>
+                <p className="text-[#A89B86] dark:text-[#B8A99A]">
+                  No timeline data available.
+                </p>
+                <p className="text-sm text-[#A89B86]/80 dark:text-[#B8A99A]/80 mt-1">
+                  Sync your Cronometer data and try again.
                 </p>
               </div>
             </div>
+          );
+        }
+
+        // Render the actual TimeSeriesChart with data
+        return (
+          <div className="rounded-lg bg-white p-4 dark:bg-[#363230]">
+            <TimeSeriesChart
+              timelineData={timelineData}
+              selectedNutrients={[selectedNutrient]}
+              showBristolEvents={true}
+              onNutrientToggle={(nutrientKey) => {
+                console.log("Toggled nutrient:", nutrientKey);
+              }}
+              height={400}
+              showBrush={timelineData.daily_data.length > 14}
+            />
           </div>
         );
 
