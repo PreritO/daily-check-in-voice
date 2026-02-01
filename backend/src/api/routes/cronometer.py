@@ -451,13 +451,20 @@ async def get_timeline(
     health_notes = list(health_result.scalars().all())
 
     # Mapping from user-friendly nutrient keys to model fields
+    # Include both shorthand (e.g., "fiber") and full names (e.g., "fiber_g")
     nutrient_field_map: dict[str, str] = {
         "calories": "calories",
+        "protein": "protein_g",
         "protein_g": "protein_g",
+        "carbs": "carbs_g",
         "carbs_g": "carbs_g",
+        "fat": "fat_g",
         "fat_g": "fat_g",
+        "fiber": "fiber_g",
         "fiber_g": "fiber_g",
+        "sugar": "sugar_g",
         "sugar_g": "sugar_g",
+        "sodium": "sodium_mg",
         "sodium_mg": "sodium_mg",
     }
 
