@@ -6,7 +6,15 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from src.models import AlertType, CallDirection, CallStatus, MemoryType, SentimentType, Speaker
+from src.models import (
+    AlertType,
+    CallDirection,
+    CallStatus,
+    InterventionStatus,
+    MemoryType,
+    SentimentType,
+    Speaker,
+)
 from src.models.preferences import CallDurationPreference, CommunicationStyle, ThemeMode
 
 # =============================================================================
@@ -460,8 +468,67 @@ class CredentialStatusResponse(BaseModel):
 
 
 # =============================================================================
+# Timeline Schemas
+# =============================================================================
+
+
+class BristolEvent(BaseModel):
+    """A single Bristol stool event."""
+
+    timestamp: datetime = Field(..., description="When the BM event occurred")
+    bristol_score: int = Field(..., ge=1, le=7, description="Bristol scale score (1-7)")
+    quantity_score: int | None = Field(None, ge=1, le=10, description="Quantity score (1-10)")
+
+
+class DailyTimelineData(BaseModel):
+    """Daily aggregated nutrient and Bristol data."""
+
+    day: date = Field(..., description="The date for this data point")
+    nutrients: dict[str, float] = Field(
+        default_factory=dict, description="Nutrient key -> total value for the day"
+    )
+    bristol_events: list[BristolEvent] = Field(
+        default_factory=list, description="All BM events that day"
+    )
+
+
+class TimelineResponse(BaseModel):
+    """Response for the timeline endpoint."""
+
+    start_date: date = Field(..., description="Start date of the timeline")
+    end_date: date = Field(..., description="End date of the timeline")
+    nutrient_keys: list[str] = Field(
+        default_factory=list, description="List of nutrient keys included"
+    )
+    daily_data: list[DailyTimelineData] = Field(
+        default_factory=list, description="One entry per day, sorted ascending"
+    )
+
+
+# =============================================================================
 # Insights Schemas
 # =============================================================================
+
+
+class GrangerResultSchema(BaseModel):
+    """Schema for Granger causality test result."""
+
+    nutrient_key: str = Field(..., description="Nutrient identifier")
+    nutrient_name: str = Field(..., description="Human-readable nutrient name")
+    f_statistic: float = Field(..., description="F-test statistic")
+    p_value: float = Field(..., description="P-value from Granger test")
+    optimal_lag: int = Field(..., description="Optimal lag in days")
+    is_causal: bool = Field(..., description="True if p < 0.05")
+
+
+class GrangerResponse(BaseModel):
+    """Response for Granger causality endpoint."""
+
+    start_date: date
+    end_date: date
+    nutrients_tested: int
+    causal_nutrients_count: int
+    results: list[GrangerResultSchema]  # Sorted by p_value ascending (most significant first)
 
 
 class CorrelationResultSchema(BaseModel):
@@ -483,9 +550,7 @@ class CorrelationResultSchema(BaseModel):
     intake_high_threshold: float | None = Field(None, description="75th percentile intake")
     intake_low_threshold: float | None = Field(None, description="25th percentile intake")
     direction: str = Field(..., description="Correlation direction: positive, negative, or none")
-    interpretation: str = Field(
-        "", description="Human-readable interpretation of the correlation"
-    )
+    interpretation: str = Field("", description="Human-readable interpretation of the correlation")
 
 
 class ConsistentCorrelationSchema(BaseModel):
@@ -496,6 +561,22 @@ class ConsistentCorrelationSchema(BaseModel):
     windows_significant: int = Field(..., description="Number of windows with significance")
     avg_correlation: float = Field(..., description="Average correlation coefficient")
     direction: str = Field(..., description="Overall direction: positive, negative, or mixed")
+
+
+class ComparisonResultSchema(BaseModel):
+    """Schema for controlled comparison result."""
+
+    nutrient_key: str = Field(..., description="Nutrient identifier")
+    nutrient_name: str = Field(..., description="Human-readable nutrient name")
+    avg_bristol_high_intake: float = Field(..., description="Avg Bristol on high intake days")
+    avg_bristol_low_intake: float = Field(..., description="Avg Bristol on low intake days")
+    difference: float = Field(..., description="Difference (high - low)")
+    confidence_interval_low: float = Field(..., description="95% CI lower bound")
+    confidence_interval_high: float = Field(..., description="95% CI upper bound")
+    high_intake_count: int = Field(..., description="Sample size for high intake")
+    low_intake_count: int = Field(..., description="Sample size for low intake")
+    matched_pairs_count: int = Field(..., description="Number of matched day-pairs")
+    is_significant: bool = Field(..., description="True if statistically significant")
 
 
 class MultiLagCorrelationResponseSchema(BaseModel):
@@ -513,3 +594,132 @@ class MultiLagCorrelationResponseSchema(BaseModel):
         default_factory=list, description="Nutrients with consistent correlations"
     )
     insights: list[str] = Field(default_factory=list, description="Human-readable insights")
+
+
+# =============================================================================
+# Food Correlation Schemas
+# =============================================================================
+
+
+class FoodCorrelationResultSchema(BaseModel):
+    """Schema for a single food correlation result."""
+
+    food_name: str = Field(..., description="Name of the food")
+    times_eaten: int = Field(..., description="Number of times food was eaten")
+    avg_bristol_after: float | None = Field(None, description="Avg Bristol after eating")
+    correlation: float = Field(..., description="Correlation coefficient")
+    p_value: float = Field(..., description="Statistical p-value")
+    is_significant: bool = Field(..., description="True if p < 0.05")
+    is_trigger: bool = Field(..., description="True if food is a trigger")
+    avg_bristol_when_eaten: float | None = Field(None, description="Avg Bristol when food eaten")
+    avg_bristol_when_not_eaten: float | None = Field(None, description="Avg Bristol when not eaten")
+
+
+class FoodAnalysisResponseSchema(BaseModel):
+    """Schema for food analysis response."""
+
+    total_foods_analyzed: int = Field(..., description="Number of foods analyzed")
+    total_food_logs: int = Field(..., description="Total food logs in period")
+    total_bristol_events: int = Field(..., description="Total Bristol events in period")
+    analysis_start_date: date = Field(..., description="Start of analysis period")
+    analysis_end_date: date = Field(..., description="End of analysis period")
+    results: list[FoodCorrelationResultSchema] = Field(
+        default_factory=list, description="All food correlations"
+    )
+    trigger_foods: list[FoodCorrelationResultSchema] = Field(
+        default_factory=list, description="Foods identified as triggers"
+    )
+
+
+# =============================================================================
+# Optimal Ranges Schemas
+# =============================================================================
+
+
+class OptimalRangeSchema(BaseModel):
+    """Schema for a single optimal nutrient range."""
+
+    nutrient_name: str = Field(..., description="Human-readable nutrient name")
+    nutrient_key: str = Field(..., description="Internal nutrient key")
+    optimal_min: float = Field(..., description="Lower bound of optimal range")
+    optimal_max: float = Field(..., description="Upper bound of optimal range")
+    avg_bristol_in_range: float = Field(..., description="Avg Bristol when intake in range")
+    sample_size: int = Field(..., description="Number of data points in range")
+    confidence_score: float = Field(..., description="Confidence score 0-1")
+    unit: str = Field(..., description="Unit of measurement (e.g., g, mg)")
+
+
+class OptimalRangesResponseSchema(BaseModel):
+    """Schema for optimal ranges response."""
+
+    total_nutrients_analyzed: int = Field(..., description="Number of nutrients with ranges")
+    total_food_logs: int = Field(..., description="Total food logs in period")
+    total_bristol_events: int = Field(..., description="Total Bristol events in period")
+    target_bristol: float = Field(..., description="Target Bristol score used")
+    tolerance: float = Field(..., description="Tolerance from target")
+    analysis_start_date: date = Field(..., description="Start of analysis period")
+    analysis_end_date: date = Field(..., description="End of analysis period")
+    ranges: list[OptimalRangeSchema] = Field(
+        default_factory=list, description="Optimal ranges by nutrient"
+    )
+
+
+# =============================================================================
+# Intervention Schemas
+# =============================================================================
+
+
+class InterventionCreate(BaseModel):
+    """Schema for creating an intervention."""
+
+    title: str = Field(..., max_length=200)
+    description: str | None = None
+    hypothesis: str | None = None
+    nutrient_key: str | None = Field(None, max_length=100)
+    target_value: float | None = None
+    start_date: date
+    end_date: date | None = None
+    status: InterventionStatus = InterventionStatus.PLANNED
+
+
+class InterventionUpdate(BaseModel):
+    """Schema for updating an intervention."""
+
+    title: str | None = Field(None, max_length=200)
+    description: str | None = None
+    hypothesis: str | None = None
+    nutrient_key: str | None = Field(None, max_length=100)
+    target_value: float | None = None
+    end_date: date | None = None
+    status: InterventionStatus | None = None
+    outcome_notes: str | None = None
+
+
+class InterventionRead(BaseModel):
+    """Schema for reading intervention data."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    title: str
+    description: str | None
+    hypothesis: str | None
+    nutrient_key: str | None
+    target_value: float | None
+    start_date: date
+    end_date: date | None
+    status: InterventionStatus
+    outcome_notes: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class InterventionWithAnalysis(InterventionRead):
+    """Schema with Bristol comparison analysis."""
+
+    avg_bristol_before: float | None = None  # Average Bristol before start_date
+    avg_bristol_during: float | None = None  # Average Bristol during intervention
+    bristol_difference: float | None = None  # during - before
+    days_before_analyzed: int = 0
+    days_during_analyzed: int = 0

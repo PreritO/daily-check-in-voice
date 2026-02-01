@@ -714,11 +714,15 @@ class InsightsService:
         if direction == "positive":
             # Positive: more nutrient → higher Bristol → looser stool
             arrow_text = f"More {nutrient_name} → higher Bristol (looser stool)"
-            detail = f"{strength.capitalize()} positive correlation (r={corr_coef:.2f}){sig_qualifier}."
+            detail = (
+                f"{strength.capitalize()} positive correlation (r={corr_coef:.2f}){sig_qualifier}."
+            )
         else:
             # Negative: more nutrient → lower Bristol → firmer stool
             arrow_text = f"More {nutrient_name} → lower Bristol (firmer stool)"
-            detail = f"{strength.capitalize()} negative correlation (r={corr_coef:.2f}){sig_qualifier}."
+            detail = (
+                f"{strength.capitalize()} negative correlation (r={corr_coef:.2f}){sig_qualifier}."
+            )
 
         # Add high/low intake comparison if available
         if avg_bristol_high is not None and avg_bristol_low is not None:

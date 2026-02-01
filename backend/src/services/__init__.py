@@ -2,6 +2,26 @@
 
 from .analytics_service import MoodTrendItem, UserAnalytics, get_user_analytics
 from .auth_service import AuthError, TokenPayload, verify_supabase_token
+from .comparison_service import (
+    ComparisonResult,
+    ControlledComparisonService,
+    InsufficientMatchesError,
+)
+from .food_correlation_service import (
+    FoodAnalysisResponse,
+    FoodCorrelationResult,
+    FoodCorrelationService,
+)
+from .food_correlation_service import (
+    InsufficientDataError as FoodInsufficientDataError,
+)
+from .granger_service import (
+    GrangerCausalityService,
+    GrangerResult,
+)
+from .granger_service import (
+    InsufficientDataError as GrangerInsufficientDataError,
+)
 from .insights_service import (
     NUTRIENT_GROUPS,
     TRACKED_NUTRIENTS,
@@ -20,6 +40,14 @@ from .memory_service import (
     get_user_context,
 )
 from .mood_service import MoodAnalysisResult, analyze_mood
+from .optimal_ranges_service import (
+    InsufficientDataError as OptimalRangesInsufficientDataError,
+)
+from .optimal_ranges_service import (
+    OptimalRange,
+    OptimalRangesResponse,
+    OptimalRangesService,
+)
 from .post_call_service import PostCallResult, process_completed_call
 from .scheduler_service import (
     add_schedule_job,
@@ -33,16 +61,30 @@ from .summary_service import StandupSummary, generate_summary
 
 __all__ = [
     "AuthError",
+    "ComparisonResult",
     "ConsistentCorrelation",
+    "ControlledComparisonService",
     "CorrelationResult",
     "ExtractedMemory",
+    "FoodAnalysisResponse",
+    "FoodCorrelationResult",
+    "FoodCorrelationService",
+    "FoodInsufficientDataError",
+    "GrangerCausalityService",
+    "GrangerInsufficientDataError",
+    "GrangerResult",
     "InsightsService",
     "InsufficientDataError",
+    "InsufficientMatchesError",
     "MemoryExtractionResult",
     "MoodAnalysisResult",
     "MoodTrendItem",
     "MultiLagCorrelationResponse",
     "NUTRIENT_GROUPS",
+    "OptimalRange",
+    "OptimalRangesInsufficientDataError",
+    "OptimalRangesResponse",
+    "OptimalRangesService",
     "PostCallResult",
     "RoomInfo",
     "SlackPostResult",

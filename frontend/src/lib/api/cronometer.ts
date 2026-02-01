@@ -263,3 +263,297 @@ export function useCorrelationsQuery(params: CorrelationsParams, enabled: boolea
     enabled: enabled && !!params.startDate && !!params.endDate,
   });
 }
+
+// =============================================================================
+// Intervention Types
+// =============================================================================
+
+export type InterventionStatus = "planned" | "active" | "completed" | "cancelled";
+
+export interface Intervention {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  hypothesis: string | null;
+  nutrient_key: string | null;
+  target_value: number | null;
+  start_date: string;
+  end_date: string | null;
+  status: InterventionStatus;
+  outcome_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InterventionWithAnalysis extends Intervention {
+  avg_bristol_before: number | null;
+  avg_bristol_during: number | null;
+  bristol_difference: number | null;
+  days_before_analyzed: number;
+  days_during_analyzed: number;
+}
+
+export interface InterventionCreate {
+  title: string;
+  description?: string | null;
+  hypothesis?: string | null;
+  nutrient_key?: string | null;
+  target_value?: number | null;
+  start_date: string;
+  end_date?: string | null;
+  status?: InterventionStatus;
+}
+
+export interface InterventionUpdate {
+  title?: string;
+  description?: string | null;
+  hypothesis?: string | null;
+  nutrient_key?: string | null;
+  target_value?: number | null;
+  end_date?: string | null;
+  status?: InterventionStatus;
+  outcome_notes?: string | null;
+}
+
+// =============================================================================
+// Intervention Query Keys
+// =============================================================================
+
+export const interventionKeys = {
+  all: ["interventions"] as const,
+  lists: () => [...interventionKeys.all, "list"] as const,
+  list: (status?: InterventionStatus) => [...interventionKeys.lists(), { status }] as const,
+  details: () => [...interventionKeys.all, "detail"] as const,
+  detail: (id: string) => [...interventionKeys.details(), id] as const,
+};
+
+// =============================================================================
+// Intervention API Functions
+// =============================================================================
+
+async function getInterventions(status?: InterventionStatus): Promise<Intervention[]> {
+  const params = new URLSearchParams();
+  if (status) {
+    params.append("status", status);
+  }
+  const queryString = params.toString();
+  const url = queryString ? `/interventions?${queryString}` : "/interventions";
+  const response = await apiClient.get(url);
+  return response.data;
+}
+
+async function getIntervention(id: string): Promise<InterventionWithAnalysis> {
+  const response = await apiClient.get(`/interventions/${id}`);
+  return response.data;
+}
+
+async function createIntervention(data: InterventionCreate): Promise<Intervention> {
+  const response = await apiClient.post("/interventions", data);
+  return response.data;
+}
+
+async function updateIntervention(id: string, data: InterventionUpdate): Promise<Intervention> {
+  const response = await apiClient.patch(`/interventions/${id}`, data);
+  return response.data;
+}
+
+async function deleteIntervention(id: string): Promise<void> {
+  await apiClient.delete(`/interventions/${id}`);
+}
+
+// =============================================================================
+// Intervention Hooks
+// =============================================================================
+
+export function useInterventionsQuery(status?: InterventionStatus) {
+  return useQuery({
+    queryKey: interventionKeys.list(status),
+    queryFn: () => getInterventions(status),
+  });
+}
+
+export function useInterventionQuery(id: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: interventionKeys.detail(id),
+    queryFn: () => getIntervention(id),
+    enabled: enabled && !!id,
+  });
+}
+
+export function useCreateInterventionMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createIntervention,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: interventionKeys.lists() });
+    },
+  });
+}
+
+export function useUpdateInterventionMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: InterventionUpdate }) =>
+      updateIntervention(id, data),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: interventionKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: interventionKeys.detail(variables.id) });
+    },
+  });
+}
+
+export function useDeleteInterventionMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteIntervention,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: interventionKeys.lists() });
+    },
+  });
+}
+
+// =============================================================================
+// Food Correlation Types
+// =============================================================================
+
+export interface FoodCorrelationResult {
+  food_name: string;
+  times_eaten: number;
+  avg_bristol_after: number | null;
+  correlation: number;
+  p_value: number;
+  is_significant: boolean;
+  is_trigger: boolean;
+  avg_bristol_when_eaten: number | null;
+  avg_bristol_when_not_eaten: number | null;
+}
+
+export interface FoodAnalysisResponse {
+  total_foods_analyzed: number;
+  total_food_logs: number;
+  total_bristol_events: number;
+  analysis_start_date: string;
+  analysis_end_date: string;
+  results: FoodCorrelationResult[];
+  trigger_foods: FoodCorrelationResult[];
+}
+
+export interface FoodAnalysisParams {
+  startDate: string;
+  endDate: string;
+  minOccurrences?: number;
+  timeLagHours?: number;
+}
+
+// =============================================================================
+// Food Correlation Query Keys
+// =============================================================================
+
+export const foodAnalysisKeys = {
+  all: ["foodAnalysis"] as const,
+  analysis: (params: FoodAnalysisParams) => [...foodAnalysisKeys.all, params] as const,
+};
+
+// =============================================================================
+// Food Correlation API Functions
+// =============================================================================
+
+async function getFoodAnalysis(params: FoodAnalysisParams): Promise<FoodAnalysisResponse> {
+  const searchParams = new URLSearchParams({
+    start_date: params.startDate,
+    end_date: params.endDate,
+  });
+  if (params.minOccurrences) {
+    searchParams.append("min_occurrences", params.minOccurrences.toString());
+  }
+  if (params.timeLagHours) {
+    searchParams.append("time_lag_hours", params.timeLagHours.toString());
+  }
+  const response = await apiClient.get(`/cronometer/insights/foods?${searchParams.toString()}`);
+  return response.data;
+}
+
+// =============================================================================
+// Food Correlation Hooks
+// =============================================================================
+
+export function useFoodAnalysisQuery(params: FoodAnalysisParams, enabled: boolean = true) {
+  return useQuery({
+    queryKey: foodAnalysisKeys.analysis(params),
+    queryFn: () => getFoodAnalysis(params),
+    enabled: enabled && !!params.startDate && !!params.endDate,
+  });
+}
+
+// =============================================================================
+// Timeline Types
+// =============================================================================
+
+export interface BristolEvent {
+  timestamp: string;
+  bristol_score: number;
+  quantity_score: number | null;
+}
+
+export interface DailyTimelineData {
+  day: string;
+  nutrients: Record<string, number>;
+  bristol_events: BristolEvent[];
+}
+
+export interface TimelineResponse {
+  start_date: string;
+  end_date: string;
+  nutrient_keys: string[];
+  daily_data: DailyTimelineData[];
+}
+
+export interface TimelineParams {
+  startDate: string;
+  endDate: string;
+  nutrients: string[];
+}
+
+// =============================================================================
+// Timeline Query Keys
+// =============================================================================
+
+export const timelineKeys = {
+  all: ["timeline"] as const,
+  byParams: (params: TimelineParams) => [...timelineKeys.all, params] as const,
+};
+
+// =============================================================================
+// Timeline API Functions
+// =============================================================================
+
+async function getTimeline(params: TimelineParams): Promise<TimelineResponse> {
+  const searchParams = new URLSearchParams({
+    start_date: params.startDate,
+    end_date: params.endDate,
+  });
+  // Add each nutrient as a separate query param
+  for (const nutrient of params.nutrients) {
+    searchParams.append("nutrients", nutrient);
+  }
+  const response = await apiClient.get<TimelineResponse>(
+    `/cronometer/insights/timeline?${searchParams.toString()}`
+  );
+  return response.data;
+}
+
+// =============================================================================
+// Timeline Hooks
+// =============================================================================
+
+export function useTimelineQuery(params: TimelineParams, enabled: boolean = true) {
+  return useQuery({
+    queryKey: timelineKeys.byParams(params),
+    queryFn: () => getTimeline(params),
+    enabled: enabled && !!params.startDate && !!params.endDate && params.nutrients.length > 0,
+  });
+}

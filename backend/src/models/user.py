@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from .cronometer_credential import CronometerCredential
     from .food_log import FoodLog
     from .health_note import HealthNote
+    from .intervention import Intervention
     from .memory import ConversationMemory
     from .preferences import UserPreferences
     from .schedule import Schedule
@@ -112,6 +113,11 @@ class User(Base):
     )
     health_notes: Mapped[list["HealthNote"]] = relationship(
         "HealthNote",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    interventions: Mapped[list["Intervention"]] = relationship(
+        "Intervention",
         back_populates="user",
         cascade="all, delete-orphan",
     )
