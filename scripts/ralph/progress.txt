@@ -1078,3 +1078,99 @@ Total tests: 107
 All ruff checks passing.
 All npm builds passing.
 ---
+
+## 2026-01-31 - US-042a: Add useTimelineQuery hook for chart data
+- **Subagents used**: None (straightforward implementation)
+- **What was implemented**:
+  - TimelineResponse interface with start_date, end_date, nutrient_keys, daily_data
+  - DailyTimelineData interface with day, nutrients Record, bristol_events array
+  - BristolEvent interface with timestamp, bristol_score, quantity_score
+  - TimelineParams interface with startDate, endDate, nutrients array
+  - timelineKeys query key factory
+  - getTimeline async function calling /cronometer/insights/timeline
+  - useTimelineQuery hook with params and enabled flag
+- **Files changed**:
+  - frontend/src/lib/api/cronometer.ts (added 72 lines)
+- **Verification**: npm build ✓
+---
+
+## 2026-01-31 - US-042b: Wire up ScatterPlot chart to timeline data
+- **Subagents used**: None
+- **What was implemented**:
+  - Import ScatterPlot and ScatterDataPoint from charts
+  - Add useTimelineQuery call in InsightsPage component
+  - Pass timelineData and isTimelineLoading to VisualizationsTab via props
+  - Add scatterData transformation using useMemo:
+    - For each Bristol event, find nutrient intake from preceding time window
+    - Uses date-fns format for date key lookups
+    - Returns ScatterDataPoint array with date, nutrientValue, bristolScore, unit
+  - Add selectedTimeLag state with TIME_LAG_OPTIONS dropdown
+  - Add getNutrientUnit helper function for 40+ nutrients
+  - Replace 'Coming Soon' placeholder with actual ScatterPlot component
+  - Show loading state while timeline data fetches
+  - Show empty state if no paired data available
+- **Files changed**:
+  - frontend/src/app/(dashboard)/insights/page.tsx (214 insertions, 35 deletions)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Timeline data transformation requires looking back lagDays from each Bristol event
+  - Using Map for O(1) date lookups is efficient for large datasets
+---
+
+## 2026-01-31 - US-042c: Wire up TimeSeriesChart to timeline data
+- **Subagents used**: None
+- **What was implemented**:
+  - Import TimeSeriesChart from charts
+  - Pass timelineData directly to TimeSeriesChart (TimelineResponse format)
+  - Show selected nutrient with Bristol events overlaid
+  - Replace 'Coming Soon' placeholder with actual TimeSeriesChart
+  - Add loading state while timeline data fetches
+  - Add empty state if no timeline data available
+  - Remove duplicate TIME_LAG_OPTIONS constant
+- **Files changed**:
+  - frontend/src/app/(dashboard)/insights/page.tsx (57 insertions, 36 deletions)
+- **Verification**: npm build ✓
+---
+
+## 2026-01-31 - US-042d: Wire up CalendarHeatmap to health notes data
+- **Subagents used**: None
+- **What was implemented**:
+  - Import CalendarHeatmap component from charts
+  - Import useHealthNotesQuery hook and HealthNote type
+  - Add useHealthNotesQuery call in InsightsPage component
+  - Pass healthNotes and isHealthNotesLoading to VisualizationsTab
+  - Filter health notes to bowel movement entries with bristol_scale
+  - Transform HealthNote to CalendarHeatmap format
+  - Replace 'Coming Soon' placeholder with actual CalendarHeatmap
+  - Add loading state while health notes data fetches
+  - Add empty state if no bowel movement data in range
+- **Files changed**:
+  - frontend/src/app/(dashboard)/insights/page.tsx (81 insertions, 24 deletions)
+- **Verification**: npm build ✓
+---
+
+## 2026-01-31 - US-042e: Wire up BoxPlot chart to correlation data
+- **Subagents used**: None
+- **What was implemented**:
+  - Import BoxPlot and BoxPlotDataPoint from charts
+  - Add boxPlotData useMemo transforming scatter data to BoxPlotDataPoint format
+  - Replace 'Coming Soon' placeholder with actual BoxPlot component
+  - Pass time lag selector for configurable lag period
+  - Show nutrient unit in BoxPlot display
+  - Add loading state while timeline data fetches
+  - Add empty state if no paired data available
+- **Files changed**:
+  - frontend/src/app/(dashboard)/insights/page.tsx (81 insertions, 24 deletions)
+- **Verification**: npm build ✓
+---
+
+## CHART WIRING COMPLETE: All 5 Chart Visualization Stories
+All chart visualization stories for the Cronometer integration are now complete:
+- US-042a: useTimelineQuery hook for chart data
+- US-042b: ScatterPlot wired to timeline data
+- US-042c: TimeSeriesChart wired to timeline data
+- US-042d: CalendarHeatmap wired to health notes data
+- US-042e: BoxPlot wired to correlation data
+
+All charts now display real data instead of "Coming Soon" placeholders.
+---
