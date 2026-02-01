@@ -509,6 +509,413 @@
       ],
       "priority": 33,
       "passes": true
+    },
+    {
+      "id": "US-034",
+      "title": "Add Recharts charting library",
+      "description": "Add Recharts library to the frontend for building interactive data visualizations. Recharts is a React-based charting library built on D3.",
+      "acceptanceCriteria": [
+        "recharts package added to frontend/package.json",
+        "npm install runs without errors",
+        "Create a simple test chart component to verify setup",
+        "npm run build passes"
+      ],
+      "priority": 34,
+      "passes": true
+    },
+    {
+      "id": "US-035",
+      "title": "Create scatter plot component for nutrient vs Bristol",
+      "description": "Create a reusable ScatterPlot component that shows nutrient intake (x-axis) vs Bristol score (y-axis) for a selected nutrient. Each point represents a BM event with the nutrient intake from the preceding time window.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/charts/ScatterPlot.tsx",
+        "Props: data array, nutrientName, timeLagHours, onPointClick",
+        "X-axis: nutrient intake amount with unit label",
+        "Y-axis: Bristol score (1-7)",
+        "Points colored by Bristol score (green 3-5, yellow 2/6, red 1/7)",
+        "Tooltip showing date, exact values on hover",
+        "Trend line overlay showing correlation direction",
+        "Responsive sizing",
+        "npm run build passes"
+      ],
+      "priority": 35,
+      "passes": true
+    },
+    {
+      "id": "US-036",
+      "title": "Create correlation heatmap component",
+      "description": "Create a Heatmap component showing correlation strength across nutrients (rows) and time lags (columns). Color intensity represents correlation strength, color hue represents direction.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/charts/CorrelationHeatmap.tsx",
+        "Props: correlationData (results_by_lag from API), onCellClick",
+        "Rows: nutrients (grouped by category)",
+        "Columns: time lags (12h, 24h, 36h, 48h, 72h)",
+        "Color scale: red (negative) to white (none) to green (positive)",
+        "Opacity/intensity based on significance (p-value)",
+        "Cell tooltip showing exact values",
+        "Click cell to drill down to scatter plot for that nutrient/lag",
+        "npm run build passes"
+      ],
+      "priority": 36,
+      "passes": true
+    },
+    {
+      "id": "US-037",
+      "title": "Create backend endpoint for time series chart data",
+      "description": "Create GET /api/cronometer/insights/timeline endpoint that returns nutrient intake and Bristol events over time for visualization. Returns daily aggregated data suitable for time series charting.",
+      "acceptanceCriteria": [
+        "GET /insights/timeline endpoint in cronometer router",
+        "Query params: start_date, end_date, nutrients (list of keys)",
+        "Returns daily data points with date, nutrient totals, Bristol scores (if any)",
+        "Bristol events marked with timestamp and score",
+        "Aggregates multiple BMs per day (shows each separately)",
+        "Returns data sorted by date ascending",
+        "Pydantic schema for response defined",
+        "uv run ruff check passes"
+      ],
+      "priority": 37,
+      "passes": true
+    },
+    {
+      "id": "US-038",
+      "title": "Create time series chart component",
+      "description": "Create a TimeSeriesChart component showing nutrient intake over time with Bristol events overlaid. Useful for seeing patterns like 'high fiber yesterday → good BM today'.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/charts/TimeSeriesChart.tsx",
+        "Props: timelineData, selectedNutrients, showBristolEvents",
+        "Line chart for nutrient intake over time",
+        "Bristol events shown as markers/dots on secondary y-axis",
+        "Configurable time range (7d, 14d, 30d)",
+        "Nutrient selector to toggle which nutrients to display",
+        "Zoom and pan functionality",
+        "npm run build passes"
+      ],
+      "priority": 38,
+      "passes": true
+    },
+    {
+      "id": "US-039",
+      "title": "Create box plot component for intake quartiles",
+      "description": "Create a BoxPlot component showing Bristol score distribution when nutrient intake is in different quartiles (Q1-Q4). Helps visualize if high intake days have different outcomes.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/charts/BoxPlot.tsx",
+        "Props: data, nutrientName, timeLagHours",
+        "Four boxes representing intake quartiles Q1, Q2, Q3, Q4",
+        "Each box shows Bristol score distribution (median, IQR, whiskers)",
+        "Labels showing intake range for each quartile",
+        "Sample size (n) displayed for each quartile",
+        "Color coding for median Bristol (green/yellow/red)",
+        "npm run build passes"
+      ],
+      "priority": 39,
+      "passes": true
+    },
+    {
+      "id": "US-040",
+      "title": "Create calendar heatmap component",
+      "description": "Create a CalendarHeatmap component showing daily Bristol scores on a calendar grid. Color each day by average Bristol score, allow clicking to see details.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/charts/CalendarHeatmap.tsx",
+        "Props: healthNotes data, year, month (or range)",
+        "GitHub-style contribution graph layout (weeks as columns)",
+        "Each day colored by Bristol score (green 3-5, yellow 2/6, red 1/7)",
+        "Gray for days with no BM logged",
+        "Tooltip showing date, Bristol score(s), quantity score(s)",
+        "Click day to show detail modal with food logs from preceding 24-48h",
+        "npm run build passes"
+      ],
+      "priority": 40,
+      "passes": true
+    },
+    {
+      "id": "US-041",
+      "title": "Create lag optimization chart component",
+      "description": "Create a LagCorrelationChart component showing correlation strength at each time lag for a selected nutrient. Helps identify the optimal time window for that nutrient.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/charts/LagCorrelationChart.tsx",
+        "Props: nutrientKey, correlationsByLag",
+        "Line or bar chart with time lags on x-axis (12h, 24h, 36h, 48h, 72h)",
+        "Correlation coefficient on y-axis (-1 to +1)",
+        "Bars/points colored by significance (solid if p<0.05, faded if not)",
+        "Highlight the optimal lag (strongest significant correlation)",
+        "Reference lines at r=0 and significance thresholds",
+        "npm run build passes"
+      ],
+      "priority": 41,
+      "passes": true
+    },
+    {
+      "id": "US-042",
+      "title": "Add visualization section to Insights page",
+      "description": "Add a 'Visualizations' tab or section to the Insights page that houses all the chart components. Include nutrient selector and chart type picker.",
+      "acceptanceCriteria": [
+        "New 'Visualizations' tab on Insights page",
+        "Nutrient dropdown selector (searchable, grouped by category)",
+        "Chart type selector: Scatter, Heatmap, Time Series, Box Plot, Calendar, Lag Chart",
+        "Selected chart renders with appropriate data",
+        "Charts use useCorrelationsQuery and timeline data",
+        "Loading states for each chart",
+        "npm run build passes"
+      ],
+      "priority": 42,
+      "passes": true
+    },
+    {
+      "id": "US-043",
+      "title": "Create Granger causality service",
+      "description": "Create a GrangerCausalityService in the backend that tests whether past nutrient values help predict future Bristol scores beyond what past Bristol scores alone predict.",
+      "acceptanceCriteria": [
+        "Service at backend/src/services/granger_service.py",
+        "GrangerCausalityService class with __init__(db: AsyncSession)",
+        "test_causality(user_id, nutrient_key, max_lag_days) method",
+        "Uses statsmodels grangercausalitytests function",
+        "Returns GrangerResult with f_statistic, p_value, optimal_lag, is_causal",
+        "Handles insufficient data gracefully",
+        "Add statsmodels to backend dependencies",
+        "uv run ruff check passes"
+      ],
+      "priority": 43,
+      "passes": true
+    },
+    {
+      "id": "US-044",
+      "title": "Create Granger causality API endpoint",
+      "description": "Create GET /api/cronometer/insights/granger endpoint to run Granger causality tests for specified nutrients.",
+      "acceptanceCriteria": [
+        "GET /insights/granger endpoint in cronometer router",
+        "Query params: start_date, end_date, nutrients (list), max_lag_days (default 3)",
+        "Returns list of GrangerResultSchema for each nutrient",
+        "Results sorted by significance (most causal first)",
+        "Returns 400 if insufficient data (need consecutive daily data)",
+        "Pydantic schemas defined for request/response",
+        "uv run ruff check passes"
+      ],
+      "priority": 44,
+      "passes": true
+    },
+    {
+      "id": "US-045",
+      "title": "Create Granger causality UI component",
+      "description": "Create a GrangerResults component that displays which nutrients have predictive power for Bristol scores, distinguishing correlation from potential causation.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/insights/GrangerResults.tsx",
+        "Table showing: Nutrient, F-statistic, P-value, Optimal Lag, Causal (yes/no)",
+        "Only shows nutrients where is_causal=true by default",
+        "Toggle to show all tested nutrients",
+        "Explanation text: 'These nutrients may CAUSE changes in stool consistency'",
+        "Warning that causation requires further validation",
+        "npm run build passes"
+      ],
+      "priority": 45,
+      "passes": true
+    },
+    {
+      "id": "US-046",
+      "title": "Create controlled comparison service",
+      "description": "Create a ControlledComparisonService that compares Bristol outcomes on days with high intake of a nutrient vs similar days without, controlling for other factors.",
+      "acceptanceCriteria": [
+        "Service at backend/src/services/comparison_service.py",
+        "ControlledComparisonService class with compare(user_id, nutrient_key, ...) method",
+        "Finds 'similar' days based on total calories, other macro ratios",
+        "Compares Bristol outcomes: high-nutrient days vs low-nutrient similar days",
+        "Returns ComparisonResult with avg_bristol_with, avg_bristol_without, difference, confidence_interval",
+        "Uses propensity score matching or simple quartile matching",
+        "uv run ruff check passes"
+      ],
+      "priority": 46,
+      "passes": true
+    },
+    {
+      "id": "US-047",
+      "title": "Create controlled comparison API endpoint",
+      "description": "Create GET /api/cronometer/insights/compare endpoint for running controlled comparisons between high and low intake days.",
+      "acceptanceCriteria": [
+        "GET /insights/compare endpoint in cronometer router",
+        "Query params: start_date, end_date, nutrient_key, control_factors (list)",
+        "Returns ComparisonResultSchema with statistics",
+        "Includes matched_pairs_count showing how many day-pairs were compared",
+        "Returns 400 if not enough matched pairs found",
+        "Pydantic schemas defined",
+        "uv run ruff check passes"
+      ],
+      "priority": 47,
+      "passes": true
+    },
+    {
+      "id": "US-048",
+      "title": "Create controlled comparison UI component",
+      "description": "Create a ControlledComparison component showing side-by-side comparison of outcomes on high vs low intake days for a nutrient.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/insights/ControlledComparison.tsx",
+        "Nutrient selector dropdown",
+        "Side-by-side display: 'Days WITH high [nutrient]' vs 'Similar days WITHOUT'",
+        "Shows avg Bristol, sample size, confidence interval for each group",
+        "Visual difference indicator (arrow up/down, color coded)",
+        "Explanation of methodology in collapsible section",
+        "npm run build passes"
+      ],
+      "priority": 48,
+      "passes": true
+    },
+    {
+      "id": "US-049",
+      "title": "Create Intervention model for dietary experiments",
+      "description": "Create SQLAlchemy model for tracking user dietary experiments/interventions. Allows users to log 'I'm going to try eating more fiber for 2 weeks' and track outcomes.",
+      "acceptanceCriteria": [
+        "Model at backend/src/models/intervention.py",
+        "Fields: id, user_id, title, description, hypothesis, nutrient_key (nullable), target_value (nullable), start_date, end_date (nullable), status (enum: planned, active, completed, cancelled), outcome_notes, created_at, updated_at",
+        "InterventionStatus enum defined",
+        "Relationship added to User model",
+        "Exported from models/__init__.py",
+        "Alembic migration created",
+        "uv run ruff check passes"
+      ],
+      "priority": 49,
+      "passes": true
+    },
+    {
+      "id": "US-050",
+      "title": "Create intervention tracking API endpoints",
+      "description": "Create CRUD endpoints for managing dietary interventions: create, list, update status, get with outcomes analysis.",
+      "acceptanceCriteria": [
+        "POST /interventions - create new intervention",
+        "GET /interventions - list user's interventions",
+        "GET /interventions/{id} - get single intervention with outcome analysis",
+        "PATCH /interventions/{id} - update status, notes, end_date",
+        "DELETE /interventions/{id} - remove intervention",
+        "GET endpoint includes pre/during Bristol comparison if completed",
+        "Pydantic schemas for all request/response types",
+        "uv run ruff check passes"
+      ],
+      "priority": 50,
+      "passes": true
+    },
+    {
+      "id": "US-051",
+      "title": "Create intervention tracking UI",
+      "description": "Create UI for managing dietary experiments: list active/past interventions, create new ones, view outcomes.",
+      "acceptanceCriteria": [
+        "New 'Experiments' tab on Insights page",
+        "List of interventions with status badges (active, completed, etc.)",
+        "Create intervention modal/form with hypothesis field",
+        "Intervention detail view showing pre/during comparison",
+        "Chart comparing Bristol scores before vs during intervention",
+        "Complete/cancel intervention actions",
+        "npm run build passes"
+      ],
+      "priority": 51,
+      "passes": true
+    },
+    {
+      "id": "US-052",
+      "title": "Create food-level correlation service",
+      "description": "Create a FoodCorrelationService that analyzes correlations at the specific food level (not just nutrients). Identifies which specific foods correlate with Bristol outcomes.",
+      "acceptanceCriteria": [
+        "Service at backend/src/services/food_correlation_service.py",
+        "FoodCorrelationService class with analyze_foods(user_id, start_date, end_date, min_occurrences) method",
+        "Groups food logs by food_name",
+        "For each food eaten >= min_occurrences times, calculates correlation with next-day Bristol",
+        "Returns FoodCorrelationResult with food_name, times_eaten, avg_bristol_after, correlation, is_trigger",
+        "is_trigger = True if food appears significantly more on bad Bristol days",
+        "uv run ruff check passes"
+      ],
+      "priority": 52,
+      "passes": true
+    },
+    {
+      "id": "US-053",
+      "title": "Create food-level correlation API endpoint",
+      "description": "Create GET /api/cronometer/insights/foods endpoint for food-level correlation analysis.",
+      "acceptanceCriteria": [
+        "GET /insights/foods endpoint in cronometer router",
+        "Query params: start_date, end_date, min_occurrences (default 3), time_lag_hours (default 24)",
+        "Returns list of FoodCorrelationResultSchema sorted by correlation strength",
+        "Includes trigger_foods list filtered to is_trigger=True items",
+        "Pydantic schemas defined",
+        "uv run ruff check passes"
+      ],
+      "priority": 53,
+      "passes": true
+    },
+    {
+      "id": "US-054",
+      "title": "Create food drill-down UI component",
+      "description": "Create a FoodAnalysis component that shows correlation analysis for specific foods, not just nutrients. Allows searching/filtering by food name.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/insights/FoodAnalysis.tsx",
+        "Search box to filter foods by name",
+        "Sortable table: Food Name, Times Eaten, Avg Bristol After, Correlation",
+        "Color-coded rows (red for negative correlation/trigger foods)",
+        "Click food to see scatter plot of that food's intake vs Bristol",
+        "Filter toggle: 'Show potential triggers only'",
+        "npm run build passes"
+      ],
+      "priority": 54,
+      "passes": true
+    },
+    {
+      "id": "US-055",
+      "title": "Create trigger food detection component",
+      "description": "Create a TriggerFoods component that highlights foods statistically associated with poor Bristol outcomes. Presents as a warning/alert section.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/insights/TriggerFoods.tsx",
+        "Shows foods where is_trigger=True from food correlation API",
+        "Card-style layout with food name, times eaten, impact score",
+        "Visual indicator of severity (how strongly associated)",
+        "Explanation text: 'These foods appear more frequently before poor outcomes'",
+        "Disclaimer about correlation vs causation",
+        "Link to each food's detailed scatter plot",
+        "npm run build passes"
+      ],
+      "priority": 55,
+      "passes": true
+    },
+    {
+      "id": "US-056",
+      "title": "Create personal optimal ranges service",
+      "description": "Create a service that identifies the optimal intake ranges for each nutrient based on the user's historical data. Find the ranges where Bristol scores are consistently in the healthy zone.",
+      "acceptanceCriteria": [
+        "Service at backend/src/services/optimal_ranges_service.py",
+        "OptimalRangesService class with find_optimal_ranges(user_id, ...) method",
+        "For each nutrient, bins intake into deciles",
+        "Finds the intake range(s) where avg Bristol is closest to 4 (optimal)",
+        "Returns OptimalRange with nutrient_name, optimal_min, optimal_max, avg_bristol_in_range, sample_size",
+        "Only includes nutrients with sufficient data",
+        "uv run ruff check passes"
+      ],
+      "priority": 56,
+      "passes": true
+    },
+    {
+      "id": "US-057",
+      "title": "Create personal optimal ranges API endpoint",
+      "description": "Create GET /api/cronometer/insights/optimal-ranges endpoint that returns personalized optimal nutrient ranges.",
+      "acceptanceCriteria": [
+        "GET /insights/optimal-ranges endpoint in cronometer router",
+        "Query params: start_date, end_date, target_bristol (default 4), tolerance (default 1)",
+        "Returns list of OptimalRangeSchema for each nutrient with sufficient data",
+        "Sorted by confidence (sample size and consistency)",
+        "Pydantic schemas defined",
+        "uv run ruff check passes"
+      ],
+      "priority": 57,
+      "passes": true
+    },
+    {
+      "id": "US-058",
+      "title": "Create personal optimal ranges UI component",
+      "description": "Create an OptimalRanges component showing the user's personalized optimal intake ranges for each nutrient, presented as target goals.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/insights/OptimalRanges.tsx",
+        "Card for each nutrient showing optimal range (e.g., 'Fiber: 25-35g')",
+        "Visual gauge or range indicator",
+        "Comparison to today's intake if available",
+        "Confidence indicator based on sample size",
+        "Grouped by nutrient category",
+        "npm run build passes"
+      ],
+      "priority": 58,
+      "passes": true
     }
   ]
 }

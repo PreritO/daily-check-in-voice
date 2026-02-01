@@ -188,16 +188,20 @@ class CronometerSyncService:
         return new_logs
 
     # High-frequency Apple Health metrics to skip entirely
-    SKIPPED_BIOMETRIC_TYPES = frozenset({
-        "Heart Rate (Apple Health)",
-        "Walking Heart Rate Average (Apple Health)",
-    })
+    SKIPPED_BIOMETRIC_TYPES = frozenset(
+        {
+            "Heart Rate (Apple Health)",
+            "Walking Heart Rate Average (Apple Health)",
+        }
+    )
 
     # Metrics to downsample to one reading per day
-    DAILY_SAMPLED_BIOMETRIC_TYPES = frozenset({
-        "Resting Heart Rate (Apple Health)",
-        "Heart Rate Variability (Apple Health)",
-    })
+    DAILY_SAMPLED_BIOMETRIC_TYPES = frozenset(
+        {
+            "Resting Heart Rate (Apple Health)",
+            "Heart Rate Variability (Apple Health)",
+        }
+    )
 
     async def _upsert_biometric_logs(
         self, user_id: UUID, entries: list[BiometricEntry]

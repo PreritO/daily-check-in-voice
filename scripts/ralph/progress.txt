@@ -582,3 +582,499 @@ All 24 backend user stories completed:
 
 Total tests: 107 (81 existing + 26 new)
 All ruff checks passing.
+
+---
+
+## 2026-01-31 - US-034: Add Recharts charting library
+- **Subagents used**:
+  - architect: Not needed - straightforward dependency task
+  - specialist: Not needed - simple file creation
+  - simplifier: Not needed
+  - reviewer: Not needed - straightforward task
+- **What was implemented**:
+  - recharts already present in package.json (^2.15.0)
+  - Created TestChart component demonstrating LineChart, XAxis, YAxis, Tooltip, Legend
+  - Created charts directory structure with index.ts exports
+- **Files changed**:
+  - frontend/src/components/charts/TestChart.tsx (new)
+  - frontend/src/components/charts/index.ts (new)
+- **Verification**: npm install ✓ | npm build ✓
+- **Learnings for future iterations**:
+  - recharts uses "use client" directive for Next.js App Router
+  - ResponsiveContainer is essential for charts that resize with their container
+---
+
+## 2026-01-31 - US-035: Create scatter plot component for nutrient vs Bristol
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: frontend - created ScatterPlot component
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - ScatterPlot component with nutrient vs Bristol visualization
+  - Color-coded points by Bristol score (green 3-5, yellow 2/6, red 1/7)
+  - Linear regression trend line calculation
+  - Custom tooltip with date, values, and colors
+  - Reference lines for healthy Bristol range
+  - Color legend and empty state handling
+  - TypeScript types (ScatterDataPoint, ScatterPlotProps) exported
+- **Files changed**:
+  - frontend/src/components/charts/ScatterPlot.tsx (new)
+  - frontend/src/components/charts/index.ts (updated exports)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Recharts Scatter component doesn't have built-in trend line - calculate manually
+  - ReferenceLine can create visual trend line with slope/intercept
+---
+
+## 2026-01-31 - US-036: Create correlation heatmap component
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: frontend - created CorrelationHeatmap component
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - CSS Grid-based heatmap (Recharts doesn't have native heatmap)
+  - Color scale interpolation: red → white → green based on correlation
+  - Opacity variation based on p-value significance
+  - Nutrient grouping by category (Macros, Vitamins, Minerals, Other)
+  - Tooltip with correlation details and significance indicator
+  - Click handler for drill-down to scatter plot
+  - Sticky headers, scrollable content
+- **Files changed**:
+  - frontend/src/components/charts/CorrelationHeatmap.tsx (new)
+  - frontend/src/components/charts/index.ts (updated exports)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - CSS Grid better than Recharts for heatmaps
+  - Color interpolation: use HSL or RGB mixing for smooth gradients
+---
+
+## 2026-01-31 - US-037: Create backend endpoint for time series chart data
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: backend - created timeline endpoint and schemas
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - GET /insights/timeline endpoint
+  - BristolEvent, DailyTimelineData, TimelineResponse Pydantic schemas
+  - Nutrient aggregation from FoodLog model fields and raw_data
+  - Bristol events grouped by day with timestamps
+  - Complete date coverage (every day in range included)
+  - Configurable nutrient list
+- **Files changed**:
+  - backend/src/api/routes/cronometer.py (added endpoint)
+  - backend/src/api/schemas.py (added 3 schemas)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Avoid using `date` as field name when importing date type (use `day` instead)
+  - DailyTimelineData uses `day` field to avoid Pydantic type annotation clash
+---
+
+## 2026-01-31 - US-038: Create time series chart component
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: frontend - created TimeSeriesChart component
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - ComposedChart with nutrient lines and Bristol scatter points
+  - Dual Y-axes: nutrients (left), Bristol scale 1-7 (right)
+  - Bristol events color-coded by score
+  - Custom tooltip with date, nutrients, and Bristol events
+  - Clickable legend for nutrient toggling
+  - Optional Brush component for range selection
+  - TypeScript types exported (BristolEvent, DailyTimelineData, TimelineResponse)
+- **Files changed**:
+  - frontend/src/components/charts/TimeSeriesChart.tsx (new)
+  - frontend/src/components/charts/index.ts (updated exports)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Recharts Legend onClick requires any type for compatibility
+  - Use `typeof value !== "number"` guard when indexing data with dynamic keys
+---
+
+## 2026-01-31 - US-039: Create box plot component for intake quartiles
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: frontend - created BoxPlot component
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - Custom SVG-based BoxPlot (Recharts lacks native boxplot)
+  - Shows Bristol distribution per nutrient intake quartile
+  - Box shows IQR (Q1-Q3), line shows median
+  - Whiskers at 1.5*IQR with outlier detection
+  - Color-coded by median Bristol score
+  - Labels with intake ranges and sample sizes
+  - Interactive tooltip with full statistics
+  - Healthy range background shading
+- **Files changed**:
+  - frontend/src/components/charts/BoxPlot.tsx (new)
+  - frontend/src/components/charts/index.ts (updated exports)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Custom SVG in ResponsiveContainer for charts Recharts doesn't support
+  - viewBox for proper SVG scaling
+---
+
+## 2026-01-31 - US-040: Create calendar heatmap component
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: frontend - created CalendarHeatmap component
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - GitHub-style contribution graph layout
+  - Weeks as columns, days as rows
+  - Color-coded by Bristol score (green/yellow/red/gray)
+  - Month labels and day-of-week labels
+  - Tooltip with date, scores, and details
+  - Click handler for day drill-down
+  - Multiple BMs per day handled with average
+  - Horizontal scroll for long date ranges
+- **Files changed**:
+  - frontend/src/components/charts/CalendarHeatmap.tsx (new)
+  - frontend/src/components/charts/index.ts (updated exports)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Use date-fns getISOWeek for week numbering
+  - Store day data in Map with date string key for O(1) lookup
+---
+
+## 2026-01-31 - US-041: Create lag optimization chart component
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: frontend - created LagCorrelationChart component
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - BarChart showing correlation at each time lag
+  - Color by direction (green positive, red negative)
+  - Opacity by significance (solid p<0.05, faded otherwise)
+  - Star badge for optimal lag
+  - Reference lines at r=0 and r=±0.3
+  - Custom tooltip with all correlation details
+- **Files changed**:
+  - frontend/src/components/charts/LagCorrelationChart.tsx (new)
+  - frontend/src/components/charts/index.ts (updated exports)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Use Cell component with Recharts Bar for per-bar customization
+  - Find correlation result by filtering correlationsByLag arrays
+---
+
+## 2026-01-31 - US-042: Add visualization section to Insights page
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: frontend - added Visualizations tab
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - Tab system (Analysis/Visualizations) with icons
+  - Nutrient selector dropdown with 40+ nutrients grouped by category
+  - Chart type selector (6 options)
+  - CorrelationHeatmap and LagCorrelationChart integrated
+  - Coming Soon placeholders for charts needing additional APIs
+  - NUTRIENT_OPTIONS constant for reusable nutrient list
+  - Loading and empty states
+- **Files changed**:
+  - frontend/src/app/(dashboard)/insights/page.tsx
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Use optgroup for grouped HTML select dropdowns
+  - Tab state with useState for simple tab switching
+---
+
+## 2026-01-31 - US-043: Create Granger causality service
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: backend - created GrangerCausalityService
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - GrangerCausalityService with test_causality() method
+  - Uses statsmodels grangercausalitytests
+  - GrangerResult dataclass with f_statistic, p_value, optimal_lag, is_causal
+  - Daily Bristol and nutrient aggregation helpers
+  - InsufficientDataError for graceful error handling
+  - Added statsmodels>=0.14.0 to dependencies
+- **Files changed**:
+  - backend/pyproject.toml (added statsmodels)
+  - backend/src/services/granger_service.py (new)
+  - backend/src/services/__init__.py (exports)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - grangercausalitytests expects column 0 as Y (effect), column 1 as X (cause)
+  - Need sufficient consecutive daily data for Granger test
+---
+
+## 2026-01-31 - US-044: Create Granger causality API endpoint
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: backend - created Granger endpoint
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - GET /insights/granger endpoint
+  - Query params: start_date, end_date, nutrients, max_lag_days
+  - GrangerResultSchema and GrangerResponse Pydantic schemas
+  - Results sorted by p_value ascending (most significant first)
+  - Returns 400 if all nutrients fail
+  - Logs warnings for individual failures
+- **Files changed**:
+  - backend/src/api/schemas.py (added 2 schemas)
+  - backend/src/api/routes/cronometer.py (added endpoint)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+---
+
+## 2026-01-31 - US-045: Create Granger causality UI component
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: frontend - created GrangerResults component
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - GrangerResults component with table display
+  - F-statistic, P-value, Optimal Lag, Causal badge columns
+  - Filter toggle: show only causal by default
+  - Faded styling for non-causal rows
+  - Explanation text and warning/disclaimer
+  - Loading skeleton, error, and empty states
+  - Created insights component directory with barrel export
+- **Files changed**:
+  - frontend/src/components/insights/GrangerResults.tsx (new)
+  - frontend/src/components/insights/index.ts (new)
+- **Verification**: npm build ✓
+---
+
+## 2026-01-31 - US-046: Create controlled comparison service
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: backend - created ControlledComparisonService
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - ControlledComparisonService with compare() method
+  - Quartile-based matching for high/low intake days
+  - Control factor matching (same quartile for confounders)
+  - ComparisonResult with avg Bristol, difference, 95% CI
+  - InsufficientMatchesError for graceful error handling
+  - Uses scipy.stats.ttest_ind for significance
+- **Files changed**:
+  - backend/src/services/comparison_service.py (new)
+  - backend/src/services/__init__.py (exports)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+---
+
+## 2026-01-31 - US-047: Create controlled comparison API endpoint
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: backend - created comparison endpoint
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - GET /insights/compare endpoint
+  - Query params: nutrient_key, control_factors, min_matched_pairs
+  - ComparisonResultSchema Pydantic schema
+  - Returns 400 if insufficient matched pairs
+  - Structured logging for results
+- **Files changed**:
+  - backend/src/api/schemas.py (added schema)
+  - backend/src/api/routes/cronometer.py (added endpoint)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+---
+
+## 2026-01-31 - US-048: Create controlled comparison UI component
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: frontend - created ControlledComparison component
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - Side-by-side Bristol comparison cards
+  - Nutrient selector dropdown
+  - Color-coded Bristol scores
+  - Center difference indicator with arrow
+  - 95% CI display
+  - Significance badge with explanation
+  - Collapsible methodology section
+  - Loading, error, and empty states
+- **Files changed**:
+  - frontend/src/components/insights/ControlledComparison.tsx (new)
+  - frontend/src/components/insights/index.ts (updated exports)
+- **Verification**: npm build ✓
+---
+
+## 2026-01-31 - US-049: Create Intervention model for dietary experiments
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: backend - created Intervention model
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - InterventionStatus enum (planned, active, completed, cancelled)
+  - Intervention SQLAlchemy model
+  - Fields: title, hypothesis, nutrient_key, target_value, dates, status
+  - User relationship with cascade delete
+  - Alembic migration 012_add_interventions
+- **Files changed**:
+  - backend/src/models/intervention.py (new)
+  - backend/src/models/user.py (added relationship)
+  - backend/src/models/__init__.py (exports)
+  - backend/alembic/versions/012_add_interventions.py (new)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+---
+
+## 2026-01-31 - US-050: Create intervention tracking API endpoints
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: backend - created interventions router
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - POST /interventions - create new intervention
+  - GET /interventions - list user's interventions with filters
+  - GET /interventions/{id} - get intervention with Bristol analysis
+  - PATCH /interventions/{id} - update intervention
+  - DELETE /interventions/{id} - delete intervention
+  - Pydantic schemas (InterventionCreate, Update, Read, WithAnalysis)
+  - Bristol comparison for completed interventions (pre vs during)
+- **Files changed**:
+  - backend/src/api/routes/interventions.py (new)
+  - backend/src/api/routes/__init__.py (registered router)
+  - backend/src/api/schemas.py (added 4 schemas)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+---
+
+## 2026-01-31 - US-051: Create intervention tracking UI
+- **Subagents used**:
+  - architect: Not needed
+  - specialist: frontend - created ExperimentsTab
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - New "Experiments" tab on Insights page
+  - Intervention list with status badges (planned, active, completed, cancelled)
+  - Status filter buttons
+  - Create intervention modal with title, hypothesis, description, nutrient target
+  - Intervention detail modal with Bristol comparison
+  - Start, complete, delete intervention actions
+  - React Query hooks for CRUD operations (useInterventionsQuery, useCreateInterventionMutation, etc.)
+  - Empty state and loading states
+- **Files changed**:
+  - frontend/src/lib/api/cronometer.ts (added intervention types and hooks)
+  - frontend/src/app/(dashboard)/insights/page.tsx (added ExperimentsTab)
+- **Verification**: npm build ✓
+---
+
+## 2026-01-31 - US-052: Create food-level correlation service
+- **Subagents used**: None
+- **What was implemented**:
+  - FoodCorrelationService with analyze_foods() method
+  - Uses point-biserial correlation for binary food consumption vs Bristol
+  - FoodCorrelationResult and FoodAnalysisResponse dataclasses
+  - is_trigger detection for foods associated with poor outcomes
+- **Files changed**:
+  - backend/src/services/food_correlation_service.py (new)
+  - backend/src/services/__init__.py (exports)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+---
+
+## 2026-01-31 - US-053: Create food-level correlation API endpoint
+- **Subagents used**: None
+- **What was implemented**:
+  - GET /insights/foods endpoint
+  - Query params: start_date, end_date, min_occurrences, time_lag_hours
+  - FoodCorrelationResultSchema, FoodAnalysisResponseSchema
+  - Returns foods sorted by correlation with trigger_foods list
+- **Files changed**:
+  - backend/src/api/routes/cronometer.py (added endpoint)
+  - backend/src/api/schemas.py (added schemas)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+---
+
+## 2026-01-31 - US-054: Create food drill-down UI component
+- **Subagents used**: None
+- **What was implemented**:
+  - FoodAnalysis component with search/filter/sort
+  - Sortable table with color-coded rows
+  - Filter toggle for trigger foods only
+- **Files changed**:
+  - frontend/src/components/insights/FoodAnalysis.tsx (new)
+  - frontend/src/components/insights/index.ts (exports)
+- **Verification**: npm build ✓
+---
+
+## 2026-01-31 - US-055: Create trigger food detection component
+- **Subagents used**: None
+- **What was implemented**:
+  - TriggerFoods component with severity indicators
+  - Card-style layout with Bristol scores
+  - Correlation vs causation disclaimer
+- **Files changed**:
+  - frontend/src/components/insights/TriggerFoods.tsx (new)
+  - frontend/src/components/insights/index.ts (exports)
+- **Verification**: npm build ✓
+---
+
+## 2026-01-31 - US-056: Create personal optimal ranges service
+- **Subagents used**: None
+- **What was implemented**:
+  - OptimalRangesService with find_optimal_ranges() method
+  - Decile-based analysis to find optimal nutrient intake ranges
+  - OptimalRange and OptimalRangesResponse dataclasses
+  - NUTRIENT_UNITS mapping for display
+- **Files changed**:
+  - backend/src/services/optimal_ranges_service.py (new)
+  - backend/src/services/__init__.py (exports)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+---
+
+## 2026-01-31 - US-057: Create personal optimal ranges API endpoint
+- **Subagents used**: None
+- **What was implemented**:
+  - GET /insights/optimal-ranges endpoint
+  - Query params: start_date, end_date, target_bristol, tolerance, min_samples, time_lag_hours
+  - OptimalRangeSchema, OptimalRangesResponseSchema
+  - Returns ranges sorted by confidence score
+- **Files changed**:
+  - backend/src/api/routes/cronometer.py (added endpoint)
+  - backend/src/api/schemas.py (added schemas)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+---
+
+## 2026-01-31 - US-058: Create personal optimal ranges UI component
+- **Subagents used**: None
+- **What was implemented**:
+  - OptimalRanges component with personalized nutrient ranges
+  - Card for each nutrient showing optimal range (e.g., 'Fiber: 25-35g')
+  - Visual RangeGauge with optimal zone and current intake marker
+  - ConfidenceIndicator (3-bar visual + percentage)
+  - Grouped by nutrient category with expandable sections
+  - useOptimalRangesQuery hook for API integration
+  - Loading, error, and empty states
+- **Files changed**:
+  - frontend/src/components/insights/OptimalRanges.tsx (new)
+  - frontend/src/components/insights/index.ts (exports)
+- **Verification**: npm build ✓
+---
+
+## FEATURE COMPLETE: All 58 User Stories Completed
+All user stories for the Cronometer integration feature are now complete:
+- US-001 to US-007: Models, migrations, encryption utilities
+- US-008 to US-012: CronometerSyncService with food/biometric/health notes
+- US-013 to US-016: Cronometer API endpoints (credentials, sync, food-logs, health-notes)
+- US-017 to US-024: InsightsService, correlations API, unit tests
+- US-025 to US-033: Frontend Insights page with all analysis components
+- US-034 to US-042: Recharts visualizations (scatter, heatmap, timeline, boxplot, calendar, lag)
+- US-043 to US-048: Granger causality, controlled comparison services and UI
+- US-049 to US-051: Intervention/experiment tracking
+- US-052 to US-055: Food-level correlation analysis
+- US-056 to US-058: Personal optimal ranges service and UI
+
+Total tests: 107
+All ruff checks passing.
+All npm builds passing.
+---
