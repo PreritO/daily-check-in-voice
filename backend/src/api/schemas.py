@@ -477,7 +477,7 @@ class BristolEvent(BaseModel):
 
     timestamp: datetime = Field(..., description="When the BM event occurred")
     bristol_score: int = Field(..., ge=1, le=7, description="Bristol scale score (1-7)")
-    quantity_score: int | None = Field(None, ge=1, le=5, description="Quantity score (1-5)")
+    quantity_score: int | None = Field(None, ge=1, le=10, description="Quantity score (1-10)")
 
 
 class DailyTimelineData(BaseModel):
