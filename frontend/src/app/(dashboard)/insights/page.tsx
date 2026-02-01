@@ -7,6 +7,7 @@ import {
   useCronometerStatusQuery,
   useSyncCronometerMutation,
   useCorrelationsQuery,
+  useTimelineQuery,
   useInterventionsQuery,
   useCreateInterventionMutation,
   useUpdateInterventionMutation,
@@ -21,10 +22,12 @@ import {
   Intervention,
   InterventionStatus,
   InterventionWithAnalysis,
+  TimelineResponse,
 } from "@/lib/api/cronometer";
 // Chart components - some are used, others are prepared for future use
 import {
-  // ScatterPlot, // Will be used when timeline API is available
+  ScatterPlot,
+  ScatterDataPoint,
   CorrelationHeatmap,
   // TimeSeriesChart, // Will be used when timeline API is available
   // BoxPlot, // Will be used when detailed data API is available
@@ -112,6 +115,65 @@ const groupedNutrientOptions = NUTRIENT_OPTIONS.reduce((acc, option) => {
   acc[option.category].push(option);
   return acc;
 }, {} as Record<string, NutrientOption[]>);
+
+// Get unit for a nutrient key
+function getNutrientUnit(nutrientKey: string): string {
+  const units: Record<string, string> = {
+    // Macros
+    fiber: "g",
+    protein: "g",
+    carbs: "g",
+    fat: "g",
+    calories: "kcal",
+    sugar: "g",
+    saturated_fat: "g",
+    monounsaturated_fat: "g",
+    polyunsaturated_fat: "g",
+    omega_3: "g",
+    omega_6: "g",
+    // Vitamins
+    vitamin_a: "μg",
+    vitamin_b1: "mg",
+    vitamin_b2: "mg",
+    vitamin_b3: "mg",
+    vitamin_b5: "mg",
+    vitamin_b6: "mg",
+    vitamin_b7: "μg",
+    vitamin_b9: "μg",
+    vitamin_b12: "μg",
+    vitamin_c: "mg",
+    vitamin_d: "μg",
+    vitamin_e: "mg",
+    vitamin_k: "μg",
+    // Minerals
+    calcium: "mg",
+    iron: "mg",
+    magnesium: "mg",
+    phosphorus: "mg",
+    potassium: "mg",
+    sodium: "mg",
+    zinc: "mg",
+    copper: "mg",
+    manganese: "mg",
+    selenium: "μg",
+    chromium: "μg",
+    // Other
+    water: "L",
+    caffeine: "mg",
+    alcohol: "g",
+    cholesterol: "mg",
+  };
+  return units[nutrientKey] || "";
+}
+
+// Time lag options for scatter plot
+const TIME_LAG_OPTIONS: { value: TimeLag; label: string }[] = [
+  { value: 12, label: "12 hours" },
+  { value: 24, label: "24 hours" },
+  { value: 36, label: "36 hours" },
+  { value: 48, label: "48 hours" },
+  { value: 72, label: "72 hours" },
+];
 
 // =============================================================================
 // Placeholder Card Component
@@ -1416,6 +1478,8 @@ interface VisualizationsTabProps {
   isLoading: boolean;
   startDate: string;
   endDate: string;
+  timelineData: TimelineResponse | undefined;
+  isTimelineLoading: boolean;
 }
 
 function VisualizationsTab({
@@ -1423,9 +1487,12 @@ function VisualizationsTab({
   isLoading,
   startDate,
   endDate,
+  timelineData,
+  isTimelineLoading,
 }: VisualizationsTabProps) {
   const [selectedNutrient, setSelectedNutrient] = useState<string>("fiber");
   const [selectedChartType, setSelectedChartType] = useState<ChartType>("scatter");
+  const [selectedTimeLag, setSelectedTimeLag] = useState<TimeLag>(24);
 
   // Get the nutrient name for display
   const nutrientLabel = useMemo(() => {
@@ -1455,6 +1522,65 @@ function VisualizationsTab({
     }
     return null;
   }, [correlationsData, selectedNutrient]);
+
+  // Transform timeline data into scatter plot data points
+  // For each Bristol event, find the nutrient intake from the preceding time window
+  const scatterData = useMemo((): ScatterDataPoint[] => {
+    if (!timelineData?.daily_data || timelineData.daily_data.length === 0) {
+      return [];
+    }
+
+    const lagHours = selectedTimeLag;
+    const lagDays = Math.ceil(lagHours / 24); // Round up to days for daily data
+    const points: ScatterDataPoint[] = [];
+
+    // Create a map of date -> daily data for quick lookup
+    const dataByDate = new Map<string, typeof timelineData.daily_data[0]>();
+    for (const day of timelineData.daily_data) {
+      dataByDate.set(day.day, day);
+    }
+
+    // For each day with Bristol events, look back lagDays to find nutrient intake
+    for (const dayData of timelineData.daily_data) {
+      if (dayData.bristol_events.length === 0) continue;
+
+      // Get nutrient intake from preceding days based on lag
+      const eventDate = new Date(dayData.day);
+      let totalNutrient = 0;
+      let daysWithData = 0;
+
+      // Look back lagDays to find nutrient intake
+      for (let i = 1; i <= lagDays; i++) {
+        const lookbackDate = new Date(eventDate);
+        lookbackDate.setDate(lookbackDate.getDate() - i);
+        const lookbackKey = format(lookbackDate, "yyyy-MM-dd");
+        const lookbackData = dataByDate.get(lookbackKey);
+
+        if (lookbackData?.nutrients[selectedNutrient] !== undefined) {
+          totalNutrient += lookbackData.nutrients[selectedNutrient];
+          daysWithData++;
+        }
+      }
+
+      // Skip if no preceding nutrient data
+      if (daysWithData === 0) continue;
+
+      // Average the nutrient intake over the lag period
+      const avgNutrient = totalNutrient / daysWithData;
+
+      // Create a point for each Bristol event on this day
+      for (const event of dayData.bristol_events) {
+        points.push({
+          date: new Date(event.timestamp),
+          nutrientValue: avgNutrient,
+          bristolScore: event.bristol_score,
+          unit: getNutrientUnit(selectedNutrient),
+        });
+      }
+    }
+
+    return points;
+  }, [timelineData, selectedNutrient, selectedTimeLag]);
 
   // Loading state
   if (isLoading) {
@@ -1528,47 +1654,83 @@ function VisualizationsTab({
   const renderChart = () => {
     switch (selectedChartType) {
       case "scatter":
-        // ScatterPlot needs transformed data - show placeholder if no matching nutrient
-        if (!matchingNutrientKey) {
+        // Show loading state if timeline is loading
+        if (isTimelineLoading) {
           return (
-            <div className="flex items-center justify-center py-12 text-[#A89B86] dark:text-[#B8A99A]">
-              <p>No data available for {nutrientLabel}. Try selecting a different nutrient.</p>
+            <div className="flex items-center justify-center py-12">
+              <svg
+                className="h-8 w-8 animate-spin text-[#E8A0BF]"
+                fill="none"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              <span className="ml-3 text-[#4A4543] dark:text-[#F5F3F0]">
+                Loading timeline data...
+              </span>
             </div>
           );
         }
-        // Note: ScatterPlot needs actual scatter data points which require timeline endpoint
-        return (
-          <div className="rounded-lg bg-[#FDFBF7] p-6 dark:bg-[#3D3935]/50">
-            <div className="flex items-center justify-center py-8">
-              <div className="text-center">
-                <svg
-                  className="mx-auto h-12 w-12 text-[#A89B86] dark:text-[#B8A99A]"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
-                  />
-                </svg>
-                <h3 className="mt-3 text-lg font-medium text-[#4A4543] dark:text-[#F5F3F0]">
-                  Scatter Plot - Coming Soon
-                </h3>
-                <p className="mt-1 text-sm text-[#A89B86] dark:text-[#B8A99A]">
-                  This chart requires daily timeline data. Use the Heatmap or Lag Correlation charts to explore available data.
+
+        // Show empty state if no scatter data available
+        if (scatterData.length === 0) {
+          return (
+            <div className="flex items-center justify-center py-12 text-center">
+              <div>
+                <p className="text-[#A89B86] dark:text-[#B8A99A]">
+                  No paired data available for {nutrientLabel}.
+                </p>
+                <p className="text-sm text-[#A89B86]/80 dark:text-[#B8A99A]/80 mt-1">
+                  Try selecting a different nutrient or adjusting the date range.
                 </p>
               </div>
             </div>
+          );
+        }
+
+        // Render the actual ScatterPlot with data
+        return (
+          <div className="rounded-lg bg-white p-4 dark:bg-[#363230]">
+            <div className="mb-4 flex items-center gap-4">
+              <label className="text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                Time Lag:
+              </label>
+              <select
+                value={selectedTimeLag}
+                onChange={(e) => setSelectedTimeLag(Number(e.target.value) as TimeLag)}
+                className="rounded-lg border border-[#DEDDDB] bg-white px-3 py-1.5 text-sm text-[#4A4543] dark:border-[#3D3935] dark:bg-[#363230] dark:text-[#F5F3F0]"
+              >
+                {TIME_LAG_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-[#A89B86] dark:text-[#B8A99A]">
+                ({scatterData.length} data points)
+              </span>
+            </div>
+            <ScatterPlot
+              data={scatterData}
+              nutrientName={nutrientLabel}
+              timeLagHours={selectedTimeLag}
+              onPointClick={(point) => {
+                console.log("Clicked point:", point);
+              }}
+            />
           </div>
         );
 
@@ -2399,6 +2561,21 @@ export default function InsightsPage() {
     analysisEnabled && hasCredentials
   );
 
+  // Timeline data for charts - fetch all common nutrients
+  const timelineQuery = useTimelineQuery(
+    {
+      startDate,
+      endDate,
+      nutrients: [
+        "fiber", "protein", "carbs", "fat", "calories", "sugar",
+        "saturated_fat", "sodium", "potassium", "magnesium", "iron",
+        "calcium", "vitamin_c", "vitamin_d", "vitamin_b12", "zinc",
+        "water", "caffeine", "cholesterol"
+      ],
+    },
+    activeTab === "visualizations" && hasCredentials
+  );
+
   // Trigger analysis when button is clicked
   const handleRunAnalysis = () => {
     setAnalysisEnabled(true);
@@ -2627,6 +2804,8 @@ export default function InsightsPage() {
           isLoading={correlationsQuery.isFetching}
           startDate={startDate}
           endDate={endDate}
+          timelineData={timelineQuery.data}
+          isTimelineLoading={timelineQuery.isFetching}
         />
       )}
 
