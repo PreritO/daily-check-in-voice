@@ -8,6 +8,7 @@ import {
   useSyncCronometerMutation,
   useCorrelationsQuery,
   useTimelineQuery,
+  useHealthNotesQuery,
   useInterventionsQuery,
   useCreateInterventionMutation,
   useUpdateInterventionMutation,
@@ -23,6 +24,7 @@ import {
   InterventionStatus,
   InterventionWithAnalysis,
   TimelineResponse,
+  HealthNote,
 } from "@/lib/api/cronometer";
 // Chart components - some are used, others are prepared for future use
 import {
@@ -31,7 +33,7 @@ import {
   CorrelationHeatmap,
   TimeSeriesChart,
   // BoxPlot, // Will be used when detailed data API is available
-  // CalendarHeatmap, // Will be used when health notes API is available
+  CalendarHeatmap,
   LagCorrelationChart,
 } from "@/components/charts";
 
@@ -1468,6 +1470,8 @@ interface VisualizationsTabProps {
   endDate: string;
   timelineData: TimelineResponse | undefined;
   isTimelineLoading: boolean;
+  healthNotes: HealthNote[] | undefined;
+  isHealthNotesLoading: boolean;
 }
 
 function VisualizationsTab({
@@ -1477,6 +1481,8 @@ function VisualizationsTab({
   endDate,
   timelineData,
   isTimelineLoading,
+  healthNotes,
+  isHealthNotesLoading,
 }: VisualizationsTabProps) {
   const [selectedNutrient, setSelectedNutrient] = useState<string>("fiber");
   const [selectedChartType, setSelectedChartType] = useState<ChartType>("scatter");
@@ -1830,33 +1836,76 @@ function VisualizationsTab({
         );
 
       case "calendar":
-        // CalendarHeatmap needs health notes data
-        return (
-          <div className="rounded-lg bg-[#FDFBF7] p-6 dark:bg-[#3D3935]/50">
-            <div className="flex items-center justify-center py-8">
-              <div className="text-center">
-                <svg
-                  className="mx-auto h-12 w-12 text-[#A89B86] dark:text-[#B8A99A]"
-                  fill="none"
+        // Show loading state if health notes are loading
+        if (isHealthNotesLoading) {
+          return (
+            <div className="flex items-center justify-center py-12">
+              <svg
+                className="h-8 w-8 animate-spin text-[#E8A0BF]"
+                fill="none"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
                   stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <h3 className="mt-3 text-lg font-medium text-[#4A4543] dark:text-[#F5F3F0]">
-                  Calendar Heatmap - Coming Soon
-                </h3>
-                <p className="mt-1 text-sm text-[#A89B86] dark:text-[#B8A99A]">
-                  This chart requires health notes data from the API. Check back soon!
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              <span className="ml-3 text-[#4A4543] dark:text-[#F5F3F0]">
+                Loading health notes data...
+              </span>
+            </div>
+          );
+        }
+
+        // Filter to only bowel movement entries with bristol_scale
+        const bowelMovements = (healthNotes ?? []).filter(
+          (note) => note.is_bowel_movement && note.bristol_scale !== null
+        );
+
+        // Show empty state if no bowel movement data
+        if (bowelMovements.length === 0) {
+          return (
+            <div className="flex items-center justify-center py-12 text-center">
+              <div>
+                <p className="text-[#A89B86] dark:text-[#B8A99A]">
+                  No bowel movement data available in the selected date range.
+                </p>
+                <p className="text-sm text-[#A89B86]/80 dark:text-[#B8A99A]/80 mt-1">
+                  Sync your Cronometer data and try again.
                 </p>
               </div>
             </div>
+          );
+        }
+
+        // Transform HealthNote to CalendarHeatmap format
+        const calendarData = bowelMovements.map((note) => ({
+          logged_at: note.logged_at,
+          bristol_scale: note.bristol_scale,
+          quantity_score: note.quantity_score,
+        }));
+
+        // Render the actual CalendarHeatmap with data
+        return (
+          <div className="rounded-lg bg-white p-4 dark:bg-[#363230]">
+            <CalendarHeatmap
+              healthNotes={calendarData}
+              startDate={startDate}
+              endDate={endDate}
+              onDayClick={(date, events) => {
+                console.log("Clicked day:", date, events);
+              }}
+            />
           </div>
         );
 
@@ -2597,6 +2646,12 @@ export default function InsightsPage() {
     activeTab === "visualizations" && hasCredentials
   );
 
+  // Health notes data for calendar heatmap
+  const healthNotesQuery = useHealthNotesQuery(
+    startDate,
+    endDate
+  );
+
   // Trigger analysis when button is clicked
   const handleRunAnalysis = () => {
     setAnalysisEnabled(true);
@@ -2827,6 +2882,8 @@ export default function InsightsPage() {
           endDate={endDate}
           timelineData={timelineQuery.data}
           isTimelineLoading={timelineQuery.isFetching}
+          healthNotes={healthNotesQuery.data}
+          isHealthNotesLoading={healthNotesQuery.isFetching}
         />
       )}
 
