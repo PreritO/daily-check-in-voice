@@ -32,7 +32,8 @@ import {
   ScatterDataPoint,
   CorrelationHeatmap,
   TimeSeriesChart,
-  // BoxPlot, // Will be used when detailed data API is available
+  BoxPlot,
+  BoxPlotDataPoint,
   CalendarHeatmap,
   LagCorrelationChart,
 } from "@/components/charts";
@@ -1576,6 +1577,14 @@ function VisualizationsTab({
     return points;
   }, [timelineData, selectedNutrient, selectedTimeLag]);
 
+  // Transform scatter data to box plot format
+  const boxPlotData = useMemo((): BoxPlotDataPoint[] => {
+    return scatterData.map((point) => ({
+      nutrientValue: point.nutrientValue,
+      bristolScore: point.bristolScore,
+    }));
+  }, [scatterData]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -1805,33 +1814,81 @@ function VisualizationsTab({
         );
 
       case "boxplot":
-        // BoxPlot needs raw data points
-        return (
-          <div className="rounded-lg bg-[#FDFBF7] p-6 dark:bg-[#3D3935]/50">
-            <div className="flex items-center justify-center py-8">
-              <div className="text-center">
-                <svg
-                  className="mx-auto h-12 w-12 text-[#A89B86] dark:text-[#B8A99A]"
-                  fill="none"
+        // Show loading state if timeline is loading
+        if (isTimelineLoading) {
+          return (
+            <div className="flex items-center justify-center py-12">
+              <svg
+                className="h-8 w-8 animate-spin text-[#E8A0BF]"
+                fill="none"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
                   stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-                <h3 className="mt-3 text-lg font-medium text-[#4A4543] dark:text-[#F5F3F0]">
-                  Box Plot - Coming Soon
-                </h3>
-                <p className="mt-1 text-sm text-[#A89B86] dark:text-[#B8A99A]">
-                  This chart requires detailed nutrient-Bristol pairing data. Check back soon!
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              <span className="ml-3 text-[#4A4543] dark:text-[#F5F3F0]">
+                Loading data for box plot...
+              </span>
+            </div>
+          );
+        }
+
+        // Show empty state if no box plot data available
+        if (boxPlotData.length === 0) {
+          return (
+            <div className="flex items-center justify-center py-12 text-center">
+              <div>
+                <p className="text-[#A89B86] dark:text-[#B8A99A]">
+                  No paired data available for {nutrientLabel}.
+                </p>
+                <p className="text-sm text-[#A89B86]/80 dark:text-[#B8A99A]/80 mt-1">
+                  Try selecting a different nutrient or adjusting the date range.
                 </p>
               </div>
             </div>
+          );
+        }
+
+        // Render the actual BoxPlot with data
+        return (
+          <div className="rounded-lg bg-white p-4 dark:bg-[#363230]">
+            <div className="mb-4 flex items-center gap-4">
+              <label className="text-sm font-medium text-[#4A4543] dark:text-[#F5F3F0]">
+                Time Lag:
+              </label>
+              <select
+                value={selectedTimeLag}
+                onChange={(e) => setSelectedTimeLag(Number(e.target.value) as TimeLag)}
+                className="rounded-lg border border-[#DEDDDB] bg-white px-3 py-1.5 text-sm text-[#4A4543] dark:border-[#3D3935] dark:bg-[#363230] dark:text-[#F5F3F0]"
+              >
+                {TIME_LAG_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <span className="text-xs text-[#A89B86] dark:text-[#B8A99A]">
+                ({boxPlotData.length} data points)
+              </span>
+            </div>
+            <BoxPlot
+              data={boxPlotData}
+              nutrientName={nutrientLabel}
+              timeLagHours={selectedTimeLag}
+              unit={getNutrientUnit(selectedNutrient)}
+            />
           </div>
         );
 
