@@ -647,18 +647,100 @@
     {
       "id": "US-042",
       "title": "Add visualization section to Insights page",
-      "description": "Add a 'Visualizations' tab or section to the Insights page that houses all the chart components. Include nutrient selector and chart type picker.",
+      "description": "Add a 'Visualizations' tab or section to the Insights page that houses all the chart components. Include nutrient selector and chart type picker. NOTE: The tab structure exists but charts show 'Coming Soon' placeholders - this story covers the basic layout only.",
       "acceptanceCriteria": [
         "New 'Visualizations' tab on Insights page",
         "Nutrient dropdown selector (searchable, grouped by category)",
         "Chart type selector: Scatter, Heatmap, Time Series, Box Plot, Calendar, Lag Chart",
-        "Selected chart renders with appropriate data",
-        "Charts use useCorrelationsQuery and timeline data",
         "Loading states for each chart",
         "npm run build passes"
       ],
       "priority": 42,
       "passes": true
+    },
+    {
+      "id": "US-042a",
+      "title": "Add useTimelineQuery hook for chart data",
+      "description": "Add the useTimelineQuery React Query hook to frontend/src/lib/api/cronometer.ts to fetch timeline data from GET /api/cronometer/insights/timeline endpoint. This data is needed for ScatterPlot, TimeSeriesChart, and BoxPlot components.",
+      "acceptanceCriteria": [
+        "TimelineResponse interface defined with start_date, end_date, nutrient_keys, daily_data",
+        "DailyTimelineData interface with day, nutrients Record, bristol_events array",
+        "BristolEvent interface with timestamp, bristol_score, quantity_score",
+        "TimelineParams interface with startDate, endDate, nutrients array",
+        "timelineKeys query key factory defined",
+        "getTimeline async function calls /cronometer/insights/timeline with query params",
+        "useTimelineQuery hook exported with params and enabled flag",
+        "npm run build passes"
+      ],
+      "priority": 42,
+      "passes": true
+    },
+    {
+      "id": "US-042b",
+      "title": "Wire up ScatterPlot chart to timeline data",
+      "description": "Update the Insights page VisualizationsTab to wire up the ScatterPlot component with actual data from useTimelineQuery. Transform timeline data into ScatterDataPoint format pairing nutrient intake with Bristol scores based on time lag.",
+      "acceptanceCriteria": [
+        "Import ScatterPlot component (currently commented out) in insights/page.tsx",
+        "Add useTimelineQuery call in VisualizationsTab or parent component",
+        "Pass timelineData to VisualizationsTab via props",
+        "Transform timeline data: for each Bristol event, find nutrient intake from preceding time window",
+        "Add time lag selector dropdown (12h, 24h, 36h, 48h, 72h) for scatter plot",
+        "Replace 'Coming Soon' placeholder with actual ScatterPlot component",
+        "Show loading state while timeline data is fetching",
+        "Show empty state if no paired data available",
+        "npm run build passes"
+      ],
+      "priority": 43,
+      "passes": false
+    },
+    {
+      "id": "US-042c",
+      "title": "Wire up TimeSeriesChart to timeline data",
+      "description": "Update the Insights page VisualizationsTab to wire up the TimeSeriesChart component with timeline data. Show nutrient intake over time with Bristol events overlaid.",
+      "acceptanceCriteria": [
+        "Import TimeSeriesChart component (currently commented out)",
+        "Pass timelineData directly to TimeSeriesChart (it expects TimelineResponse format)",
+        "Default to showing the selected nutrient plus Bristol events",
+        "Replace 'Coming Soon' placeholder with actual TimeSeriesChart",
+        "Show loading state while data is fetching",
+        "Show empty state if no timeline data",
+        "npm run build passes"
+      ],
+      "priority": 44,
+      "passes": false
+    },
+    {
+      "id": "US-042d",
+      "title": "Wire up CalendarHeatmap to health notes data",
+      "description": "Update the Insights page VisualizationsTab to wire up the CalendarHeatmap component with health notes data from useHealthNotesQuery. Show daily Bristol scores on a calendar grid.",
+      "acceptanceCriteria": [
+        "Import CalendarHeatmap component (currently commented out)",
+        "Add useHealthNotesQuery call and pass data to VisualizationsTab",
+        "Filter health notes to only bowel movement entries with bristol_scale",
+        "Pass filtered health notes to CalendarHeatmap component",
+        "Replace 'Coming Soon' placeholder with actual CalendarHeatmap",
+        "Show empty state if no bowel movement data in date range",
+        "npm run build passes"
+      ],
+      "priority": 45,
+      "passes": false
+    },
+    {
+      "id": "US-042e",
+      "title": "Wire up BoxPlot chart to correlation data",
+      "description": "Update the Insights page VisualizationsTab to wire up the BoxPlot component. Transform timeline data to show Bristol score distributions across nutrient intake quartiles.",
+      "acceptanceCriteria": [
+        "Import BoxPlot component (currently commented out)",
+        "Transform timeline data into quartile-based format for BoxPlot",
+        "Calculate intake quartiles (Q1-Q4) for selected nutrient",
+        "Group Bristol scores by which quartile the preceding intake fell into",
+        "Pass transformed data to BoxPlot component",
+        "Replace 'Coming Soon' placeholder with actual BoxPlot",
+        "Show loading/empty states appropriately",
+        "npm run build passes"
+      ],
+      "priority": 46,
+      "passes": false
     },
     {
       "id": "US-043",

@@ -488,3 +488,72 @@ export function useFoodAnalysisQuery(params: FoodAnalysisParams, enabled: boolea
     enabled: enabled && !!params.startDate && !!params.endDate,
   });
 }
+
+// =============================================================================
+// Timeline Types
+// =============================================================================
+
+export interface BristolEvent {
+  timestamp: string;
+  bristol_score: number;
+  quantity_score: number | null;
+}
+
+export interface DailyTimelineData {
+  day: string;
+  nutrients: Record<string, number>;
+  bristol_events: BristolEvent[];
+}
+
+export interface TimelineResponse {
+  start_date: string;
+  end_date: string;
+  nutrient_keys: string[];
+  daily_data: DailyTimelineData[];
+}
+
+export interface TimelineParams {
+  startDate: string;
+  endDate: string;
+  nutrients: string[];
+}
+
+// =============================================================================
+// Timeline Query Keys
+// =============================================================================
+
+export const timelineKeys = {
+  all: ["timeline"] as const,
+  byParams: (params: TimelineParams) => [...timelineKeys.all, params] as const,
+};
+
+// =============================================================================
+// Timeline API Functions
+// =============================================================================
+
+async function getTimeline(params: TimelineParams): Promise<TimelineResponse> {
+  const searchParams = new URLSearchParams({
+    start_date: params.startDate,
+    end_date: params.endDate,
+  });
+  // Add each nutrient as a separate query param
+  for (const nutrient of params.nutrients) {
+    searchParams.append("nutrients", nutrient);
+  }
+  const response = await apiClient.get<TimelineResponse>(
+    `/cronometer/insights/timeline?${searchParams.toString()}`
+  );
+  return response.data;
+}
+
+// =============================================================================
+// Timeline Hooks
+// =============================================================================
+
+export function useTimelineQuery(params: TimelineParams, enabled: boolean = true) {
+  return useQuery({
+    queryKey: timelineKeys.byParams(params),
+    queryFn: () => getTimeline(params),
+    enabled: enabled && !!params.startDate && !!params.endDate && params.nutrients.length > 0,
+  });
+}
