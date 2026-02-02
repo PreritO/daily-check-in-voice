@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -55,6 +56,11 @@ class Conversation(Base):
         cascade="all, delete-orphan",
         order_by="Message.created_at",
     )
+
+    @hybrid_property
+    def message_count(self) -> int:
+        """Return count of messages in this conversation."""
+        return len(self.messages) if self.messages else 0
 
     def __repr__(self) -> str:
         """Return string representation of Conversation."""

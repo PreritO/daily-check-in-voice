@@ -1,41 +1,335 @@
 # Ralph Progress Log
-Started: Sat Feb 01 2026
-Feature: Nutrition Chat Agent
+Started: Sun Feb  1 22:15:10 EST 2026
 ---
 
-## Codebase Patterns (from previous feature work)
-- Dependencies in pyproject.toml use `>=` version constraints (not `~=`) for most packages
-- Dependencies are listed alphabetically in pyproject.toml
-- Use `uv run` to execute commands in the project's venv (not the system Python)
-- Backend models go in `backend/src/models/` and must be exported in `__init__.py`
-- Use JSON from sqlalchemy core instead of JSONB from postgresql dialect for SQLite test compatibility
-- unique=True already creates an index, no need for index=True
-- One-to-one relationships use uselist=False on parent side
-- Use TYPE_CHECKING imports to avoid circular dependencies
-- Frontend API hooks go in `frontend/src/lib/api/` with React Query
-- Use URLSearchParams.append() for array query params
-- Recharts uses "use client" directive for Next.js App Router
+## Codebase Patterns
 
-## Technical Plan Reference
-See `.claude/plans/nutrition-chat-agent.md` for the full technical plan including:
-- Architecture decisions (Tool-Using Agent with ReAct pattern)
-- OpenAI GPT models (GPT-4o-mini for dev, GPT-4o for prod)
-- Chat storage (PostgreSQL conversations/messages tables)
-- Streaming responses (SSE)
-- Rate limiting (100 messages/day)
-- System prompt with friendly/conversational personality
+### SQLAlchemy Model Patterns
+- Base class: `from .base import Base` using SQLAlchemy 2.0+ DeclarativeBase
+- Use `Mapped[]` type hints with `mapped_column()`
+- UUID primary key: `server_default=func.gen_random_uuid()`
+- Foreign keys: `ForeignKey("table.id", ondelete="CASCADE")` with `index=True`
+- DateTime: `DateTime(timezone=True)` with `server_default=func.now()` for created_at
+- JSONB: Use `JSON` type, maps to JSONB in PostgreSQL
+- Use TYPE_CHECKING guard for relationship type imports
+- Export models in `__init__.py` alphabetically
 
-## Phase 1: Exercise Data Import (US-001 to US-005)
-Pre-requisite for the chat agent to have complete fitness context.
-
-## Phase 2: Chat Agent Backend (US-006 to US-015)
-Core agent implementation with tool calling and streaming.
-
-## Phase 3: Chat Frontend (US-016 to US-028)
-Floating chat widget with all UI components.
-
-## Phase 4: Testing (US-029 to US-030)
-Unit and integration tests for the chat system.
+### Relationship Patterns
+- Child side: `relationship("Parent", back_populates="children")`
+- Parent side: `relationship("Child", back_populates="parent", cascade="all, delete-orphan")`
+- Use string references to avoid circular imports
 
 ---
 
+## 2026-02-01 22:15 EST - US-001: Create ExerciseLog model
+- **Subagents used**:
+  - architect: Analyzed existing model patterns from FoodLog, BiometricLog, User
+  - backend: Created ExerciseLog model following established patterns
+  - reviewer: Verified all acceptance criteria met (migration is separate US-002)
+- **What was implemented**: SQLAlchemy ExerciseLog model for storing Cronometer exercise data
+- **Files changed**:
+  - backend/src/models/exercise_log.py (new)
+  - backend/src/models/__init__.py (added export)
+  - backend/src/models/user.py (added exercise_logs relationship)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Follow FoodLog as the template for Cronometer data models
+  - cronometer_hash field uses String(64) for SHA-256 hashes
+  - Always add CASCADE delete on foreign keys for user-owned data
+---
+
+## 2026-02-01 22:20 EST - US-002: Create Alembic migration for exercise_logs table
+- **Subagents used**:
+  - architect: Analyzed existing migration patterns (010_add_cronometer_tables, 012_add_interventions)
+  - backend: Created migration file following established patterns
+  - reviewer: Verified all columns, indexes, and FK constraints correct
+- **What was implemented**: Alembic migration 013_add_exercise_logs.py
+- **Files changed**:
+  - backend/alembic/versions/013_add_exercise_logs.py (new)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Migration file naming: `{number}_{descriptive_name}.py`
+  - Revision ID pattern: `{number}_{short_name}` (e.g., "013_exercise_logs")
+  - Import ordering: need blank line between `sqlalchemy` and `alembic` imports for ruff
+  - Use `op.f()` wrapper for index names to ensure consistent naming convention
+  - Always use `DateTime(timezone=True)` for timestamp columns
+---
+
+## 2026-02-01 22:30 EST - US-003: Update sync service to import exercises
+- **Subagents used**:
+  - architect: Analyzed existing upsert patterns from _upsert_food_logs, identified all required changes
+  - backend: Implemented _upsert_exercise_logs and all sync_user updates
+  - reviewer: Verified all acceptance criteria met, found minor docstring update needed
+- **What was implemented**: Exercise sync functionality in CronometerSyncService
+- **Files changed**:
+  - backend/src/integrations/cronometer/sync_service.py (modified)
+    - Added Exercise import from pycronometer
+    - Added ExerciseLog to model imports
+    - Added exercises_synced to SyncResult dataclass
+    - Added _upsert_exercise_logs method with hash-based deduplication
+    - Added exercise_logs case to _get_existing_hashes
+    - Updated sync_user to call get_exercises and _upsert_exercise_logs
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Sync service is at backend/src/integrations/cronometer/ not backend/src/services/
+  - Follow _upsert_food_logs exactly for new upsert methods
+  - Remember to update _get_existing_hashes docstring when adding new table support
+  - Verify pycronometer has the required class/method before implementing (Exercise, get_exercises)
+---
+
+## 2026-02-01 22:45 EST - US-004: Create exercise Pydantic schemas and API endpoint
+- **Subagents used**:
+  - architect: Analyzed existing schema and router patterns (FoodLogResponse, HealthNoteResponse, get_food_logs)
+  - reviewer: Verified all acceptance criteria met, no critical/major issues
+- **What was implemented**: ExerciseLogResponse schema and GET /exercises endpoint
+- **Files changed**:
+  - backend/src/api/schemas.py (modified)
+    - Added ExerciseLogResponse schema after HealthNoteResponse
+    - Updated SyncResponse to include exercises_synced field
+  - backend/src/api/routes/cronometer.py (modified)
+    - Added ExerciseLogResponse and ExerciseLog to imports
+    - Added get_exercises endpoint with start_date/end_date params
+    - Updated /sync endpoint to include exercises_synced in response and logger
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Response schemas go in backend/src/api/schemas.py grouped by domain
+  - Follow get_food_logs exactly for new cronometer data retrieval endpoints
+  - Use datetime.combine for date to datetime conversion in queries
+  - Don't include internal fields like cronometer_hash in response schemas
+---
+
+## 2026-02-01 23:00 EST - US-005: Add useExerciseLogsQuery React Query hook
+- **Subagents used**:
+  - architect: Analyzed existing React Query patterns (useFoodLogsQuery, useHealthNotesQuery, cronometerKeys)
+  - reviewer: Verified all acceptance criteria met, approved implementation
+- **What was implemented**: React Query hook for fetching exercise logs from API
+- **Files changed**:
+  - frontend/src/lib/api/cronometer.ts (modified)
+    - Added ExerciseLog TypeScript interface
+    - Added GetExerciseLogsParams interface and getExerciseLogs function
+    - Added exerciseLogs and exerciseLogsByDate to cronometerKeys
+    - Added useExerciseLogsQuery(startDate, endDate) hook
+    - Updated SyncResponse to include exercises_synced field
+    - Updated useSyncCronometerMutation to invalidate exercise logs cache
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Frontend hooks in frontend/src/lib/api/cronometer.ts follow consistent patterns
+  - Query key factory uses hierarchical structure: all → collection → collectionByParams
+  - Always update SyncResponse and useSyncCronometerMutation when adding new synced data types
+  - TypeScript interfaces use `number | null` for nullable numeric backend fields
+---
+
+## 2026-02-01 23:15 EST - US-006: Create Conversation and Message models
+- **Subagents used**:
+  - architect: Analyzed existing model patterns (Call, ConversationMemory, FoodLog), enum patterns (CallStatus, MemoryType)
+  - backend: Created Conversation and Message models with MessageRole enum
+  - reviewer: Verified all acceptance criteria met, noted migration is separate US-007
+- **What was implemented**: SQLAlchemy models for chat functionality
+- **Files changed**:
+  - backend/src/models/conversation.py (new)
+    - Conversation model with user_id FK, title, created_at, updated_at
+    - Relationships: user (back_populates), messages (one-to-many with cascade)
+  - backend/src/models/message.py (new)
+    - MessageRole enum (user, assistant, system, tool) with native_enum=False
+    - Message model with conversation_id FK, role, content (Text), tool_calls (JSON)
+    - Supports tool_call_id and tokens_used for OpenAI function calling
+  - backend/src/models/user.py (added conversations relationship)
+  - backend/src/models/__init__.py (added exports: Conversation, Message, MessageRole)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Use `native_enum=False` with `length=20` for enum columns (matches CallStatus pattern)
+  - For chat models, `order_by="Message.created_at"` in relationship ensures chronological order
+  - JSON column type works for JSONB in PostgreSQL with asyncpg
+  - Use `Text` type for content field to support long messages
+---
+
+## 2026-02-01 23:30 EST - US-007: Create Alembic migration for chat tables
+- **Subagents used**:
+  - architect: Analyzed existing migration patterns (013_exercise_logs, 012_interventions), identified revision chain
+  - reviewer: Verified all acceptance criteria, noted JSON vs JSONB and native_enum conventions
+- **What was implemented**: Alembic migration 014_add_conversations.py for chat tables
+- **Files changed**:
+  - backend/alembic/versions/014_add_conversations.py (new)
+    - Creates conversations table with user_id FK, title, timestamps
+    - Creates messages table with conversation_id FK, role enum, content, tool_calls
+    - Indexes on user_id and conversation_id
+    - CASCADE delete on all foreign keys
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Use `sa.JSON()` for JSON columns (codebase convention, works with PostgreSQL)
+  - Use `native_enum=False` for enum columns (matches codebase convention)
+  - Create dependent tables in order: parent first, then child (conversations → messages)
+  - Downgrade must drop in reverse order: child first (messages → conversations)
+  - Enum values in migration are lowercase strings matching Python enum .value
+---
+
+## 2026-02-01 23:45 EST - US-008: Add OpenAI configuration to settings
+- **Subagents used**:
+  - architect: Analyzed existing config.py patterns, identified correct placement after Anthropic section
+  - reviewer: Verified all acceptance criteria, suggested adding settings to .env.example
+- **What was implemented**: OpenAI and chat agent configuration settings
+- **Files changed**:
+  - backend/src/config.py (modified)
+    - Added OPENAI_API_KEY and OPENAI_MODEL (default 'gpt-4o-mini')
+    - Added CHAT_RATE_LIMIT_PER_DAY (default 100) and CHAT_MAX_HISTORY_MESSAGES (default 10)
+  - backend/pyproject.toml (modified)
+    - Added openai>=1.0.0 dependency
+  - backend/.env.example (modified)
+    - Documented new OpenAI and chat agent settings
+- **Verification**: ruff ✓ | uv sync ✓
+- **Learnings for future iterations**:
+  - Integer settings need `int(os.getenv(..., "default"))` with string default
+  - Settings are grouped by logical sections with comments
+  - Always update .env.example when adding new environment variables
+  - Keep dependencies alphabetically sorted in pyproject.toml
+---
+
+## 2026-02-02 00:00 EST - US-009: Create agent tools definitions module
+- **Subagents used**:
+  - architect: Analyzed existing models (FoodLog, BiometricLog, HealthNote, ExerciseLog), existing analysis services (InsightsService, FoodCorrelationService), and OpenAI function calling format
+  - reviewer: Verified all 9 tools defined, JSON Schema format correct, descriptions clear and helpful
+- **What was implemented**: OpenAI function calling tool definitions for nutrition chat agent
+- **Files changed**:
+  - backend/src/services/chat/__init__.py (new)
+    - Created chat services directory
+    - Exports AGENT_TOOLS and TOOL_NAMES
+  - backend/src/services/chat/tools.py (new)
+    - 9 tool definitions: get_food_logs, get_daily_nutrition_summary, get_bowel_movements, get_exercises, get_biometrics, get_health_notes, get_trigger_foods, get_nutrient_correlations, compare_days
+    - Each tool uses ChatCompletionToolParam format
+    - AGENT_TOOLS list for OpenAI client
+    - TOOL_NAMES dict for executor dispatch
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Chat services go in backend/src/services/chat/ directory
+  - Use ChatCompletionToolParam from openai.types.chat for type safety
+  - Tool descriptions should include context for the LLM (e.g., Bristol scale meanings)
+  - Use enum types in parameters to constrain LLM choices
+  - Date parameters use YYYY-MM-DD string format, executor parses to Python date
+---
+
+## 2026-02-02 00:15 EST - US-010: Create system prompt module
+- **Subagents used**:
+  - architect: Analyzed existing prompt patterns from standup_agent.py and summary_service.py, reviewed data models
+  - reviewer: Verified all acceptance criteria met, no critical/major issues found
+- **What was implemented**: System prompt module for nutrition chat agent
+- **Files changed**:
+  - backend/src/services/chat/prompts.py (new)
+    - SYSTEM_PROMPT with friendly/conversational tone
+    - BRISTOL_SCALE_REFERENCE constant (1-2 constipation, 3-5 healthy, 6-7 loose)
+    - RESPONSE_GUIDELINES constant for data analysis best practices
+    - build_system_prompt(current_date) function with placeholder injection
+  - backend/src/services/chat/__init__.py (updated exports)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Follow standup_agent.py for prompt structure patterns (BASE_PROMPT + build_system_prompt function)
+  - Separate constants (BRISTOL_SCALE_REFERENCE, RESPONSE_GUIDELINES) for potential reuse
+  - Use format strings with named placeholders ({current_date}) for dynamic injection
+  - System prompts should include: role definition, capabilities, analysis approach, communication style
+---
+
+## 2026-02-02 00:30 EST - US-011: Create ToolExecutor class
+- **Subagents used**:
+  - architect: Analyzed existing patterns from InsightsService, FoodCorrelationService, data models
+  - reviewer: Found date iteration bug and inconsistent return key, both fixed
+- **What was implemented**: ToolExecutor class with all 9 tool execution methods
+- **Files changed**:
+  - backend/src/services/chat/tool_executor.py (new)
+    - ToolExecutor.__init__(db, user_id) with handler mapping
+    - execute(tool_name, args) method with error handling
+    - _get_food_logs with food_group filter and limit cap at 200
+    - _get_daily_nutrition_summary with optional detailed_nutrients from raw_data
+    - _get_bowel_movements with optional notes
+    - _get_exercises with exercise_type ilike filter
+    - _get_biometrics with metric_type filter
+    - _get_health_notes excluding BMs with search_term filter
+    - _get_trigger_foods delegating to FoodCorrelationService
+    - _get_nutrient_correlations delegating to InsightsService
+    - _compare_days with periods and good_vs_bad_days modes
+  - backend/src/services/chat/__init__.py (added ToolExecutor, ToolExecutionError exports)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Use timedelta(days=1) for date iteration, not manual day arithmetic
+  - Delegate complex analysis to existing services (FoodCorrelationService, InsightsService)
+  - Keep return key names consistent between success and error cases
+  - Use _parse_date helper for consistent date parsing
+  - Cap result limits for LLM context (e.g., limit food logs to 200, correlations to 20)
+---
+
+## 2026-02-02 00:45 EST - US-012: Create ChatService with agent loop
+- **Subagents used**:
+  - architect: Analyzed existing patterns from ToolExecutor, prompts.py, OpenAI streaming patterns
+  - backend: Implemented ChatService class with all required methods
+  - reviewer: Found critical bugs (duplicate user message, missing error handling), all fixed
+- **What was implemented**: ChatService with ReAct-style agent loop
+- **Files changed**:
+  - backend/src/services/chat/chat_service.py (new)
+    - ChatService class with __init__(db, user_id)
+    - chat() async generator for streaming responses
+    - _get_or_create_conversation() for conversation management
+    - _get_conversation_history() with limit and chronological ordering
+    - _build_messages() from history (fixed: doesn't duplicate user message)
+    - _agent_loop() with MAX_AGENT_ITERATIONS=5, tool execution via ToolExecutor
+    - _check_rate_limit() counting daily user messages
+    - _save_message() for persisting messages
+    - RateLimitExceededError exception class
+    - OpenAI API error handling (RateLimitError, APIError)
+    - Defensive check for empty choices in stream
+  - backend/src/services/chat/__init__.py (added ChatService, RateLimitExceededError exports)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - When saving user message before fetching history, _build_messages should NOT append it again
+  - Use `content: None` (not empty string) when assistant has only tool_calls
+  - Wrap OpenAI API calls in try/except for RateLimitError and APIError
+  - Check chunk.choices is not empty before accessing choices[0]
+  - Use `from datetime import UTC` instead of timezone.utc (ruff UP017)
+  - Rate limit check uses JOIN with Conversation to ensure user ownership
+---
+
+## 2026-02-02 01:00 EST - US-013: Create rate limiting utility
+- **Subagents used**:
+  - architect: Analyzed existing _check_rate_limit in ChatService, exception patterns (ToolExecutionError, AuthError), config patterns
+  - reviewer: Verified all acceptance criteria, noted race condition is pre-existing design decision, approved implementation
+- **What was implemented**: Dedicated rate_limit.py module with reusable rate limiting functions
+- **Files changed**:
+  - backend/src/services/chat/rate_limit.py (new)
+    - RateLimitExceededError exception class
+    - get_daily_message_count(db, user_id) -> int async function
+    - check_rate_limit(db, user_id) -> bool async function (raises on limit exceeded)
+  - backend/src/services/chat/chat_service.py (modified)
+    - Removed RateLimitExceededError class definition
+    - Removed _check_rate_limit method body, now delegates to rate_limit module
+    - Simplified imports (removed datetime, func)
+  - backend/src/services/chat/__init__.py (modified)
+    - Updated imports to get RateLimitExceededError from rate_limit module
+    - Added check_rate_limit and get_daily_message_count to exports
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Keep exceptions co-located with the functionality that raises them (pattern from ToolExecutionError)
+  - Rate limit query joins Message to Conversation to filter by user_id (Message doesn't have direct user_id)
+  - `check_rate_limit` returns bool but also raises - allows both call patterns
+  - Existing race condition between check and save is acceptable for low-concurrency personal assistant use case
+---
+
+## 2026-02-02 01:15 EST - US-014: Create Pydantic schemas for chat API
+- **Subagents used**:
+  - architect: Analyzed existing schema patterns (ConfigDict, field types, list handling, enum usage)
+  - reviewer: Found critical issue with message_count requiring hybrid_property on Conversation model
+- **What was implemented**: Pydantic schemas for chat API endpoints
+- **Files changed**:
+  - backend/src/api/schemas.py (modified)
+    - Added MessageRole to imports from src.models
+    - Added Chat Schemas section with:
+      - MessageCreate: content field with min_length=1, max_length=10000
+      - MessageResponse: id, role (MessageRole enum), content, created_at
+      - ConversationResponse: id, title, created_at, updated_at, message_count
+      - ConversationWithMessagesResponse: id, title, timestamps, list[MessageResponse]
+  - backend/src/models/conversation.py (modified)
+    - Added hybrid_property import from sqlalchemy.ext.hybrid
+    - Added message_count hybrid_property that returns len(self.messages)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - ConversationListResponse follows codebase pattern of using list[ConversationResponse] at endpoint level
+  - For computed fields in response schemas, add @hybrid_property to model for from_attributes=True compatibility
+  - Response schemas use ConfigDict(from_attributes=True), create schemas do not
+  - MessageRole enum reused from models (not duplicated)
+---
