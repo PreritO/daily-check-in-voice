@@ -41,7 +41,11 @@ export function ChatMessage({
 
   return (
     <div
-      className={`flex ${isUser ? "justify-end" : "justify-start"} ${className ?? ""}`}
+      className={`
+        flex animate-fade-in
+        ${isUser ? "justify-end" : "justify-start"}
+        ${className ?? ""}
+      `}
       onMouseEnter={() => setShowTimestamp(true)}
       onMouseLeave={() => setShowTimestamp(false)}
     >
