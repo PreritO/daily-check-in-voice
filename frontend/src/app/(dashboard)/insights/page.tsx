@@ -37,6 +37,7 @@ import {
   CalendarHeatmap,
   LagCorrelationChart,
 } from "@/components/charts";
+import { FoodLogModal } from "@/components/insights";
 
 // =============================================================================
 // Tab Types
@@ -57,31 +58,33 @@ interface NutrientOption {
 
 const NUTRIENT_OPTIONS: NutrientOption[] = [
   // Macros
-  { value: "fiber", label: "Fiber", category: "Macros" },
+  { value: "calories", label: "Calories", category: "Macros" },
   { value: "protein", label: "Protein", category: "Macros" },
   { value: "carbs", label: "Carbohydrates", category: "Macros" },
-  { value: "fat", label: "Fat", category: "Macros" },
-  { value: "calories", label: "Calories", category: "Macros" },
+  { value: "fat", label: "Total Fat", category: "Macros" },
+  { value: "fiber", label: "Fiber", category: "Macros" },
   { value: "sugar", label: "Sugar", category: "Macros" },
   { value: "saturated_fat", label: "Saturated Fat", category: "Macros" },
   { value: "monounsaturated_fat", label: "Monounsaturated Fat", category: "Macros" },
   { value: "polyunsaturated_fat", label: "Polyunsaturated Fat", category: "Macros" },
-  { value: "omega_3", label: "Omega-3", category: "Macros" },
-  { value: "omega_6", label: "Omega-6", category: "Macros" },
+  { value: "cholesterol", label: "Cholesterol", category: "Macros" },
+  { value: "net_carbs", label: "Net Carbs", category: "Macros" },
+  // Fatty Acids
+  { value: "omega_3", label: "Omega-3", category: "Fatty Acids" },
+  { value: "omega_6", label: "Omega-6", category: "Fatty Acids" },
   // Vitamins
   { value: "vitamin_a", label: "Vitamin A", category: "Vitamins" },
-  { value: "vitamin_b1", label: "Vitamin B1 (Thiamin)", category: "Vitamins" },
-  { value: "vitamin_b2", label: "Vitamin B2 (Riboflavin)", category: "Vitamins" },
-  { value: "vitamin_b3", label: "Vitamin B3 (Niacin)", category: "Vitamins" },
-  { value: "vitamin_b5", label: "Vitamin B5 (Pantothenic)", category: "Vitamins" },
-  { value: "vitamin_b6", label: "Vitamin B6", category: "Vitamins" },
-  { value: "vitamin_b7", label: "Vitamin B7 (Biotin)", category: "Vitamins" },
-  { value: "vitamin_b9", label: "Vitamin B9 (Folate)", category: "Vitamins" },
-  { value: "vitamin_b12", label: "Vitamin B12", category: "Vitamins" },
   { value: "vitamin_c", label: "Vitamin C", category: "Vitamins" },
   { value: "vitamin_d", label: "Vitamin D", category: "Vitamins" },
   { value: "vitamin_e", label: "Vitamin E", category: "Vitamins" },
   { value: "vitamin_k", label: "Vitamin K", category: "Vitamins" },
+  { value: "vitamin_b1", label: "Thiamin (B1)", category: "Vitamins" },
+  { value: "vitamin_b2", label: "Riboflavin (B2)", category: "Vitamins" },
+  { value: "vitamin_b3", label: "Niacin (B3)", category: "Vitamins" },
+  { value: "vitamin_b5", label: "Pantothenic Acid (B5)", category: "Vitamins" },
+  { value: "vitamin_b6", label: "Vitamin B6", category: "Vitamins" },
+  { value: "vitamin_b9", label: "Folate (B9)", category: "Vitamins" },
+  { value: "vitamin_b12", label: "Vitamin B12", category: "Vitamins" },
   // Minerals
   { value: "calcium", label: "Calcium", category: "Minerals" },
   { value: "iron", label: "Iron", category: "Minerals" },
@@ -93,12 +96,10 @@ const NUTRIENT_OPTIONS: NutrientOption[] = [
   { value: "copper", label: "Copper", category: "Minerals" },
   { value: "manganese", label: "Manganese", category: "Minerals" },
   { value: "selenium", label: "Selenium", category: "Minerals" },
-  { value: "chromium", label: "Chromium", category: "Minerals" },
   // Other
   { value: "water", label: "Water", category: "Other" },
   { value: "caffeine", label: "Caffeine", category: "Other" },
   { value: "alcohol", label: "Alcohol", category: "Other" },
-  { value: "cholesterol", label: "Cholesterol", category: "Other" },
 ];
 
 const CHART_TYPE_OPTIONS: { value: ChartType; label: string }[] = [
@@ -120,34 +121,38 @@ const groupedNutrientOptions = NUTRIENT_OPTIONS.reduce((acc, option) => {
 }, {} as Record<string, NutrientOption[]>);
 
 // Get unit for a nutrient key
+// Units match Cronometer's raw_data format
 function getNutrientUnit(nutrientKey: string): string {
   const units: Record<string, string> = {
     // Macros
-    fiber: "g",
+    calories: "kcal",
     protein: "g",
     carbs: "g",
     fat: "g",
-    calories: "kcal",
+    fiber: "g",
     sugar: "g",
     saturated_fat: "g",
     monounsaturated_fat: "g",
     polyunsaturated_fat: "g",
+    cholesterol: "mg",
+    net_carbs: "g",
+    // Fatty Acids
     omega_3: "g",
     omega_6: "g",
     // Vitamins
     vitamin_a: "μg",
+    vitamin_c: "mg",
+    vitamin_d: "IU", // Cronometer uses IU for Vitamin D
+    vitamin_e: "mg",
+    vitamin_k: "μg",
     vitamin_b1: "mg",
     vitamin_b2: "mg",
     vitamin_b3: "mg",
     vitamin_b5: "mg",
     vitamin_b6: "mg",
-    vitamin_b7: "μg",
     vitamin_b9: "μg",
     vitamin_b12: "μg",
-    vitamin_c: "mg",
-    vitamin_d: "μg",
-    vitamin_e: "mg",
-    vitamin_k: "μg",
+    folate: "μg",
     // Minerals
     calcium: "mg",
     iron: "mg",
@@ -159,12 +164,10 @@ function getNutrientUnit(nutrientKey: string): string {
     copper: "mg",
     manganese: "mg",
     selenium: "μg",
-    chromium: "μg",
     // Other
-    water: "L",
+    water: "g", // Cronometer reports water in grams
     caffeine: "mg",
     alcohol: "g",
-    cholesterol: "mg",
   };
   return units[nutrientKey] || "";
 }
@@ -1489,6 +1492,12 @@ function VisualizationsTab({
   const [selectedChartType, setSelectedChartType] = useState<ChartType>("scatter");
   const [selectedTimeLag, setSelectedTimeLag] = useState<TimeLag>(24);
 
+  // State for FoodLogModal
+  const [foodLogModalData, setFoodLogModalData] = useState<{
+    selectedDate: Date;
+    bristolEvents: { bristol_scale: number | null; quantity_score: number | null; logged_at: string }[];
+  } | null>(null);
+
   // Get the nutrient name for display
   const nutrientLabel = useMemo(() => {
     const option = NUTRIENT_OPTIONS.find((o) => o.value === selectedNutrient);
@@ -1808,7 +1817,6 @@ function VisualizationsTab({
                 console.log("Toggled nutrient:", nutrientKey);
               }}
               height={400}
-              showBrush={timelineData.daily_data.length > 14}
             />
           </div>
         );
@@ -1960,7 +1968,15 @@ function VisualizationsTab({
               startDate={startDate}
               endDate={endDate}
               onDayClick={(date, events) => {
-                console.log("Clicked day:", date, events);
+                // Open the FoodLogModal with the clicked day's data
+                setFoodLogModalData({
+                  selectedDate: date,
+                  bristolEvents: events.map((e) => ({
+                    bristol_scale: e.bristol_scale,
+                    quantity_score: e.quantity_score,
+                    logged_at: e.logged_at,
+                  })),
+                });
               }}
             />
           </div>
@@ -2077,6 +2093,15 @@ function VisualizationsTab({
           {renderChart()}
         </div>
       </div>
+
+      {/* FoodLogModal for CalendarHeatmap day clicks */}
+      {foodLogModalData && (
+        <FoodLogModal
+          selectedDate={foodLogModalData.selectedDate}
+          bristolEvents={foodLogModalData.bristolEvents}
+          onClose={() => setFoodLogModalData(null)}
+        />
+      )}
     </div>
   );
 }

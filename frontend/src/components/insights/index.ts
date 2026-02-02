@@ -23,3 +23,6 @@ export type {
   OptimalRangesResponse,
   OptimalRangesProps,
 } from "./OptimalRanges";
+
+export { FoodLogModal } from "./FoodLogModal";
+export type { FoodLogModalProps } from "./FoodLogModal";

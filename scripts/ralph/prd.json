@@ -998,6 +998,58 @@
       ],
       "priority": 58,
       "passes": true
+    },
+    {
+      "id": "US-059",
+      "title": "Fix nutrient dropdown mapping to Cronometer data",
+      "description": "Audit and fix the nutrient dropdown in the Insights page VisualizationsTab to ensure all nutrients map correctly to Cronometer data. Currently the frontend uses simplified keys (fiber, protein) but the timeline endpoint only maps a few to model fields, and Cronometer raw_data uses keys like 'Fiber (g)', 'Protein (g)'. Need to update the backend timeline endpoint to accept friendly names and map them to the correct raw_data keys from TRACKED_NUTRIENTS.",
+      "acceptanceCriteria": [
+        "Backend timeline endpoint maps friendly nutrient keys to Cronometer raw_data keys (e.g., 'fiber' -> 'Fiber (g)', 'vitamin_c' -> 'Vitamin C (mg)')",
+        "Add comprehensive mapping covering all nutrients in the frontend NUTRIENT_OPTIONS dropdown",
+        "Update frontend NUTRIENT_OPTIONS values to match the mapping keys exactly",
+        "Remove any nutrients from dropdown that Cronometer doesn't provide",
+        "Test that selecting each nutrient in dropdown returns actual data (not all zeros)",
+        "Update getNutrientUnit function to return correct units for each nutrient",
+        "npm run build passes and uv run ruff check passes"
+      ],
+      "priority": 59,
+      "passes": true
+    },
+    {
+      "id": "US-060",
+      "title": "Remove time window slider from Time Series Chart",
+      "description": "Remove the Brush (time window slider) component from the TimeSeriesChart and default to showing the full date range from the Insights page date selector. The slider causes confusion with date alignment. The chart should simply show data for the selected date range without any zoom/pan controls.",
+      "acceptanceCriteria": [
+        "Remove Brush component and showBrush prop from TimeSeriesChart",
+        "Chart displays full date range from start to end date",
+        "Remove startIndex calculation that was used for Brush",
+        "X-axis shows appropriate tick intervals based on date range length",
+        "All dates in range are visible without needing to scroll/zoom",
+        "Update the chart height if needed for better visibility",
+        "npm run build passes"
+      ],
+      "priority": 60,
+      "passes": true
+    },
+    {
+      "id": "US-061",
+      "title": "Add food log modal to Calendar Heatmap day clicks",
+      "description": "Make calendar heatmap days clickable to show a modal with food logs for that day and the preceding day. This allows users to click on red-shaded days (concerning Bristol scores) and see what they ate that could have caused the issue. The modal should show foods from the clicked day AND the day before (since food takes time to affect digestion).",
+      "acceptanceCriteria": [
+        "Create FoodLogModal component at frontend/src/components/insights/FoodLogModal.tsx",
+        "Modal shows when clicking a day cell in CalendarHeatmap",
+        "Modal header shows the selected date and Bristol score(s) for that day",
+        "Modal body has two sections: 'Day Before' and 'Selected Day' food logs",
+        "Each section lists food items with: food name, serving size, time logged, and key nutrients (calories, fiber, protein)",
+        "Foods are sorted by time logged",
+        "Empty state if no food logs for that period",
+        "Add useFoodLogsQuery hook call to fetch food logs when modal opens",
+        "Modal has close button and closes on backdrop click",
+        "Styling consistent with other modals in the app",
+        "npm run build passes"
+      ],
+      "priority": 61,
+      "passes": true
     }
   ]
 }

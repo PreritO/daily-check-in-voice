@@ -11,7 +11,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  Brush,
   Cell,
   TooltipProps,
 } from "recharts";
@@ -67,8 +66,6 @@ export interface TimeSeriesChartProps {
   onNutrientToggle?: (nutrientKey: string) => void;
   /** Optional chart height in pixels (default: 400) */
   height?: number;
-  /** Optional: show brush for range selection */
-  showBrush?: boolean;
 }
 
 // =============================================================================
@@ -168,35 +165,39 @@ function formatNutrientName(key: string): string {
 interface ProcessedChartData {
   day: string;
   displayDate: string;
-  [key: string]: string | number | BristolEvent[] | undefined;
+  bristolAvg: number | null;
+  bristolScores: number[];
+  [key: string]: string | number | number[] | BristolEvent[] | null | undefined;
   bristolEvents?: BristolEvent[];
-}
-
-interface ProcessedBristolPoint {
-  day: string;
-  displayDate: string;
-  bristolScore: number;
-  timestamp: string;
-  quantityScore: number | null;
 }
 
 /**
  * Processes timeline data into a format suitable for Recharts
+ * Bristol scores are embedded directly in the chart data for proper x-axis alignment
  */
 function processChartData(
   timelineData: TimelineResponse,
   selectedNutrients: string[]
 ): {
   chartData: ProcessedChartData[];
-  bristolPoints: ProcessedBristolPoint[];
 } {
   const chartData: ProcessedChartData[] = [];
-  const bristolPoints: ProcessedBristolPoint[] = [];
 
   for (const dayData of timelineData.daily_data) {
+    // Calculate average Bristol score for the day
+    const bristolScores = dayData.bristol_events
+      .map(e => e.bristol_score)
+      .filter((s): s is number => s !== null && s !== undefined);
+
+    const bristolAvg = bristolScores.length > 0
+      ? bristolScores.reduce((sum, s) => sum + s, 0) / bristolScores.length
+      : null;
+
     const dataPoint: ProcessedChartData = {
       day: dayData.day,
       displayDate: formatDateShort(dayData.day),
+      bristolAvg,
+      bristolScores,
     };
 
     // Add selected nutrient values
@@ -205,24 +206,13 @@ function processChartData(
       dataPoint[nutrientKey] = value !== undefined ? value : undefined;
     }
 
-    // Store bristol events for reference
+    // Store bristol events for reference in tooltip
     dataPoint.bristolEvents = dayData.bristol_events;
 
     chartData.push(dataPoint);
-
-    // Process Bristol events for scatter plot
-    for (const event of dayData.bristol_events) {
-      bristolPoints.push({
-        day: dayData.day,
-        displayDate: formatDateShort(dayData.day),
-        bristolScore: event.bristol_score,
-        timestamp: event.timestamp,
-        quantityScore: event.quantity_score,
-      });
-    }
   }
 
-  return { chartData, bristolPoints };
+  return { chartData };
 }
 
 // =============================================================================
@@ -329,8 +319,8 @@ function CustomTooltip({
  * - Line charts for selected nutrients (left Y-axis)
  * - Scatter plot for Bristol events (right Y-axis, 1-7)
  * - Interactive tooltips with detailed information
- * - Optional brush for range selection
  * - Responsive sizing
+ * - Full date range display without zoom/pan controls
  *
  * @example
  * ```tsx
@@ -348,11 +338,10 @@ export function TimeSeriesChart({
   showBristolEvents,
   onNutrientToggle,
   height = 400,
-  showBrush = false,
 }: TimeSeriesChartProps) {
   // Process data for the chart
-  const { chartData, bristolPoints, nutrientColorMap } = useMemo(() => {
-    const { chartData, bristolPoints } = processChartData(
+  const { chartData, nutrientColorMap } = useMemo(() => {
+    const { chartData } = processChartData(
       timelineData,
       selectedNutrients
     );
@@ -363,7 +352,7 @@ export function TimeSeriesChart({
       colorMap.set(nutrientKey, getNutrientColor(index));
     });
 
-    return { chartData, bristolPoints, nutrientColorMap: colorMap };
+    return { chartData, nutrientColorMap: colorMap };
   }, [timelineData, selectedNutrients]);
 
   // Handle legend click for toggling nutrients
@@ -506,34 +495,24 @@ export function TimeSeriesChart({
             />
           ))}
 
-          {/* Bristol events as scatter points */}
-          {showBristolEvents && bristolPoints.length > 0 && (
+          {/* Bristol events as scatter points - using same data array for alignment */}
+          {showBristolEvents && (
             <Scatter
               yAxisId="bristol"
-              data={bristolPoints}
-              dataKey="bristolScore"
+              data={chartData.filter(d => d.bristolAvg !== null)}
+              dataKey="bristolAvg"
               name="Bristol Score"
               fill="#6b7280"
             >
-              {bristolPoints.map((entry, index) => (
+              {chartData.filter(d => d.bristolAvg !== null).map((entry, index) => (
                 <Cell
                   key={`bristol-${index}`}
-                  fill={getBristolScoreColor(entry.bristolScore)}
+                  fill={getBristolScoreColor(entry.bristolAvg as number)}
                   stroke="#fff"
                   strokeWidth={1}
                 />
               ))}
             </Scatter>
-          )}
-
-          {/* Optional brush for range selection */}
-          {showBrush && chartData.length > 7 && (
-            <Brush
-              dataKey="displayDate"
-              height={30}
-              stroke="#8884d8"
-              startIndex={Math.max(0, chartData.length - 14)}
-            />
           )}
         </ComposedChart>
       </ResponsiveContainer>
