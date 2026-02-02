@@ -2,6 +2,8 @@ export { ChatButton } from "./ChatButton";
 export type { ChatButtonProps } from "./ChatButton";
 export { ChatHeader } from "./ChatHeader";
 export type { ChatHeaderProps } from "./ChatHeader";
+export { ChatMessages } from "./ChatMessages";
+export type { ChatMessagesProps } from "./ChatMessages";
 export { ChatWidget } from "./ChatWidget";
 export type { ChatWidgetProps } from "./ChatWidget";
 export { ChatWindow } from "./ChatWindow";

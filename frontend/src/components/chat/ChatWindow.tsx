@@ -1,6 +1,7 @@
 "use client";
 
 import { ChatHeader } from "./ChatHeader";
+import { ChatMessages } from "./ChatMessages";
 
 // =============================================================================
 // Types
@@ -35,12 +36,8 @@ export function ChatWindow({ className }: ChatWindowProps) {
       {/* ChatHeader */}
       <ChatHeader className="flex-shrink-0" />
 
-      {/* ChatMessages - to be implemented in US-022 */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="flex items-center justify-center h-full text-[#A89B86] dark:text-[#8B7E6F]">
-          Messages Placeholder
-        </div>
-      </div>
+      {/* ChatMessages */}
+      <ChatMessages className="flex-1" />
 
       {/* ChatInput - to be implemented in US-024 */}
       <div className="flex-shrink-0 px-4 py-3 border-t border-[#DEDDDB] dark:border-[#3D3935]">
