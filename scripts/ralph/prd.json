@@ -238,7 +238,7 @@
         "uv run ruff check passes"
       ],
       "priority": 15,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-016",
@@ -257,7 +257,7 @@
         "npm run build passes"
       ],
       "priority": 16,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-017",
@@ -272,7 +272,7 @@
         "npm run build passes"
       ],
       "priority": 17,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-018",
@@ -288,7 +288,7 @@
         "npm run build passes"
       ],
       "priority": 18,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-019",
@@ -303,7 +303,7 @@
         "npm run build passes"
       ],
       "priority": 19,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-020",
@@ -318,7 +318,7 @@
         "npm run build passes"
       ],
       "priority": 20,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-021",
@@ -333,7 +333,7 @@
         "npm run build passes"
       ],
       "priority": 21,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-022",
@@ -349,7 +349,7 @@
         "npm run build passes"
       ],
       "priority": 22,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-023",
@@ -365,7 +365,7 @@
         "npm run build passes"
       ],
       "priority": 23,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-024",
@@ -382,7 +382,7 @@
         "npm run build passes"
       ],
       "priority": 24,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-025",
@@ -397,7 +397,7 @@
         "npm run build passes"
       ],
       "priority": 25,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-026",
@@ -414,7 +414,7 @@
         "npm run build passes"
       ],
       "priority": 26,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-027",
@@ -428,7 +428,7 @@
         "npm run build passes"
       ],
       "priority": 27,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-028",
@@ -444,7 +444,7 @@
         "npm run build passes"
       ],
       "priority": 28,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-029",
@@ -460,7 +460,7 @@
         "uv run pytest passes with new tests"
       ],
       "priority": 29,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-030",
@@ -477,7 +477,7 @@
         "uv run pytest passes with new tests"
       ],
       "priority": 30,
-      "passes": false
+      "passes": true
     }
   ]
 }

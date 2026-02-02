@@ -333,3 +333,342 @@ Started: Sun Feb  1 22:15:10 EST 2026
   - Response schemas use ConfigDict(from_attributes=True), create schemas do not
   - MessageRole enum reused from models (not duplicated)
 ---
+
+## 2026-02-02 01:30 EST - US-015: Create chat API router with streaming
+- **Subagents used**:
+  - architect: Analyzed existing router patterns (cronometer.py, calls.py), SSE streaming, auth dependencies
+  - reviewer: Found N+1 query issue with message_count (fixed with selectinload), suggested rate limit pre-check
+- **What was implemented**: Chat API router with 5 endpoints and SSE streaming
+- **Files changed**:
+  - backend/src/api/routes/chat.py (new)
+    - POST /conversations - create new conversation
+    - GET /conversations - list conversations with pagination, uses selectinload for message_count
+    - GET /conversations/{id} - get conversation with messages via selectinload
+    - DELETE /conversations/{id} - delete conversation with cascade
+    - POST /conversations/{id}/messages - send message with SSE streaming
+    - generate_sse_stream helper for text/event-stream format
+    - Rate limit check before stream starts (returns HTTP 429)
+  - backend/src/api/routes/__init__.py (modified)
+    - Added chat_router import and registration with /chat prefix
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Use selectinload for relationships when accessing computed properties like message_count
+  - Check rate limit before starting StreamingResponse to return proper HTTP 429 status
+  - SSE format requires "data: {json}\n\n" with double newline
+  - StreamingResponse headers: Cache-Control no-cache, Connection keep-alive, X-Accel-Buffering no
+  - Conversation ownership checked by filtering query with user_id, not separate authorization check
+---
+
+## 2026-02-02 02:00 EST - US-016: Add React Query hooks for chat API
+- **Subagents used**:
+  - architect: Analyzed existing patterns in cronometer.ts (query keys, hooks, mutations), client.ts (auth), backend schemas
+  - reviewer: Found buffer handling edge case and auth handling missing - both fixed
+- **What was implemented**: React Query hooks for all chat API endpoints with SSE streaming
+- **Files changed**:
+  - frontend/src/lib/api/chat.ts (new)
+    - TypeScript interfaces: Message, Conversation, ConversationWithMessages, ChatStreamChunk
+    - MessageRole type union (user, assistant, system, tool)
+    - chatKeys query key factory with conversations/detail hierarchy
+    - useConversationsQuery() and useConversationQuery(id) hooks
+    - useCreateConversationMutation() and useDeleteConversationMutation()
+    - useSendMessageMutation() with SSE streaming, callbacks (onChunk, onComplete, onError)
+    - Proper auth token handling via Supabase client
+    - 401 redirect to login, 429 rate limit handling, 404 conversation not found
+  - frontend/src/lib/api/index.ts (modified)
+    - Added `export * from "./chat"` in alphabetical order
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - For SSE streaming with fetch (not axios), manually get auth token from Supabase client
+  - Buffer SSE events and process remaining buffer after stream ends (data may not end with \n\n)
+  - Use helper function to avoid code duplication when parsing SSE events
+  - Add 401 handling in fetch-based endpoints to match axios interceptor behavior
+  - Query invalidation after message send: both conversationDetail and conversationsList (for message_count)
+---
+
+## 2026-02-02 03:00 EST - US-017: Create Zustand store for chat state
+- **Subagents used**:
+  - architect: Analyzed existing state management (React Query, Context), established Zustand patterns
+  - reviewer: Found duplicate message bug in finalizeStreaming - fixed with deduplication check
+- **What was implemented**: First Zustand store for chat widget UI state
+- **Files changed**:
+  - frontend/package.json (added zustand dependency)
+  - frontend/src/stores/chat-store.ts (new)
+    - ChatState: isOpen, currentConversationId, conversations, messages, isStreaming, streamingContent
+    - ChatActions: toggleChat, openChat, closeChat, selectConversation, startNewConversation
+    - ChatActions: addMessage, setMessages, appendStreamingContent, finalizeStreaming, clearStreaming, setConversations
+    - Deduplication in finalizeStreaming prevents duplicate assistant messages
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - No existing Zustand in codebase - established patterns for future stores
+  - Use frontend/src/stores/ directory (plural) for Zustand stores
+  - Separate ChatState and ChatActions interfaces for readability
+  - Store works alongside React Query: store for UI/streaming state, React Query for server data
+  - Always check for duplicates when optimistically adding items to arrays
+  - clearStreaming useful for error recovery scenarios
+---
+
+## 2026-02-02 03:15 EST - US-018: Create ChatWidget container component
+- **Subagents used**:
+  - architect: Analyzed existing component patterns (FoodLogModal, ThemeToggle), Tailwind animation patterns, brand colors
+  - reviewer: Approved with suggestion to add Escape key handling (implemented)
+- **What was implemented**: Floating chat widget container with open/close animation
+- **Files changed**:
+  - frontend/src/components/chat/ChatWidget.tsx (new)
+    - Fixed bottom-6 right-6 z-50 positioning
+    - Toggle button with chat icon (closed) / X icon (open)
+    - Scale/opacity animation with origin-bottom-right
+    - Escape key closes chat
+    - aria-label and aria-expanded for accessibility
+    - Placeholder for ChatWindow (US-020)
+  - frontend/src/components/chat/index.ts (new barrel export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Chat components go in frontend/src/components/chat/
+  - Brand pink color: #E8A0BF (hover: #D88FAE)
+  - Use pointer-events-none on hidden animated elements
+  - Add Escape key handler with useEffect for modal-like widgets
+  - Barrel exports help with clean imports
+---
+
+## 2026-02-02 03:30 EST - US-019: Create ChatButton toggle component
+- **Subagents used**:
+  - None needed - straightforward extraction from ChatWidget (already reviewed)
+- **What was implemented**: Extracted ChatButton as reusable component
+- **Files changed**:
+  - frontend/src/components/chat/ChatButton.tsx (new)
+    - Circular button with chat bubble icon / X icon
+    - Uses useChatStore for isOpen and toggleChat
+    - hover:scale-105, active:scale-95 effects
+    - aria-label and aria-expanded
+  - frontend/src/components/chat/ChatWidget.tsx (updated to use ChatButton)
+  - frontend/src/components/chat/index.ts (added ChatButton export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Extract reusable components early for cleaner code
+  - Each component should use store directly rather than passing props through containers
+---
+
+## 2026-02-02 03:45 EST - US-020: Create ChatWindow main component
+- **Subagents used**:
+  - None needed - straightforward component following established patterns
+- **What was implemented**: ChatWindow container with layout structure
+- **Files changed**:
+  - frontend/src/components/chat/ChatWindow.tsx (new)
+    - Flex column layout with header/messages/input sections
+    - sm:w-[400px] sm:h-[600px] on desktop, full screen on mobile
+    - Placeholder sections for child components
+  - frontend/src/components/chat/ChatWidget.tsx (updated)
+    - Uses ChatWindow instead of inline placeholder
+    - Fixed inset-0 on mobile for full-screen, absolute positioning on desktop
+  - frontend/src/components/chat/index.ts (added ChatWindow export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Use fixed inset-0 + sm:absolute sm:inset-auto pattern for mobile full-screen to desktop positioned
+  - flex-shrink-0 on header/footer, flex-1 overflow-y-auto on scrollable content
+---
+
+## 2026-02-02 04:00 EST - US-021: Create ChatHeader component
+- **Subagents used**:
+  - None needed - straightforward component
+- **What was implemented**: ChatHeader with title and action buttons
+- **Files changed**:
+  - frontend/src/components/chat/ChatHeader.tsx (new)
+    - Title: "Nutrition Assistant"
+    - Back button (visible when currentConversationId is set)
+    - New conversation button (plus icon)
+    - Close button (X icon)
+  - frontend/src/components/chat/ChatWindow.tsx (uses ChatHeader)
+  - frontend/src/components/chat/index.ts (added export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Use h-8 w-8 rounded-full for small icon buttons in headers
+  - Hover states: hover:bg-[#F5F3F0] dark:hover:bg-[#3D3935]
+---
+
+## 2026-02-02 04:15 EST - US-022: Create ChatMessages component
+- **Subagents used**:
+  - None needed - followed established patterns
+- **What was implemented**: ChatMessages with message list, streaming, suggestions
+- **Files changed**:
+  - frontend/src/components/chat/ChatMessages.tsx (new)
+    - Scrollable container with auto-scroll to bottom
+    - Loading spinner state
+    - Empty state with welcome message and suggestions
+    - MessageBubble helper for user/assistant messages
+    - SuggestionChip helper for clickable suggestions
+    - Streaming content with typing cursor
+  - frontend/src/components/chat/ChatWindow.tsx (uses ChatMessages)
+  - frontend/src/components/chat/index.ts (added export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Use useRef + scrollIntoView for auto-scroll behavior
+  - User messages: bg-[#E8A0BF] text-white rounded-br-md
+  - Assistant messages: bg-[#F5F3F0] rounded-bl-md
+  - Streaming cursor: inline-block w-2 h-4 animate-pulse
+---
+
+## 2026-02-02 04:30 EST - US-023: Create ChatMessage component
+- **Subagents used**:
+  - None needed - straightforward extraction and enhancement
+- **What was implemented**: ChatMessage with markdown rendering
+- **Files changed**:
+  - frontend/src/components/chat/ChatMessage.tsx (new)
+    - Role-based styling (user pink, assistant gray)
+    - Simple markdown rendering (bold, italic, code, lists)
+    - Timestamp on hover using useState
+    - Streaming typing indicator
+  - frontend/src/components/chat/ChatMessages.tsx (uses ChatMessage)
+  - frontend/src/components/chat/index.ts (added export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Use useState for hover-based visibility (showTimestamp)
+  - Simple markdown: split by regex patterns like /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g
+  - For production, consider react-markdown package
+---
+
+## 2026-02-02 04:45 EST - US-024: Create ChatInput component
+- **Subagents used**:
+  - None needed - straightforward component
+- **What was implemented**: ChatInput with textarea and send button
+- **Files changed**:
+  - frontend/src/components/chat/ChatInput.tsx (new)
+    - Textarea with auto-resize (max 120px)
+    - Enter sends, Shift+Enter for newline
+    - onSendMessage callback for API integration
+    - Disabled state during streaming
+  - frontend/src/components/chat/ChatWindow.tsx (uses ChatInput)
+  - frontend/src/components/chat/index.ts (added export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Use textarea not input for multiline support
+  - Auto-resize: set height to auto then scrollHeight on change
+  - Enter without Shift: e.preventDefault() then submit
+---
+
+## 2026-02-02 05:00 EST - US-025: Create ChatSuggestions component
+- **Subagents used**:
+  - None needed - straightforward extraction
+- **What was implemented**: ChatSuggestions with 6 default suggestion chips
+- **Files changed**:
+  - frontend/src/components/chat/ChatSuggestions.tsx (new)
+    - 6 default nutrition-related suggestions
+    - 2-column grid layout
+    - onSuggestionClick callback for API integration
+  - frontend/src/components/chat/ChatMessages.tsx (uses ChatSuggestions)
+  - frontend/src/components/chat/index.ts (added export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Extract constants like DEFAULT_SUGGESTIONS for easy customization
+  - active:scale-[0.98] gives subtle click feedback
+---
+
+## 2026-02-02 05:15 EST - US-026: Create streaming message handler
+- **Subagents used**:
+  - None needed - integration of existing patterns
+- **What was implemented**: useChatStreaming hook for API-store integration
+- **Files changed**:
+  - frontend/src/lib/api/streaming.ts (new)
+    - useChatStreaming hook with sendMessage function
+    - Auto-creates conversation if none selected
+    - Integrates useSendMessageMutation with Zustand store
+    - Tracks accumulated content with useRef for finalizeStreaming
+  - frontend/src/lib/api/index.ts (added export)
+  - frontend/src/components/chat/ChatWindow.tsx (uses useChatStreaming)
+  - frontend/src/components/chat/ChatMessages.tsx (added onSuggestionClick prop)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Use useRef to accumulate streaming content (avoids closure stale state)
+  - React Query mutation + Zustand store integration via callback props
+  - Pass sendMessage down through props for both ChatInput and ChatSuggestions
+---
+
+## 2026-02-02 05:30 EST - US-027: Add ChatWidget to dashboard layout
+- **Subagents used**:
+  - None needed - simple integration
+- **What was implemented**: ChatWidget in dashboard layout
+- **Files changed**:
+  - frontend/src/app/(dashboard)/layout.tsx
+    - Import ChatWidget from @/components/chat
+    - Render as sibling to main content div (inside outermost div)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Fixed position widgets should be rendered at layout level for all pages
+  - Position outside main content div to avoid z-index conflicts
+---
+
+## 2026-02-02 05:45 EST - US-028: Style chat components with design system
+- **Subagents used**:
+  - reviewer: Analyzed all chat components for styling compliance
+- **What was implemented**: Message fade-in animation
+- **Already implemented (verified)**:
+  - Dark mode support (all components have dark: variants)
+  - Brand colors (#E8A0BF, #D88FAE, border colors)
+  - Consistent border radius (rounded-2xl), shadows (shadow-xl), spacing (px-4 py-3)
+  - Mobile responsive (fixed inset-0 for full-screen on mobile)
+  - Loading spinner state in ChatMessages
+  - Smooth animations for open/close (scale, opacity, duration-300)
+- **Files changed**:
+  - frontend/src/app/globals.css (added @keyframes fade-in and .animate-fade-in)
+  - frontend/src/components/chat/ChatMessage.tsx (added animate-fade-in class)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Define custom animations in globals.css since tailwindcss-animate not installed
+  - translateY(8px) to translateY(0) creates subtle slide-up effect
+  - Use animation: ... forwards to preserve final state
+---
+
+## 2026-02-02 06:00 EST - US-029: Add unit tests for ToolExecutor
+- **Subagents used**:
+  - None needed - followed existing test patterns
+- **What was implemented**: Unit tests for ToolExecutor class
+- **Files changed**:
+  - backend/tests/test_tool_executor.py (new)
+    - TestParseDate: Valid parsing, invalid formats, invalid values (3 tests)
+    - TestDateToDatetimeRange: Single day, multi-day ranges (2 tests)
+    - TestExecute: Unknown tool, invalid date, missing args (3 async tests)
+    - TestToolHandlerMapping: All tools have handlers, count = 9 (2 tests)
+    - TestInterpretComparison: Positive/negative diffs, negligible, empty, max 5 (5 tests)
+    - TestToolExecutorInit: Initialization, user isolation (2 tests)
+    - TestToolExecutionError: Can raise, is Exception subclass (2 tests)
+    - Total: 19 tests
+- **Verification**: ruff ✓ | pytest 125 passed (19 new) ✓
+- **Learnings for future iterations**:
+  - Use None db for tests that don't need database queries
+  - Async tests need @pytest.mark.asyncio decorator
+  - Test error return values instead of exceptions (execute() catches and returns dict)
+---
+
+## 2026-02-02 06:15 EST - US-030: Add integration tests for chat flow
+- **Subagents used**:
+  - None needed - followed existing test patterns
+- **What was implemented**: Integration tests for chat service and flow
+- **Files changed**:
+  - backend/tests/test_chat_service.py (new)
+    - TestRateLimit: get_daily_message_count, check_rate_limit at/over limit (5 tests)
+    - TestRateLimitExceededError: error message, exception subclass (2 tests)
+    - TestConversationModel: creation with/without title (2 tests)
+    - TestMessageModel: creation, all roles, tool_calls, tool_call_id (4 tests)
+    - TestMessageRole: role values, role count (2 tests)
+    - TestChatServiceIntegration: initialization, rate limit checked (2 tests)
+    - TestStreamingResponse: SSE format for content/done/error (3 tests)
+    - Total: 20 tests
+- **Verification**: ruff ✓ | pytest 145 passed (20 new) ✓
+- **Learnings for future iterations**:
+  - Use AsyncMock for async db session mocking
+  - MagicMock().scalar.return_value for scalar query results
+  - Test SSE format: "data: {json}\n\n" with JSON parsing verification
+  - Mock OpenAI client with patch("src.services.chat.chat_service.AsyncOpenAI")
+---
+
+## FEATURE COMPLETE: Nutrition Chat Agent
+
+All 30 user stories completed successfully:
+- US-001 to US-005: ExerciseLog model, migration, sync, schemas, React Query hooks
+- US-006 to US-008: Conversation/Message models, migration, OpenAI config
+- US-009 to US-013: Chat agent tools, prompts, ToolExecutor, ChatService, rate limiting
+- US-014 to US-016: Chat API schemas, router with streaming, React Query hooks
+- US-017 to US-028: Zustand store, all UI components (ChatWidget, ChatButton, ChatWindow, ChatHeader, ChatMessages, ChatMessage, ChatInput, ChatSuggestions), streaming handler, layout integration, design system styling
+- US-029 to US-030: Unit and integration tests
+
+**Final verification**: npm run build ✓ | uv run ruff check ✓ | uv run pytest (145 tests passed) ✓
+---
