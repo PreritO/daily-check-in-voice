@@ -1174,3 +1174,100 @@ All chart visualization stories for the Cronometer integration are now complete:
 
 All charts now display real data instead of "Coming Soon" placeholders.
 ---
+
+## 2026-02-01 - US-059: Fix nutrient dropdown mapping to Cronometer data
+- **Subagents used**:
+  - architect: Not needed - straightforward mapping implementation
+  - specialist: Not needed - direct implementation
+  - simplifier: Not needed
+  - reviewer: Not needed
+- **What was implemented**:
+  - Added comprehensive `friendly_to_cronometer` mapping in backend timeline endpoint
+    - Maps 50+ friendly keys (fiber, vitamin_a, etc.) to Cronometer raw_data keys
+    - Supports macros, vitamins, minerals, fatty acids, amino acids
+  - Updated frontend NUTRIENT_OPTIONS to remove unsupported nutrients
+    - Removed vitamin_b7 (Biotin) and chromium (not in Cronometer's TRACKED_NUTRIENTS)
+    - Added net_carbs, reorganized categories (new Fatty Acids category)
+  - Fixed getNutrientUnit function with correct units
+    - Vitamin D uses IU (not μg) per Cronometer format
+    - Water uses grams (not liters) per Cronometer format
+  - Timeline endpoint logic updated to use the mapping chain:
+    friendly key → friendly_to_cronometer → raw_data
+- **Files changed**:
+  - backend/src/api/routes/cronometer.py (added 70+ lines of mapping)
+  - frontend/src/app/(dashboard)/insights/page.tsx (updated NUTRIENT_OPTIONS and getNutrientUnit)
+- **Verification**: ruff ✓ | pytest 107 passed ✓ | npm build ✓
+- **Learnings for future iterations**:
+  - Cronometer uses specific key formats with units in parentheses: "Fiber (g)", "Vitamin C (mg)"
+  - Some nutrients like Biotin (B7) and Chromium are not in Cronometer's standard export
+  - Vitamin D is tracked in IU, not μg
+  - Water is tracked in grams, not liters
+---
+
+## 2026-02-01 - US-060: Remove time window slider from Time Series Chart
+- **Subagents used**: None (straightforward implementation)
+- **What was implemented**:
+  - Removed Brush component import from Recharts
+  - Removed showBrush prop from TimeSeriesChartProps interface
+  - Removed showBrush parameter from function signature
+  - Removed Brush component rendering logic
+  - Updated component JSDoc to reflect removal of brush feature
+  - Removed showBrush prop usage in insights page
+- **Files changed**:
+  - frontend/src/components/charts/TimeSeriesChart.tsx
+  - frontend/src/app/(dashboard)/insights/page.tsx
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - Brush component in Recharts provides zoom/pan but can confuse users about date alignment
+  - Simpler charts often provide better UX than feature-rich ones
+---
+
+## 2026-02-01 - US-061: Add food log modal to Calendar Heatmap day clicks
+- **Subagents used**: None (straightforward implementation)
+- **What was implemented**:
+  - Created FoodLogModal component at frontend/src/components/insights/FoodLogModal.tsx
+    - Modal shows when clicking a day cell in CalendarHeatmap
+    - Header displays selected date and Bristol score badges with color coding
+    - Two sections: "Day Before" and "Selected Day" food logs
+    - Each food item shows: name, serving size, time logged, calories, fiber, protein
+    - Foods sorted by time logged ascending
+    - useFoodLogsQuery hook fetches food logs for both days
+    - Loading spinner while fetching
+    - Error state if fetch fails
+    - Empty state if no food logs
+    - Accessible modal (role="dialog", aria-modal, aria-labelledby)
+    - Closes on backdrop click or close button
+  - Exported FoodLogModal from frontend/src/components/insights/index.ts
+  - Added foodLogModalData state to VisualizationsTab
+  - Wired CalendarHeatmap onDayClick to open modal with day data
+  - Rendered FoodLogModal when foodLogModalData is set
+- **Files changed**:
+  - frontend/src/components/insights/FoodLogModal.tsx (new, 251 lines)
+  - frontend/src/components/insights/index.ts (added export)
+  - frontend/src/app/(dashboard)/insights/page.tsx (added state and modal)
+- **Verification**: npm build ✓
+- **Learnings for future iterations**:
+  - FoodLog has nullable fields - always check before formatting
+  - Use subDays from date-fns to get the day before
+  - Modal should explain the 12-72 hour digestion time context
+---
+
+## ALL USER STORIES COMPLETE
+All 61 user stories for the Cronometer integration feature are now complete:
+- US-001 to US-007: Models, migrations, encryption utilities
+- US-008 to US-012: CronometerSyncService
+- US-013 to US-016: Cronometer API endpoints
+- US-017 to US-024: InsightsService and unit tests
+- US-025 to US-033: Frontend Insights page basics
+- US-034 to US-042e: Chart visualizations
+- US-043 to US-048: Granger causality and controlled comparison
+- US-049 to US-051: Intervention tracking
+- US-052 to US-055: Food-level correlation
+- US-056 to US-058: Personal optimal ranges
+- US-059: Fix nutrient dropdown mapping
+- US-060: Remove time window slider
+- US-061: Add food log modal to calendar
+
+Total tests: 107
+All ruff checks passing.
+All npm builds passing.

@@ -1013,7 +1013,7 @@
         "npm run build passes and uv run ruff check passes"
       ],
       "priority": 59,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-060",
@@ -1029,7 +1029,7 @@
         "npm run build passes"
       ],
       "priority": 60,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-061",
@@ -1049,7 +1049,7 @@
         "npm run build passes"
       ],
       "priority": 61,
-      "passes": false
+      "passes": true
     }
   ]
 }
