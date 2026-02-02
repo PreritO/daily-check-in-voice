@@ -421,6 +421,7 @@ class SyncResponse(BaseModel):
     food_logs_synced: int = Field(..., ge=0, description="Number of food logs synced")
     biometric_logs_synced: int = Field(..., ge=0, description="Number of biometric logs synced")
     health_notes_synced: int = Field(..., ge=0, description="Number of health notes synced")
+    exercises_synced: int = Field(..., ge=0, description="Number of exercises synced")
     synced_at: datetime = Field(..., description="Timestamp of sync completion")
 
 
@@ -457,6 +458,20 @@ class HealthNoteResponse(BaseModel):
     is_bowel_movement: bool
     bristol_scale: int | None
     quantity_score: int | None
+    created_at: datetime
+
+
+class ExerciseLogResponse(BaseModel):
+    """Schema for reading exercise log data."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    logged_at: datetime
+    name: str
+    duration_minutes: float | None
+    calories_burned: float | None
     created_at: datetime
 
 
