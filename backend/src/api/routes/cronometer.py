@@ -468,6 +468,78 @@ async def get_timeline(
         "sodium_mg": "sodium_mg",
     }
 
+    # Mapping from friendly keys to Cronometer raw_data keys
+    # These are the keys that Cronometer uses in the raw_data JSON
+    friendly_to_cronometer: dict[str, str] = {
+        # Macronutrients
+        "calories": "Energy (kcal)",
+        "protein": "Protein (g)",
+        "carbs": "Carbs (g)",
+        "fat": "Fat (g)",
+        "fiber": "Fiber (g)",
+        "sugar": "Sugars (g)",
+        "saturated_fat": "Saturated (g)",
+        "monounsaturated_fat": "Monounsaturated (g)",
+        "polyunsaturated_fat": "Polyunsaturated (g)",
+        "trans_fat": "Trans-Fats (g)",
+        "cholesterol": "Cholesterol (mg)",
+        "net_carbs": "Net Carbs (g)",
+        "starch": "Starch (g)",
+        "added_sugar": "Added Sugars (g)",
+        # Fatty Acids
+        "omega_3": "Omega-3 (g)",
+        "omega_6": "Omega-6 (g)",
+        # Sugars breakdown
+        "fructose": "Fructose (g)",
+        "galactose": "Galactose (g)",
+        "glucose": "Glucose (g)",
+        "lactose": "Lactose (g)",
+        "maltose": "Maltose (g)",
+        "sucrose": "Sucrose (g)",
+        # Minerals
+        "sodium": "Sodium (mg)",
+        "potassium": "Potassium (mg)",
+        "calcium": "Calcium (mg)",
+        "magnesium": "Magnesium (mg)",
+        "iron": "Iron (mg)",
+        "zinc": "Zinc (mg)",
+        "copper": "Copper (mg)",
+        "manganese": "Manganese (mg)",
+        "selenium": "Selenium (µg)",
+        "phosphorus": "Phosphorus (mg)",
+        # Fat-Soluble Vitamins
+        "vitamin_a": "Vitamin A (µg)",
+        "vitamin_d": "Vitamin D (IU)",
+        "vitamin_e": "Vitamin E (mg)",
+        "vitamin_k": "Vitamin K (µg)",
+        # Water-Soluble Vitamins
+        "vitamin_c": "Vitamin C (mg)",
+        "vitamin_b1": "B1 (Thiamine) (mg)",
+        "vitamin_b2": "B2 (Riboflavin) (mg)",
+        "vitamin_b3": "B3 (Niacin) (mg)",
+        "vitamin_b5": "B5 (Pantothenic Acid) (mg)",
+        "vitamin_b6": "B6 (Pyridoxine) (mg)",
+        "vitamin_b12": "B12 (Cobalamin) (µg)",
+        "folate": "Folate (µg)",
+        "vitamin_b9": "Folate (µg)",  # Alias for folate
+        # Amino Acids
+        "tryptophan": "Tryptophan (g)",
+        "threonine": "Threonine (g)",
+        "isoleucine": "Isoleucine (g)",
+        "leucine": "Leucine (g)",
+        "lysine": "Lysine (g)",
+        "methionine": "Methionine (g)",
+        "cystine": "Cystine (g)",
+        "phenylalanine": "Phenylalanine (g)",
+        "tyrosine": "Tyrosine (g)",
+        "valine": "Valine (g)",
+        "histidine": "Histidine (g)",
+        # Other
+        "caffeine": "Caffeine (mg)",
+        "alcohol": "Alcohol (g)",
+        "water": "Water (g)",
+    }
+
     # Group food logs by date and aggregate nutrients
     daily_nutrients: dict[date, dict[str, float]] = {}
     for log in food_logs:
@@ -484,7 +556,16 @@ async def get_timeline(
                 field_value = getattr(log, field_name, None)
                 if field_value is not None:
                     value = float(field_value)
-            # Otherwise, try to get from raw_data
+            # Next, try the friendly-to-cronometer mapping
+            elif nutrient_key in friendly_to_cronometer and log.raw_data:
+                cronometer_key = friendly_to_cronometer[nutrient_key]
+                raw_value = log.raw_data.get(cronometer_key)
+                if raw_value is not None:
+                    try:
+                        value = float(raw_value)
+                    except (ValueError, TypeError):
+                        value = 0.0
+            # Finally, try direct raw_data key (for backwards compatibility)
             elif log.raw_data:
                 raw_value = log.raw_data.get(nutrient_key)
                 if raw_value is not None:
