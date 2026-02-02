@@ -5,6 +5,7 @@ from .base import Base
 from .biometric_log import BiometricLog
 from .call import Call, CallDirection, CallStatus
 from .cronometer_credential import CronometerCredential
+from .exercise_log import ExerciseLog
 from .food_log import FoodLog
 from .health_note import HealthNote
 from .intervention import Intervention, InterventionStatus
@@ -28,6 +29,7 @@ __all__ = [
     "CommunicationStyle",
     "ConversationMemory",
     "CronometerCredential",
+    "ExerciseLog",
     "FoodLog",
     "HealthNote",
     "Intervention",
