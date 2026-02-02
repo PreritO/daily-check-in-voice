@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { ThemeToggleCompact } from "@/components/ThemeToggle";
+import { ChatWidget } from "@/components/chat";
 
 interface NavItem {
   href: string;
@@ -309,6 +310,9 @@ export default function DashboardLayout({
         {/* Scrollable content */}
         <main className="flex-1 overflow-y-auto p-8">{children}</main>
       </div>
+
+      {/* Chat Widget - appears on all dashboard pages */}
+      <ChatWidget />
     </div>
   );
 }

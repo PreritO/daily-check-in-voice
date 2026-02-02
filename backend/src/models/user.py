@@ -13,7 +13,9 @@ if TYPE_CHECKING:
     from .alert import Alert
     from .biometric_log import BiometricLog
     from .call import Call
+    from .conversation import Conversation
     from .cronometer_credential import CronometerCredential
+    from .exercise_log import ExerciseLog
     from .food_log import FoodLog
     from .health_note import HealthNote
     from .intervention import Intervention
@@ -74,6 +76,11 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    conversations: Mapped[list["Conversation"]] = relationship(
+        "Conversation",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
     schedules: Mapped[list["Schedule"]] = relationship(
         "Schedule",
         back_populates="user",
@@ -99,6 +106,11 @@ class User(Base):
         "CronometerCredential",
         back_populates="user",
         uselist=False,
+        cascade="all, delete-orphan",
+    )
+    exercise_logs: Mapped[list["ExerciseLog"]] = relationship(
+        "ExerciseLog",
+        back_populates="user",
         cascade="all, delete-orphan",
     )
     food_logs: Mapped[list["FoodLog"]] = relationship(

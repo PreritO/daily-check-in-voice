@@ -1,1273 +1,674 @@
 # Ralph Progress Log
-Started: Fri Jan 30 18:46:58 EST 2026
+Started: Sun Feb  1 22:15:10 EST 2026
 ---
 
 ## Codebase Patterns
-- Dependencies in pyproject.toml use `>=` version constraints (not `~=`) for most packages
-- Dependencies are listed alphabetically in pyproject.toml
-- Use `uv run` to execute commands in the project's venv (not the system Python)
-- Backend models go in `backend/src/models/` and must be exported in `__init__.py`
+
+### SQLAlchemy Model Patterns
+- Base class: `from .base import Base` using SQLAlchemy 2.0+ DeclarativeBase
+- Use `Mapped[]` type hints with `mapped_column()`
+- UUID primary key: `server_default=func.gen_random_uuid()`
+- Foreign keys: `ForeignKey("table.id", ondelete="CASCADE")` with `index=True`
+- DateTime: `DateTime(timezone=True)` with `server_default=func.now()` for created_at
+- JSONB: Use `JSON` type, maps to JSONB in PostgreSQL
+- Use TYPE_CHECKING guard for relationship type imports
+- Export models in `__init__.py` alphabetically
+
+### Relationship Patterns
+- Child side: `relationship("Parent", back_populates="children")`
+- Parent side: `relationship("Child", back_populates="parent", cascade="all, delete-orphan")`
+- Use string references to avoid circular imports
 
 ---
 
-## 2026-01-30 - US-001: Add pycronometer and analysis dependencies
+## 2026-02-01 22:15 EST - US-001: Create ExerciseLog model
 - **Subagents used**:
-  - architect: Analyzed dependency patterns (>=, alphabetical ordering, main vs dev deps)
-  - specialist: Not needed (simple pyproject.toml edit)
-  - simplifier: Not needed
-  - reviewer: Verified all acceptance criteria met, noted git URL without pinned commit is acceptable
-- **What was implemented**: Added 4 new dependencies to backend/pyproject.toml
-  - pycronometer @ git+https://github.com/PreritO/pycronometer.git
-  - cryptography>=44.0.0
-  - numpy>=1.26.0
-  - scipy>=1.11.0
-- **Files changed**: backend/pyproject.toml, backend/uv.lock
-- **Verification**: ruff ✓ | pytest 81 passed ✓ | uv sync ✓
-- **Installed versions**: numpy 2.4.1, scipy 1.17.0, cryptography 46.0.4, pycronometer 0.1.0
-- **Learnings for future iterations**:
-  - Use `uv run python -c "import X; print(X.__version__)"` to verify package versions in venv
-  - `uv pip list` may show system packages, not venv packages
----
-
-## 2026-01-30 - US-002: Create CronometerCredential model
-- **Subagents used**:
-  - architect: Analyzed existing model patterns (UUID PK, FK with CASCADE, created_at/updated_at, TYPE_CHECKING imports, UserPreferences one-to-one pattern)
-  - specialist: backend - created model and updated User relationship
-  - simplifier: Not needed
-  - reviewer: Noted redundant index=True (fixed), migration/encryption deferred to later stories
-- **What was implemented**: CronometerCredential SQLAlchemy model with:
-  - UUID primary key with server_default gen_random_uuid()
-  - user_id FK with unique constraint, CASCADE delete
-  - encrypted_email, encrypted_password (Text)
-  - last_sync_at (nullable datetime)
-  - created_at, updated_at timestamps
-  - Bidirectional one-to-one relationship with User model
+  - architect: Analyzed existing model patterns from FoodLog, BiometricLog, User
+  - backend: Created ExerciseLog model following established patterns
+  - reviewer: Verified all acceptance criteria met (migration is separate US-002)
+- **What was implemented**: SQLAlchemy ExerciseLog model for storing Cronometer exercise data
 - **Files changed**:
-  - backend/src/models/cronometer_credential.py (new)
-  - backend/src/models/user.py (added relationship)
+  - backend/src/models/exercise_log.py (new)
   - backend/src/models/__init__.py (added export)
-- **Verification**: ruff ✓ | pytest 81 passed ✓
-- **Learnings for future iterations**:
-  - unique=True already creates an index, no need for index=True
-  - One-to-one relationships use uselist=False on parent side
-  - Use TYPE_CHECKING imports to avoid circular dependencies
----
-
-## 2026-01-30 - US-003: Create FoodLog model
-- **Subagents used**:
-  - architect: Analyzed existing model patterns (Float columns, JSON fields, one-to-many FK)
-  - specialist: backend - implemented via direct file creation
-  - simplifier: Not needed
-  - reviewer: Noted missing updated_at (not in acceptance criteria), migration deferred to US-006
-- **What was implemented**: FoodLog SQLAlchemy model with:
-  - UUID primary key
-  - user_id FK with index, CASCADE delete
-  - logged_at (indexed for date range queries)
-  - food_name, serving_size, food_group (nullable)
-  - Nutritional Float fields (calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg)
-  - raw_data (JSON - maps to JSONB on PostgreSQL, compatible with SQLite tests)
-  - cronometer_hash (unique + indexed for deduplication)
-  - created_at timestamp
-- **Files changed**:
-  - backend/src/models/food_log.py (new)
-  - backend/src/models/user.py (added food_logs relationship)
-  - backend/src/models/__init__.py (added export)
-- **Verification**: ruff ✓ | pytest 81 passed ✓
-- **Learnings for future iterations**:
-  - Use JSON from sqlalchemy core instead of JSONB from postgresql dialect for SQLite test compatibility
-  - JSON maps to JSONB on PostgreSQL anyway
-  - One-to-many relationships use list[] type hint on parent, no uselist needed
----
-
-## 2026-01-30 - US-004: Create BiometricLog model
-- **Subagents used**:
-  - architect: Skipped - patterns already known from US-003
-  - specialist: backend - implemented via direct file creation
-  - simplifier: Not needed
-  - reviewer: Skipped - straightforward model following established patterns
-- **What was implemented**: BiometricLog SQLAlchemy model with:
-  - UUID primary key
-  - user_id FK with index, CASCADE delete
-  - logged_at (indexed datetime)
-  - metric_type (String for 'weight', 'body_fat', etc.)
-  - value (Float), unit (String)
-  - raw_data (JSON)
-  - cronometer_hash (unique for deduplication)
-  - created_at timestamp
-- **Files changed**:
-  - backend/src/models/biometric_log.py (new)
-  - backend/src/models/user.py (added biometric_logs relationship)
-  - backend/src/models/__init__.py (added export)
-- **Verification**: ruff ✓ | pytest 81 passed ✓
----
-
-## 2026-01-30 - US-005: Create HealthNote model
-- **Subagents used**:
-  - architect: Skipped - patterns already known
-  - specialist: backend - direct file creation
-  - simplifier: Not needed
-  - reviewer: Skipped - straightforward model
-- **What was implemented**: HealthNote SQLAlchemy model with:
-  - UUID primary key
-  - user_id FK with index, CASCADE delete
-  - logged_at (indexed datetime)
-  - content (Text for note)
-  - is_bowel_movement (Boolean, defaults to False)
-  - bristol_scale, quantity_score (nullable Integers for BM parsing)
-  - raw_data (JSON)
-  - cronometer_hash (unique for deduplication)
-  - created_at timestamp
-- **Files changed**:
-  - backend/src/models/health_note.py (new)
-  - backend/src/models/user.py (added health_notes relationship)
-  - backend/src/models/__init__.py (added export)
-- **Verification**: ruff ✓ | pytest 81 passed ✓
----
-
-## 2026-01-30 - US-006: Create Alembic migration for Cronometer tables
-- **Subagents used**:
-  - architect: Skipped - followed existing migration patterns from 007_add_alerts.py
-  - specialist: backend - direct file creation
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**: Alembic migration 010_cronometer creating all 4 tables:
-  - cronometer_credentials (encrypted email/password, unique user_id)
-  - food_logs (nutritional data, JSONB raw_data, unique cronometer_hash)
-  - biometric_logs (metric_type, value, unit)
-  - health_notes (content, bowel movement fields)
-- **Files changed**:
-  - backend/alembic/versions/010_add_cronometer_tables.py (new)
-- **Verification**: ruff (src/) ✓ | pytest 81 passed ✓ | migration file syntactically valid ✓
-- **Note**: Cannot verify `alembic upgrade head` without PostgreSQL. Tests use SQLite with Base.metadata.create_all().
----
-
-## 2026-01-30 - US-007: Create encryption utility module
-- **Subagents used**:
-  - architect: Skipped - straightforward utility module
-  - specialist: backend - direct file creation
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - backend/src/utils/encryption.py with encrypt_string and decrypt_string
-  - Uses Fernet from cryptography library
-  - Reads key from CRONOMETER_ENCRYPTION_KEY env var via settings
-  - Added CRONOMETER_ENCRYPTION_KEY to backend/src/config.py
-  - Created backend/src/utils/__init__.py with exports
-- **Files changed**:
-  - backend/src/config.py (added CRONOMETER_ENCRYPTION_KEY)
-  - backend/src/utils/__init__.py (new)
-  - backend/src/utils/encryption.py (new)
-- **Verification**: ruff ✓ | pytest 81 passed ✓ | manual encryption roundtrip test ✓
----
-
-## 2026-01-30 - US-008: Create Cronometer sync service core structure
-- **Subagents used**:
-  - architect: Skipped
-  - specialist: backend - direct file creation
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - CronometerSyncService class with AsyncSession dependency
-  - sync_user(user_id, days_back=7) skeleton returning SyncResult
-  - _get_credentials(user_id) for fetching and decrypting credentials
-  - _generate_hash(data) for SHA256-based deduplication
-  - SyncResult dataclass with sync counts
-  - Package structure: backend/src/integrations/cronometer/
-- **Files changed**:
-  - backend/src/integrations/__init__.py (new)
-  - backend/src/integrations/cronometer/__init__.py (new)
-  - backend/src/integrations/cronometer/sync_service.py (new)
-- **Verification**: ruff ✓ | pytest 81 passed ✓
----
-
-## 2026-01-30 - US-016: Create food logs and health notes read endpoints
-- **Subagents used**:
-  - architect: Skipped - followed existing router patterns
-  - specialist: backend - direct implementation
-  - simplifier: Not needed
-  - reviewer: Skipped - straightforward endpoint implementation
-- **What was implemented**:
-  - GET /food-logs endpoint with start_date and end_date query params
-  - GET /health-notes endpoint with start_date and end_date query params
-  - Both filter by current user's ID
-  - Both order by logged_at descending
-  - Uses FoodLogResponse and HealthNoteResponse schemas
-- **Files changed**:
-  - backend/src/api/routes/cronometer.py (added 2 endpoints)
-- **Verification**: ruff ✓ | pytest 81 passed ✓
----
-
-## 2026-01-30 - US-017: Create InsightsService core structure and types
-- **Subagents used**:
-  - architect: Skipped - followed analytics_service pattern
-  - specialist: backend - direct implementation
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - TimeLagWindow enum with HOURS_12, HOURS_24, HOURS_36, HOURS_48, HOURS_72
-  - CorrelationResult dataclass with all analysis fields
-  - ConsistentCorrelation dataclass for multi-window correlations
-  - MultiLagCorrelationResponse dataclass for complete API response
-  - TRACKED_NUTRIENTS dict (80+ nutrients mapped to friendly names)
-  - NUTRIENT_GROUPS dict grouping nutrients by category (7 categories)
-  - InsightsService class with analyze_correlations skeleton
-  - InsufficientDataError exception class
-- **Files changed**:
-  - backend/src/services/insights_service.py (new)
-  - backend/src/services/__init__.py (added exports)
-- **Verification**: ruff ✓ | pytest 81 passed ✓
----
-
-## 2026-01-30 - US-018: Implement InsightsService nutrient correlation analysis
-- **Subagents used**:
-  - architect: Skipped
-  - specialist: backend - direct implementation
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - _analyze_nutrient_correlations method with full implementation
-  - Uses scipy.stats.pearsonr for Pearson correlation calculation
-  - Aggregates nutrients in time window before each BM event
-  - Median split for high/low intake comparison
-  - Calculates 25th/75th percentile thresholds
-  - Sets is_significant based on p < 0.05
-  - Sorts results by absolute correlation strength
-  - Added numpy and scipy imports
-- **Files changed**:
-  - backend/src/services/insights_service.py (updated)
-- **Verification**: ruff ✓ | pytest 81 passed ✓
----
-
-## 2026-01-30 - US-019: Implement InsightsService consistent correlations and insights
-- **Subagents used**:
-  - architect: Skipped
-  - specialist: backend - direct implementation
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - _find_consistent_correlations method
-    - Tracks significance count per nutrient across all time windows
-    - Calculates average correlation for significant windows
-    - Determines overall direction (positive/negative/mixed)
-    - Sorts by windows_significant then by abs correlation
-  - _generate_insights method
-    - Baseline Bristol context (too hard/loose/healthy)
-    - Top 5 correlation insights with direction and recommendations
-    - Fallback message when no consistent correlations found
-- **Files changed**:
-  - backend/src/services/insights_service.py (updated)
-- **Verification**: ruff ✓ | pytest 81 passed ✓
-- **Learnings for future iterations**:
-  - Ruff B007: use underscore prefix for unused loop variables (_lag_hours)
-  - Ruff F402: avoid shadowing imported names with loop variables
----
-
-## 2026-01-30 - US-020: Complete analyze_correlations method
-- **Subagents used**:
-  - architect: Skipped
-  - specialist: backend - direct implementation
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - Full analyze_correlations implementation
-  - Fetches HealthNotes where is_bowel_movement=True and bristol_scale is not None
-  - Fetches FoodLogs for extended date range (start - max_lag_hours)
-  - Support for analysis_level: basic (macros), standard, comprehensive (all)
-  - Loops through time_lags calling _analyze_nutrient_correlations
-  - Calculates baseline Bristol score using numpy
-  - Raises InsufficientDataError if not enough BM samples
-  - Added imports for FoodLog, HealthNote, select
-- **Files changed**:
-  - backend/src/services/insights_service.py (updated)
-- **Verification**: ruff ✓ | pytest 81 passed ✓
----
-
-## 2026-01-30 - US-021 & US-022: Create correlations API endpoint and Pydantic schemas
-- **Subagents used**:
-  - architect: Skipped
-  - specialist: backend - direct implementation
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - GET /insights/correlations endpoint
-    - Query params: start_date, end_date, time_lags, min_sample_size, analysis_level
-    - Validates time_lags against VALID_TIME_LAGS set
-    - Returns 400 on invalid lags or InsufficientDataError
-    - Converts dataclass to Pydantic response
-  - Pydantic schemas in schemas.py:
-    - CorrelationResultSchema
-    - ConsistentCorrelationSchema
-    - MultiLagCorrelationResponseSchema
-- **Files changed**:
-  - backend/src/api/routes/cronometer.py (added endpoint)
-  - backend/src/api/schemas.py (added 3 schemas)
-- **Verification**: ruff ✓ | pytest 81 passed ✓
----
-
-## 2026-01-30 - US-023: Add unit tests for bowel movement parsing
-- **Subagents used**:
-  - architect: Skipped
-  - specialist: backend - direct implementation (tests)
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - TestParseBowelMovement class with 12 test methods:
-    - Standard format, Bristol only, quantity only
-    - Non-BM note, case insensitivity (both keywords)
-    - Various format variations
-    - BM abbreviation not in words
-    - Empty content, BM without scores, multiple numbers
-- **Files changed**:
-  - backend/tests/test_sync_service.py (new, 12 tests)
-- **Verification**: ruff ✓ | pytest 93 passed ✓
----
-
-## 2026-01-30 - US-024: Add unit tests for correlation analysis
-- **Subagents used**:
-  - architect: Skipped
-  - specialist: backend - direct implementation (tests)
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - TestAnalyzeNutrientCorrelations (6 tests):
-    - Positive/negative correlation detection
-    - No correlation handling
-    - High/low intake comparison
-    - Insufficient data
-    - Multiple nutrients
-  - TestFindConsistentCorrelations (3 tests):
-    - Consistent across windows
-    - Not consistent exclusion
-    - Mixed direction detection
-  - TestGenerateInsights (5 tests):
-    - Baseline too hard/loose/healthy
-    - Correlation insights
-    - No correlations fallback
-- **Files changed**:
-  - backend/tests/test_insights_service.py (new, 14 tests)
+  - backend/src/models/user.py (added exercise_logs relationship)
 - **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Follow FoodLog as the template for Cronometer data models
+  - cronometer_hash field uses String(64) for SHA-256 hashes
+  - Always add CASCADE delete on foreign keys for user-owned data
 ---
 
-## 2026-01-31 - US-025: Create Cronometer API hooks
+## 2026-02-01 22:20 EST - US-002: Create Alembic migration for exercise_logs table
 - **Subagents used**:
-  - architect: Analyzed frontend API patterns (calls.ts, query keys, hook naming)
-  - specialist: frontend - implemented cronometer.ts with all hooks
-  - simplifier: Not needed
-  - reviewer: Verified all acceptance criteria, found minor redundant invalidation (fixed)
-- **What was implemented**:
-  - TypeScript types for all Cronometer API schemas (CredentialStatus, SyncResponse, FoodLog, HealthNote, CorrelationResult, etc.)
-  - API functions for all endpoints (getCredentialStatus, saveCredentials, deleteCredentials, syncCronometer, getFoodLogs, getHealthNotes, getCorrelations)
-  - React Query hooks:
-    - useCronometerStatusQuery()
-    - useSaveCronometerCredentialsMutation()
-    - useDeleteCronometerCredentialsMutation()
-    - useSyncCronometerMutation()
-    - useFoodLogsQuery()
-    - useHealthNotesQuery()
-    - useCorrelationsQuery()
-  - Query key factory (cronometerKeys) for cache management
-  - Proper cache invalidation on mutations
+  - architect: Analyzed existing migration patterns (010_add_cronometer_tables, 012_add_interventions)
+  - backend: Created migration file following established patterns
+  - reviewer: Verified all columns, indexes, and FK constraints correct
+- **What was implemented**: Alembic migration 013_add_exercise_logs.py
 - **Files changed**:
-  - frontend/src/lib/api/cronometer.ts (new, 265 lines)
+  - backend/alembic/versions/013_add_exercise_logs.py (new)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Migration file naming: `{number}_{descriptive_name}.py`
+  - Revision ID pattern: `{number}_{short_name}` (e.g., "013_exercise_logs")
+  - Import ordering: need blank line between `sqlalchemy` and `alembic` imports for ruff
+  - Use `op.f()` wrapper for index names to ensure consistent naming convention
+  - Always use `DateTime(timezone=True)` for timestamp columns
+---
+
+## 2026-02-01 22:30 EST - US-003: Update sync service to import exercises
+- **Subagents used**:
+  - architect: Analyzed existing upsert patterns from _upsert_food_logs, identified all required changes
+  - backend: Implemented _upsert_exercise_logs and all sync_user updates
+  - reviewer: Verified all acceptance criteria met, found minor docstring update needed
+- **What was implemented**: Exercise sync functionality in CronometerSyncService
+- **Files changed**:
+  - backend/src/integrations/cronometer/sync_service.py (modified)
+    - Added Exercise import from pycronometer
+    - Added ExerciseLog to model imports
+    - Added exercises_synced to SyncResult dataclass
+    - Added _upsert_exercise_logs method with hash-based deduplication
+    - Added exercise_logs case to _get_existing_hashes
+    - Updated sync_user to call get_exercises and _upsert_exercise_logs
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Sync service is at backend/src/integrations/cronometer/ not backend/src/services/
+  - Follow _upsert_food_logs exactly for new upsert methods
+  - Remember to update _get_existing_hashes docstring when adding new table support
+  - Verify pycronometer has the required class/method before implementing (Exercise, get_exercises)
+---
+
+## 2026-02-01 22:45 EST - US-004: Create exercise Pydantic schemas and API endpoint
+- **Subagents used**:
+  - architect: Analyzed existing schema and router patterns (FoodLogResponse, HealthNoteResponse, get_food_logs)
+  - reviewer: Verified all acceptance criteria met, no critical/major issues
+- **What was implemented**: ExerciseLogResponse schema and GET /exercises endpoint
+- **Files changed**:
+  - backend/src/api/schemas.py (modified)
+    - Added ExerciseLogResponse schema after HealthNoteResponse
+    - Updated SyncResponse to include exercises_synced field
+  - backend/src/api/routes/cronometer.py (modified)
+    - Added ExerciseLogResponse and ExerciseLog to imports
+    - Added get_exercises endpoint with start_date/end_date params
+    - Updated /sync endpoint to include exercises_synced in response and logger
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Response schemas go in backend/src/api/schemas.py grouped by domain
+  - Follow get_food_logs exactly for new cronometer data retrieval endpoints
+  - Use datetime.combine for date to datetime conversion in queries
+  - Don't include internal fields like cronometer_hash in response schemas
+---
+
+## 2026-02-01 23:00 EST - US-005: Add useExerciseLogsQuery React Query hook
+- **Subagents used**:
+  - architect: Analyzed existing React Query patterns (useFoodLogsQuery, useHealthNotesQuery, cronometerKeys)
+  - reviewer: Verified all acceptance criteria met, approved implementation
+- **What was implemented**: React Query hook for fetching exercise logs from API
+- **Files changed**:
+  - frontend/src/lib/api/cronometer.ts (modified)
+    - Added ExerciseLog TypeScript interface
+    - Added GetExerciseLogsParams interface and getExerciseLogs function
+    - Added exerciseLogs and exerciseLogsByDate to cronometerKeys
+    - Added useExerciseLogsQuery(startDate, endDate) hook
+    - Updated SyncResponse to include exercises_synced field
+    - Updated useSyncCronometerMutation to invalidate exercise logs cache
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Frontend hooks in frontend/src/lib/api/cronometer.ts follow consistent patterns
+  - Query key factory uses hierarchical structure: all → collection → collectionByParams
+  - Always update SyncResponse and useSyncCronometerMutation when adding new synced data types
+  - TypeScript interfaces use `number | null` for nullable numeric backend fields
+---
+
+## 2026-02-01 23:15 EST - US-006: Create Conversation and Message models
+- **Subagents used**:
+  - architect: Analyzed existing model patterns (Call, ConversationMemory, FoodLog), enum patterns (CallStatus, MemoryType)
+  - backend: Created Conversation and Message models with MessageRole enum
+  - reviewer: Verified all acceptance criteria met, noted migration is separate US-007
+- **What was implemented**: SQLAlchemy models for chat functionality
+- **Files changed**:
+  - backend/src/models/conversation.py (new)
+    - Conversation model with user_id FK, title, created_at, updated_at
+    - Relationships: user (back_populates), messages (one-to-many with cascade)
+  - backend/src/models/message.py (new)
+    - MessageRole enum (user, assistant, system, tool) with native_enum=False
+    - Message model with conversation_id FK, role, content (Text), tool_calls (JSON)
+    - Supports tool_call_id and tokens_used for OpenAI function calling
+  - backend/src/models/user.py (added conversations relationship)
+  - backend/src/models/__init__.py (added exports: Conversation, Message, MessageRole)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Use `native_enum=False` with `length=20` for enum columns (matches CallStatus pattern)
+  - For chat models, `order_by="Message.created_at"` in relationship ensures chronological order
+  - JSON column type works for JSONB in PostgreSQL with asyncpg
+  - Use `Text` type for content field to support long messages
+---
+
+## 2026-02-01 23:30 EST - US-007: Create Alembic migration for chat tables
+- **Subagents used**:
+  - architect: Analyzed existing migration patterns (013_exercise_logs, 012_interventions), identified revision chain
+  - reviewer: Verified all acceptance criteria, noted JSON vs JSONB and native_enum conventions
+- **What was implemented**: Alembic migration 014_add_conversations.py for chat tables
+- **Files changed**:
+  - backend/alembic/versions/014_add_conversations.py (new)
+    - Creates conversations table with user_id FK, title, timestamps
+    - Creates messages table with conversation_id FK, role enum, content, tool_calls
+    - Indexes on user_id and conversation_id
+    - CASCADE delete on all foreign keys
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Use `sa.JSON()` for JSON columns (codebase convention, works with PostgreSQL)
+  - Use `native_enum=False` for enum columns (matches codebase convention)
+  - Create dependent tables in order: parent first, then child (conversations → messages)
+  - Downgrade must drop in reverse order: child first (messages → conversations)
+  - Enum values in migration are lowercase strings matching Python enum .value
+---
+
+## 2026-02-01 23:45 EST - US-008: Add OpenAI configuration to settings
+- **Subagents used**:
+  - architect: Analyzed existing config.py patterns, identified correct placement after Anthropic section
+  - reviewer: Verified all acceptance criteria, suggested adding settings to .env.example
+- **What was implemented**: OpenAI and chat agent configuration settings
+- **Files changed**:
+  - backend/src/config.py (modified)
+    - Added OPENAI_API_KEY and OPENAI_MODEL (default 'gpt-4o-mini')
+    - Added CHAT_RATE_LIMIT_PER_DAY (default 100) and CHAT_MAX_HISTORY_MESSAGES (default 10)
+  - backend/pyproject.toml (modified)
+    - Added openai>=1.0.0 dependency
+  - backend/.env.example (modified)
+    - Documented new OpenAI and chat agent settings
+- **Verification**: ruff ✓ | uv sync ✓
+- **Learnings for future iterations**:
+  - Integer settings need `int(os.getenv(..., "default"))` with string default
+  - Settings are grouped by logical sections with comments
+  - Always update .env.example when adding new environment variables
+  - Keep dependencies alphabetically sorted in pyproject.toml
+---
+
+## 2026-02-02 00:00 EST - US-009: Create agent tools definitions module
+- **Subagents used**:
+  - architect: Analyzed existing models (FoodLog, BiometricLog, HealthNote, ExerciseLog), existing analysis services (InsightsService, FoodCorrelationService), and OpenAI function calling format
+  - reviewer: Verified all 9 tools defined, JSON Schema format correct, descriptions clear and helpful
+- **What was implemented**: OpenAI function calling tool definitions for nutrition chat agent
+- **Files changed**:
+  - backend/src/services/chat/__init__.py (new)
+    - Created chat services directory
+    - Exports AGENT_TOOLS and TOOL_NAMES
+  - backend/src/services/chat/tools.py (new)
+    - 9 tool definitions: get_food_logs, get_daily_nutrition_summary, get_bowel_movements, get_exercises, get_biometrics, get_health_notes, get_trigger_foods, get_nutrient_correlations, compare_days
+    - Each tool uses ChatCompletionToolParam format
+    - AGENT_TOOLS list for OpenAI client
+    - TOOL_NAMES dict for executor dispatch
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Chat services go in backend/src/services/chat/ directory
+  - Use ChatCompletionToolParam from openai.types.chat for type safety
+  - Tool descriptions should include context for the LLM (e.g., Bristol scale meanings)
+  - Use enum types in parameters to constrain LLM choices
+  - Date parameters use YYYY-MM-DD string format, executor parses to Python date
+---
+
+## 2026-02-02 00:15 EST - US-010: Create system prompt module
+- **Subagents used**:
+  - architect: Analyzed existing prompt patterns from standup_agent.py and summary_service.py, reviewed data models
+  - reviewer: Verified all acceptance criteria met, no critical/major issues found
+- **What was implemented**: System prompt module for nutrition chat agent
+- **Files changed**:
+  - backend/src/services/chat/prompts.py (new)
+    - SYSTEM_PROMPT with friendly/conversational tone
+    - BRISTOL_SCALE_REFERENCE constant (1-2 constipation, 3-5 healthy, 6-7 loose)
+    - RESPONSE_GUIDELINES constant for data analysis best practices
+    - build_system_prompt(current_date) function with placeholder injection
+  - backend/src/services/chat/__init__.py (updated exports)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Follow standup_agent.py for prompt structure patterns (BASE_PROMPT + build_system_prompt function)
+  - Separate constants (BRISTOL_SCALE_REFERENCE, RESPONSE_GUIDELINES) for potential reuse
+  - Use format strings with named placeholders ({current_date}) for dynamic injection
+  - System prompts should include: role definition, capabilities, analysis approach, communication style
+---
+
+## 2026-02-02 00:30 EST - US-011: Create ToolExecutor class
+- **Subagents used**:
+  - architect: Analyzed existing patterns from InsightsService, FoodCorrelationService, data models
+  - reviewer: Found date iteration bug and inconsistent return key, both fixed
+- **What was implemented**: ToolExecutor class with all 9 tool execution methods
+- **Files changed**:
+  - backend/src/services/chat/tool_executor.py (new)
+    - ToolExecutor.__init__(db, user_id) with handler mapping
+    - execute(tool_name, args) method with error handling
+    - _get_food_logs with food_group filter and limit cap at 200
+    - _get_daily_nutrition_summary with optional detailed_nutrients from raw_data
+    - _get_bowel_movements with optional notes
+    - _get_exercises with exercise_type ilike filter
+    - _get_biometrics with metric_type filter
+    - _get_health_notes excluding BMs with search_term filter
+    - _get_trigger_foods delegating to FoodCorrelationService
+    - _get_nutrient_correlations delegating to InsightsService
+    - _compare_days with periods and good_vs_bad_days modes
+  - backend/src/services/chat/__init__.py (added ToolExecutor, ToolExecutionError exports)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Use timedelta(days=1) for date iteration, not manual day arithmetic
+  - Delegate complex analysis to existing services (FoodCorrelationService, InsightsService)
+  - Keep return key names consistent between success and error cases
+  - Use _parse_date helper for consistent date parsing
+  - Cap result limits for LLM context (e.g., limit food logs to 200, correlations to 20)
+---
+
+## 2026-02-02 00:45 EST - US-012: Create ChatService with agent loop
+- **Subagents used**:
+  - architect: Analyzed existing patterns from ToolExecutor, prompts.py, OpenAI streaming patterns
+  - backend: Implemented ChatService class with all required methods
+  - reviewer: Found critical bugs (duplicate user message, missing error handling), all fixed
+- **What was implemented**: ChatService with ReAct-style agent loop
+- **Files changed**:
+  - backend/src/services/chat/chat_service.py (new)
+    - ChatService class with __init__(db, user_id)
+    - chat() async generator for streaming responses
+    - _get_or_create_conversation() for conversation management
+    - _get_conversation_history() with limit and chronological ordering
+    - _build_messages() from history (fixed: doesn't duplicate user message)
+    - _agent_loop() with MAX_AGENT_ITERATIONS=5, tool execution via ToolExecutor
+    - _check_rate_limit() counting daily user messages
+    - _save_message() for persisting messages
+    - RateLimitExceededError exception class
+    - OpenAI API error handling (RateLimitError, APIError)
+    - Defensive check for empty choices in stream
+  - backend/src/services/chat/__init__.py (added ChatService, RateLimitExceededError exports)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - When saving user message before fetching history, _build_messages should NOT append it again
+  - Use `content: None` (not empty string) when assistant has only tool_calls
+  - Wrap OpenAI API calls in try/except for RateLimitError and APIError
+  - Check chunk.choices is not empty before accessing choices[0]
+  - Use `from datetime import UTC` instead of timezone.utc (ruff UP017)
+  - Rate limit check uses JOIN with Conversation to ensure user ownership
+---
+
+## 2026-02-02 01:00 EST - US-013: Create rate limiting utility
+- **Subagents used**:
+  - architect: Analyzed existing _check_rate_limit in ChatService, exception patterns (ToolExecutionError, AuthError), config patterns
+  - reviewer: Verified all acceptance criteria, noted race condition is pre-existing design decision, approved implementation
+- **What was implemented**: Dedicated rate_limit.py module with reusable rate limiting functions
+- **Files changed**:
+  - backend/src/services/chat/rate_limit.py (new)
+    - RateLimitExceededError exception class
+    - get_daily_message_count(db, user_id) -> int async function
+    - check_rate_limit(db, user_id) -> bool async function (raises on limit exceeded)
+  - backend/src/services/chat/chat_service.py (modified)
+    - Removed RateLimitExceededError class definition
+    - Removed _check_rate_limit method body, now delegates to rate_limit module
+    - Simplified imports (removed datetime, func)
+  - backend/src/services/chat/__init__.py (modified)
+    - Updated imports to get RateLimitExceededError from rate_limit module
+    - Added check_rate_limit and get_daily_message_count to exports
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Keep exceptions co-located with the functionality that raises them (pattern from ToolExecutionError)
+  - Rate limit query joins Message to Conversation to filter by user_id (Message doesn't have direct user_id)
+  - `check_rate_limit` returns bool but also raises - allows both call patterns
+  - Existing race condition between check and save is acceptable for low-concurrency personal assistant use case
+---
+
+## 2026-02-02 01:15 EST - US-014: Create Pydantic schemas for chat API
+- **Subagents used**:
+  - architect: Analyzed existing schema patterns (ConfigDict, field types, list handling, enum usage)
+  - reviewer: Found critical issue with message_count requiring hybrid_property on Conversation model
+- **What was implemented**: Pydantic schemas for chat API endpoints
+- **Files changed**:
+  - backend/src/api/schemas.py (modified)
+    - Added MessageRole to imports from src.models
+    - Added Chat Schemas section with:
+      - MessageCreate: content field with min_length=1, max_length=10000
+      - MessageResponse: id, role (MessageRole enum), content, created_at
+      - ConversationResponse: id, title, created_at, updated_at, message_count
+      - ConversationWithMessagesResponse: id, title, timestamps, list[MessageResponse]
+  - backend/src/models/conversation.py (modified)
+    - Added hybrid_property import from sqlalchemy.ext.hybrid
+    - Added message_count hybrid_property that returns len(self.messages)
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - ConversationListResponse follows codebase pattern of using list[ConversationResponse] at endpoint level
+  - For computed fields in response schemas, add @hybrid_property to model for from_attributes=True compatibility
+  - Response schemas use ConfigDict(from_attributes=True), create schemas do not
+  - MessageRole enum reused from models (not duplicated)
+---
+
+## 2026-02-02 01:30 EST - US-015: Create chat API router with streaming
+- **Subagents used**:
+  - architect: Analyzed existing router patterns (cronometer.py, calls.py), SSE streaming, auth dependencies
+  - reviewer: Found N+1 query issue with message_count (fixed with selectinload), suggested rate limit pre-check
+- **What was implemented**: Chat API router with 5 endpoints and SSE streaming
+- **Files changed**:
+  - backend/src/api/routes/chat.py (new)
+    - POST /conversations - create new conversation
+    - GET /conversations - list conversations with pagination, uses selectinload for message_count
+    - GET /conversations/{id} - get conversation with messages via selectinload
+    - DELETE /conversations/{id} - delete conversation with cascade
+    - POST /conversations/{id}/messages - send message with SSE streaming
+    - generate_sse_stream helper for text/event-stream format
+    - Rate limit check before stream starts (returns HTTP 429)
+  - backend/src/api/routes/__init__.py (modified)
+    - Added chat_router import and registration with /chat prefix
+- **Verification**: ruff ✓ | pytest 107 passed ✓
+- **Learnings for future iterations**:
+  - Use selectinload for relationships when accessing computed properties like message_count
+  - Check rate limit before starting StreamingResponse to return proper HTTP 429 status
+  - SSE format requires "data: {json}\n\n" with double newline
+  - StreamingResponse headers: Cache-Control no-cache, Connection keep-alive, X-Accel-Buffering no
+  - Conversation ownership checked by filtering query with user_id, not separate authorization check
+---
+
+## 2026-02-02 02:00 EST - US-016: Add React Query hooks for chat API
+- **Subagents used**:
+  - architect: Analyzed existing patterns in cronometer.ts (query keys, hooks, mutations), client.ts (auth), backend schemas
+  - reviewer: Found buffer handling edge case and auth handling missing - both fixed
+- **What was implemented**: React Query hooks for all chat API endpoints with SSE streaming
+- **Files changed**:
+  - frontend/src/lib/api/chat.ts (new)
+    - TypeScript interfaces: Message, Conversation, ConversationWithMessages, ChatStreamChunk
+    - MessageRole type union (user, assistant, system, tool)
+    - chatKeys query key factory with conversations/detail hierarchy
+    - useConversationsQuery() and useConversationQuery(id) hooks
+    - useCreateConversationMutation() and useDeleteConversationMutation()
+    - useSendMessageMutation() with SSE streaming, callbacks (onChunk, onComplete, onError)
+    - Proper auth token handling via Supabase client
+    - 401 redirect to login, 429 rate limit handling, 404 conversation not found
+  - frontend/src/lib/api/index.ts (modified)
+    - Added `export * from "./chat"` in alphabetical order
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - For SSE streaming with fetch (not axios), manually get auth token from Supabase client
+  - Buffer SSE events and process remaining buffer after stream ends (data may not end with \n\n)
+  - Use helper function to avoid code duplication when parsing SSE events
+  - Add 401 handling in fetch-based endpoints to match axios interceptor behavior
+  - Query invalidation after message send: both conversationDetail and conversationsList (for message_count)
+---
+
+## 2026-02-02 03:00 EST - US-017: Create Zustand store for chat state
+- **Subagents used**:
+  - architect: Analyzed existing state management (React Query, Context), established Zustand patterns
+  - reviewer: Found duplicate message bug in finalizeStreaming - fixed with deduplication check
+- **What was implemented**: First Zustand store for chat widget UI state
+- **Files changed**:
+  - frontend/package.json (added zustand dependency)
+  - frontend/src/stores/chat-store.ts (new)
+    - ChatState: isOpen, currentConversationId, conversations, messages, isStreaming, streamingContent
+    - ChatActions: toggleChat, openChat, closeChat, selectConversation, startNewConversation
+    - ChatActions: addMessage, setMessages, appendStreamingContent, finalizeStreaming, clearStreaming, setConversations
+    - Deduplication in finalizeStreaming prevents duplicate assistant messages
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - No existing Zustand in codebase - established patterns for future stores
+  - Use frontend/src/stores/ directory (plural) for Zustand stores
+  - Separate ChatState and ChatActions interfaces for readability
+  - Store works alongside React Query: store for UI/streaming state, React Query for server data
+  - Always check for duplicates when optimistically adding items to arrays
+  - clearStreaming useful for error recovery scenarios
+---
+
+## 2026-02-02 03:15 EST - US-018: Create ChatWidget container component
+- **Subagents used**:
+  - architect: Analyzed existing component patterns (FoodLogModal, ThemeToggle), Tailwind animation patterns, brand colors
+  - reviewer: Approved with suggestion to add Escape key handling (implemented)
+- **What was implemented**: Floating chat widget container with open/close animation
+- **Files changed**:
+  - frontend/src/components/chat/ChatWidget.tsx (new)
+    - Fixed bottom-6 right-6 z-50 positioning
+    - Toggle button with chat icon (closed) / X icon (open)
+    - Scale/opacity animation with origin-bottom-right
+    - Escape key closes chat
+    - aria-label and aria-expanded for accessibility
+    - Placeholder for ChatWindow (US-020)
+  - frontend/src/components/chat/index.ts (new barrel export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Chat components go in frontend/src/components/chat/
+  - Brand pink color: #E8A0BF (hover: #D88FAE)
+  - Use pointer-events-none on hidden animated elements
+  - Add Escape key handler with useEffect for modal-like widgets
+  - Barrel exports help with clean imports
+---
+
+## 2026-02-02 03:30 EST - US-019: Create ChatButton toggle component
+- **Subagents used**:
+  - None needed - straightforward extraction from ChatWidget (already reviewed)
+- **What was implemented**: Extracted ChatButton as reusable component
+- **Files changed**:
+  - frontend/src/components/chat/ChatButton.tsx (new)
+    - Circular button with chat bubble icon / X icon
+    - Uses useChatStore for isOpen and toggleChat
+    - hover:scale-105, active:scale-95 effects
+    - aria-label and aria-expanded
+  - frontend/src/components/chat/ChatWidget.tsx (updated to use ChatButton)
+  - frontend/src/components/chat/index.ts (added ChatButton export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Extract reusable components early for cleaner code
+  - Each component should use store directly rather than passing props through containers
+---
+
+## 2026-02-02 03:45 EST - US-020: Create ChatWindow main component
+- **Subagents used**:
+  - None needed - straightforward component following established patterns
+- **What was implemented**: ChatWindow container with layout structure
+- **Files changed**:
+  - frontend/src/components/chat/ChatWindow.tsx (new)
+    - Flex column layout with header/messages/input sections
+    - sm:w-[400px] sm:h-[600px] on desktop, full screen on mobile
+    - Placeholder sections for child components
+  - frontend/src/components/chat/ChatWidget.tsx (updated)
+    - Uses ChatWindow instead of inline placeholder
+    - Fixed inset-0 on mobile for full-screen, absolute positioning on desktop
+  - frontend/src/components/chat/index.ts (added ChatWindow export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Use fixed inset-0 + sm:absolute sm:inset-auto pattern for mobile full-screen to desktop positioned
+  - flex-shrink-0 on header/footer, flex-1 overflow-y-auto on scrollable content
+---
+
+## 2026-02-02 04:00 EST - US-021: Create ChatHeader component
+- **Subagents used**:
+  - None needed - straightforward component
+- **What was implemented**: ChatHeader with title and action buttons
+- **Files changed**:
+  - frontend/src/components/chat/ChatHeader.tsx (new)
+    - Title: "Nutrition Assistant"
+    - Back button (visible when currentConversationId is set)
+    - New conversation button (plus icon)
+    - Close button (X icon)
+  - frontend/src/components/chat/ChatWindow.tsx (uses ChatHeader)
+  - frontend/src/components/chat/index.ts (added export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Use h-8 w-8 rounded-full for small icon buttons in headers
+  - Hover states: hover:bg-[#F5F3F0] dark:hover:bg-[#3D3935]
+---
+
+## 2026-02-02 04:15 EST - US-022: Create ChatMessages component
+- **Subagents used**:
+  - None needed - followed established patterns
+- **What was implemented**: ChatMessages with message list, streaming, suggestions
+- **Files changed**:
+  - frontend/src/components/chat/ChatMessages.tsx (new)
+    - Scrollable container with auto-scroll to bottom
+    - Loading spinner state
+    - Empty state with welcome message and suggestions
+    - MessageBubble helper for user/assistant messages
+    - SuggestionChip helper for clickable suggestions
+    - Streaming content with typing cursor
+  - frontend/src/components/chat/ChatWindow.tsx (uses ChatMessages)
+  - frontend/src/components/chat/index.ts (added export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Use useRef + scrollIntoView for auto-scroll behavior
+  - User messages: bg-[#E8A0BF] text-white rounded-br-md
+  - Assistant messages: bg-[#F5F3F0] rounded-bl-md
+  - Streaming cursor: inline-block w-2 h-4 animate-pulse
+---
+
+## 2026-02-02 04:30 EST - US-023: Create ChatMessage component
+- **Subagents used**:
+  - None needed - straightforward extraction and enhancement
+- **What was implemented**: ChatMessage with markdown rendering
+- **Files changed**:
+  - frontend/src/components/chat/ChatMessage.tsx (new)
+    - Role-based styling (user pink, assistant gray)
+    - Simple markdown rendering (bold, italic, code, lists)
+    - Timestamp on hover using useState
+    - Streaming typing indicator
+  - frontend/src/components/chat/ChatMessages.tsx (uses ChatMessage)
+  - frontend/src/components/chat/index.ts (added export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Use useState for hover-based visibility (showTimestamp)
+  - Simple markdown: split by regex patterns like /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g
+  - For production, consider react-markdown package
+---
+
+## 2026-02-02 04:45 EST - US-024: Create ChatInput component
+- **Subagents used**:
+  - None needed - straightforward component
+- **What was implemented**: ChatInput with textarea and send button
+- **Files changed**:
+  - frontend/src/components/chat/ChatInput.tsx (new)
+    - Textarea with auto-resize (max 120px)
+    - Enter sends, Shift+Enter for newline
+    - onSendMessage callback for API integration
+    - Disabled state during streaming
+  - frontend/src/components/chat/ChatWindow.tsx (uses ChatInput)
+  - frontend/src/components/chat/index.ts (added export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Use textarea not input for multiline support
+  - Auto-resize: set height to auto then scrollHeight on change
+  - Enter without Shift: e.preventDefault() then submit
+---
+
+## 2026-02-02 05:00 EST - US-025: Create ChatSuggestions component
+- **Subagents used**:
+  - None needed - straightforward extraction
+- **What was implemented**: ChatSuggestions with 6 default suggestion chips
+- **Files changed**:
+  - frontend/src/components/chat/ChatSuggestions.tsx (new)
+    - 6 default nutrition-related suggestions
+    - 2-column grid layout
+    - onSuggestionClick callback for API integration
+  - frontend/src/components/chat/ChatMessages.tsx (uses ChatSuggestions)
+  - frontend/src/components/chat/index.ts (added export)
+- **Verification**: npm run build ✓
+- **Learnings for future iterations**:
+  - Extract constants like DEFAULT_SUGGESTIONS for easy customization
+  - active:scale-[0.98] gives subtle click feedback
+---
+
+## 2026-02-02 05:15 EST - US-026: Create streaming message handler
+- **Subagents used**:
+  - None needed - integration of existing patterns
+- **What was implemented**: useChatStreaming hook for API-store integration
+- **Files changed**:
+  - frontend/src/lib/api/streaming.ts (new)
+    - useChatStreaming hook with sendMessage function
+    - Auto-creates conversation if none selected
+    - Integrates useSendMessageMutation with Zustand store
+    - Tracks accumulated content with useRef for finalizeStreaming
   - frontend/src/lib/api/index.ts (added export)
-- **Verification**: npm build ✓
+  - frontend/src/components/chat/ChatWindow.tsx (uses useChatStreaming)
+  - frontend/src/components/chat/ChatMessages.tsx (added onSuggestionClick prop)
+- **Verification**: npm run build ✓
 - **Learnings for future iterations**:
-  - Use URLSearchParams.append() for array query params (time_lags)
-  - Don't double-invalidate when one invalidation covers the other (cronometerKeys.all covers cronometerKeys.status)
+  - Use useRef to accumulate streaming content (avoids closure stale state)
+  - React Query mutation + Zustand store integration via callback props
+  - Pass sendMessage down through props for both ChatInput and ChatSuggestions
 ---
 
-## 2026-01-31 - US-026: Add Cronometer credentials section to settings page
+## 2026-02-02 05:30 EST - US-027: Add ChatWidget to dashboard layout
 - **Subagents used**:
-  - architect: Analyzed settings page patterns (section components, form handling, UI patterns)
-  - specialist: frontend - implemented IntegrationsSection component
-  - simplifier: Not needed
-  - reviewer: Found accessibility/UX issues (modal ARIA, backdrop click, autocomplete, label sizing) - fixed
-- **What was implemented**:
-  - IntegrationsSection component in settings page
-  - Cronometer connection status display (connected/not connected badge)
-  - Last sync timestamp with "Not synced yet" for new connections
-  - Email and password form with proper autocomplete attributes
-  - Connect button calling useSaveCronometerCredentialsMutation
-  - Disconnect button with confirmation modal (ARIA accessible)
-  - Loading skeleton, error states, success feedback
-  - Password field uses type="password"
-  - useEffect cleanup for success message timeout
+  - None needed - simple integration
+- **What was implemented**: ChatWidget in dashboard layout
 - **Files changed**:
-  - frontend/src/app/(dashboard)/settings/page.tsx (added IntegrationsSection)
-- **Verification**: npm build ✓
+  - frontend/src/app/(dashboard)/layout.tsx
+    - Import ChatWidget from @/components/chat
+    - Render as sibling to main content div (inside outermost div)
+- **Verification**: npm run build ✓
 - **Learnings for future iterations**:
-  - Add ARIA attributes (role="dialog", aria-modal, aria-labelledby) for modal accessibility
-  - Disable backdrop click when mutation is pending to prevent UX confusion
-  - Use useEffect for timeout cleanup to prevent memory leak patterns
-  - Match label text-base size with other sections for consistency
+  - Fixed position widgets should be rendered at layout level for all pages
+  - Position outside main content div to avoid z-index conflicts
 ---
 
-## 2026-01-31 - US-027: Create Insights page layout and navigation
+## 2026-02-02 05:45 EST - US-028: Style chat components with design system
 - **Subagents used**:
-  - architect: Analyzed dashboard layout patterns, navItems structure, date range picker options
-  - specialist: frontend - created page and navigation
-  - simplifier: Not needed
-  - reviewer: Skipped - straightforward implementation
-- **What was implemented**:
-  - New Insights page at frontend/src/app/(dashboard)/insights/page.tsx
-  - Page title "Nutrition Insights"
-  - Date range picker with From/To date inputs defaulting to last 30 days
-  - Three placeholder sections: Sync Status, Key Insights, Correlation Analysis
-  - PlaceholderCard reusable component for consistent styling
-  - Added to sidebar navigation between Analytics and Schedule
+  - reviewer: Analyzed all chat components for styling compliance
+- **What was implemented**: Message fade-in animation
+- **Already implemented (verified)**:
+  - Dark mode support (all components have dark: variants)
+  - Brand colors (#E8A0BF, #D88FAE, border colors)
+  - Consistent border radius (rounded-2xl), shadows (shadow-xl), spacing (px-4 py-3)
+  - Mobile responsive (fixed inset-0 for full-screen on mobile)
+  - Loading spinner state in ChatMessages
+  - Smooth animations for open/close (scale, opacity, duration-300)
 - **Files changed**:
-  - frontend/src/app/(dashboard)/layout.tsx (added Insights nav item)
-  - frontend/src/app/(dashboard)/insights/page.tsx (new)
-- **Verification**: npm build ✓
+  - frontend/src/app/globals.css (added @keyframes fade-in and .animate-fade-in)
+  - frontend/src/components/chat/ChatMessage.tsx (added animate-fade-in class)
+- **Verification**: npm run build ✓
 - **Learnings for future iterations**:
-  - Use date-fns format() and subDays() for default date calculations
-  - PlaceholderCard pattern is useful for MVP placeholder sections
+  - Define custom animations in globals.css since tailwindcss-animate not installed
+  - translateY(8px) to translateY(0) creates subtle slide-up effect
+  - Use animation: ... forwards to preserve final state
 ---
 
-## 2026-01-31 - US-028: Add sync status and trigger to Insights page
+## 2026-02-02 06:00 EST - US-029: Add unit tests for ToolExecutor
 - **Subagents used**:
-  - architect: Skipped - patterns already known from US-027
-  - specialist: frontend - implemented SyncStatusCard component
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - SyncStatusCard component with three states: loading, not connected, connected
-  - Connection status indicator (Connected/Not Connected)
-  - Last sync timestamp using formatDistanceToNow (e.g., "2 hours ago")
-  - Days selector dropdown with options: 7, 14, 30, 60, 90
-  - Sync Now button with loading spinner during sync
-  - Success message showing sync counts (food logs, biometrics, notes)
-  - Error handling with user-friendly messages
-  - Not connected state with link to Settings page
+  - None needed - followed existing test patterns
+- **What was implemented**: Unit tests for ToolExecutor class
 - **Files changed**:
-  - frontend/src/app/(dashboard)/insights/page.tsx (replaced Sync Status placeholder)
-- **Verification**: npm build ✓
+  - backend/tests/test_tool_executor.py (new)
+    - TestParseDate: Valid parsing, invalid formats, invalid values (3 tests)
+    - TestDateToDatetimeRange: Single day, multi-day ranges (2 tests)
+    - TestExecute: Unknown tool, invalid date, missing args (3 async tests)
+    - TestToolHandlerMapping: All tools have handlers, count = 9 (2 tests)
+    - TestInterpretComparison: Positive/negative diffs, negligible, empty, max 5 (5 tests)
+    - TestToolExecutorInit: Initialization, user isolation (2 tests)
+    - TestToolExecutionError: Can raise, is Exception subclass (2 tests)
+    - Total: 19 tests
+- **Verification**: ruff ✓ | pytest 125 passed (19 new) ✓
 - **Learnings for future iterations**:
-  - Use formatDistanceToNow from date-fns for relative timestamps
-  - Import SyncResponse type for typing mutation results
+  - Use None db for tests that don't need database queries
+  - Async tests need @pytest.mark.asyncio decorator
+  - Test error return values instead of exceptions (execute() catches and returns dict)
 ---
 
-## 2026-01-31 - US-029: Create correlation analysis controls
+## 2026-02-02 06:15 EST - US-030: Add integration tests for chat flow
 - **Subagents used**:
-  - architect: Skipped - patterns already known
-  - specialist: frontend - implemented CorrelationAnalysisCard component
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - CorrelationAnalysisCard component with analysis controls
-  - Time lag multi-select checkboxes (12h, 24h, 36h, 48h, 72h - default: 24h, 48h)
-  - Analysis level dropdown (basic, standard, comprehensive - default: standard)
-  - Min sample size input (default 5, range 3-20)
-  - Run Analysis button with proper disabled states
-  - Loading state while fetching
-  - Validation messages for missing credentials, no time lags, invalid date range
-  - Results summary showing food logs, BMs, baseline Bristol, consistent correlations
-  - Updated useCorrelationsQuery to accept enabled parameter
+  - None needed - followed existing test patterns
+- **What was implemented**: Integration tests for chat service and flow
 - **Files changed**:
-  - frontend/src/app/(dashboard)/insights/page.tsx (replaced Correlation Analysis placeholder)
-  - frontend/src/lib/api/cronometer.ts (added enabled option to useCorrelationsQuery)
-- **Verification**: npm build ✓
+  - backend/tests/test_chat_service.py (new)
+    - TestRateLimit: get_daily_message_count, check_rate_limit at/over limit (5 tests)
+    - TestRateLimitExceededError: error message, exception subclass (2 tests)
+    - TestConversationModel: creation with/without title (2 tests)
+    - TestMessageModel: creation, all roles, tool_calls, tool_call_id (4 tests)
+    - TestMessageRole: role values, role count (2 tests)
+    - TestChatServiceIntegration: initialization, rate limit checked (2 tests)
+    - TestStreamingResponse: SSE format for content/done/error (3 tests)
+    - Total: 20 tests
+- **Verification**: ruff ✓ | pytest 145 passed (20 new) ✓
 - **Learnings for future iterations**:
-  - Use enabled parameter in React Query to control when queries run
-  - TIME_LAG_OPTIONS constant for reusable option definitions
+  - Use AsyncMock for async db session mocking
+  - MagicMock().scalar.return_value for scalar query results
+  - Test SSE format: "data: {json}\n\n" with JSON parsing verification
+  - Mock OpenAI client with patch("src.services.chat.chat_service.AsyncOpenAI")
 ---
 
-## 2026-01-31 - US-030: Display correlation insights summary
-- **Subagents used**:
-  - architect: Skipped - patterns already known
-  - specialist: frontend - implemented KeyInsightsCard component
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - KeyInsightsCard component displaying:
-    - Baseline Bristol score with color-coded indicator (green 3-5, yellow 2/6, red 1/7)
-    - Food logs count and BM samples count in stats grid
-    - All insights as bullet points with checkmark icons
-  - InsufficientDataCard for error state when not enough data
-  - Empty state PlaceholderCard when analysis hasn't run yet
-  - Moved results display from CorrelationAnalysisCard to KeyInsightsCard
-  - getBristolColor helper function for color coding
-- **Files changed**:
-  - frontend/src/app/(dashboard)/insights/page.tsx (added KeyInsightsCard, InsufficientDataCard)
-- **Verification**: npm build ✓
-- **Learnings for future iterations**:
-  - Use color-coded indicators to convey severity/health status at a glance
-  - Separate state components (empty, error, data) for clean conditional rendering
+## FEATURE COMPLETE: Nutrition Chat Agent
+
+All 30 user stories completed successfully:
+- US-001 to US-005: ExerciseLog model, migration, sync, schemas, React Query hooks
+- US-006 to US-008: Conversation/Message models, migration, OpenAI config
+- US-009 to US-013: Chat agent tools, prompts, ToolExecutor, ChatService, rate limiting
+- US-014 to US-016: Chat API schemas, router with streaming, React Query hooks
+- US-017 to US-028: Zustand store, all UI components (ChatWidget, ChatButton, ChatWindow, ChatHeader, ChatMessages, ChatMessage, ChatInput, ChatSuggestions), streaming handler, layout integration, design system styling
+- US-029 to US-030: Unit and integration tests
+
+**Final verification**: npm run build ✓ | uv run ruff check ✓ | uv run pytest (145 tests passed) ✓
 ---
-
-## 2026-01-31 - US-031: Display correlation results table
-- **Subagents used**:
-  - architect: Skipped - patterns already known
-  - specialist: frontend - implemented CorrelationResultsTable component
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - CorrelationResultsTable component with sortable columns:
-    - Nutrient, Correlation, P-Value, Significant, High Intake Bristol, Low Intake Bristol
-  - Time lag tabs to switch between available windows (12h, 24h, 36h, 48h, 72h)
-  - Color-coded correlations (green positive, red negative, gray weak)
-  - Significance checkmark badges
-  - Bristol trend arrows (up/down based on high vs low intake difference)
-  - Sorting by column headers with direction toggle
-  - Default sort by |correlation| descending
-  - Alternating row backgrounds for readability
-- **Files changed**:
-  - frontend/src/app/(dashboard)/insights/page.tsx (added CorrelationResultsTable)
-- **Verification**: npm build ✓
-- **Learnings for future iterations**:
-  - Use useMemo for sorting computed arrays
-  - Sort by absolute value for correlation to show strongest relationships
----
-
-## 2026-01-31 - US-032: Display consistent correlations highlight
-- **Subagents used**:
-  - architect: Skipped - patterns already known
-  - specialist: frontend - implemented ConsistentFindingsCard component
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - ConsistentFindingsCard component showing nutrients significant in 2+ time windows
-  - Direction-styled cards (green positive, red negative, yellow mixed)
-  - Direction icons (up/down/horizontal arrows)
-  - Average correlation and windows count display
-  - Tooltip explaining what "consistent" means
-  - Empty state with helpful suggestions when no consistent correlations
-  - Positioned between KeyInsightsCard and CorrelationResultsTable
-- **Files changed**:
-  - frontend/src/app/(dashboard)/insights/page.tsx (added ConsistentFindingsCard)
-- **Verification**: npm build ✓
-- **Learnings for future iterations**:
-  - Use hover tooltip state for inline explanations
-  - Color-code direction to match correlation meaning
----
-
-## 2026-01-31 - US-033: Add Bristol scale reference and help
-- **Subagents used**:
-  - architect: Skipped - patterns already known
-  - specialist: frontend - implemented BristolScaleReference and TableHeaderTooltip
-  - simplifier: Not needed
-  - reviewer: Skipped
-- **What was implemented**:
-  - BristolScaleReference collapsible card with:
-    - Types 1-7 with color-coded circles (red constipation, green ideal, orange diarrhea)
-    - Understanding Correlations section (positive vs negative)
-    - Statistical Terms section (Correlation Coefficient, P-Value)
-  - TableHeaderTooltip component for inline help
-  - Added tooltips to Correlation and P-Value column headers
-  - Collapsed by default to not clutter UI
-- **Files changed**:
-  - frontend/src/app/(dashboard)/insights/page.tsx (added BristolScaleReference, TableHeaderTooltip)
-- **Verification**: npm build ✓
-- **Learnings for future iterations**:
-  - Use collapsible sections for reference content to reduce visual clutter
-  - Color-coding enhances understanding of scale values
----
-
-## FEATURE COMPLETE: Cronometer Integration (ALL 33 USER STORIES)
-All 33 user stories completed:
-- US-001 to US-007: Models, migrations, encryption utilities
-- US-008 to US-012: CronometerSyncService with food/biometric/health notes
-- US-013 to US-016: Cronometer API endpoints (credentials, sync, food-logs, health-notes)
-- US-017 to US-020: InsightsService for correlation analysis
-- US-021 to US-025: Correlations API, Pydantic schemas, unit tests, React Query hooks
-- US-026 to US-033: Frontend Insights page with all components
-
-All 24 backend user stories completed:
-- US-001 to US-007: Models, migrations, encryption utilities
-- US-008 to US-012: CronometerSyncService with food/biometric/health notes
-- US-013 to US-016: Cronometer API endpoints (credentials, sync, food-logs, health-notes)
-- US-017 to US-020: InsightsService for correlation analysis
-- US-021 to US-022: Correlations API endpoint and schemas
-- US-023 to US-024: Unit tests for BM parsing and correlation analysis
-
-Total tests: 107 (81 existing + 26 new)
-All ruff checks passing.
-
----
-
-## 2026-01-31 - US-034: Add Recharts charting library
-- **Subagents used**:
-  - architect: Not needed - straightforward dependency task
-  - specialist: Not needed - simple file creation
-  - simplifier: Not needed
-  - reviewer: Not needed - straightforward task
-- **What was implemented**:
-  - recharts already present in package.json (^2.15.0)
-  - Created TestChart component demonstrating LineChart, XAxis, YAxis, Tooltip, Legend
-  - Created charts directory structure with index.ts exports
-- **Files changed**:
-  - frontend/src/components/charts/TestChart.tsx (new)
-  - frontend/src/components/charts/index.ts (new)
-- **Verification**: npm install ✓ | npm build ✓
-- **Learnings for future iterations**:
-  - recharts uses "use client" directive for Next.js App Router
-  - ResponsiveContainer is essential for charts that resize with their container
----
-
-## 2026-01-31 - US-035: Create scatter plot component for nutrient vs Bristol
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: frontend - created ScatterPlot component
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - ScatterPlot component with nutrient vs Bristol visualization
-  - Color-coded points by Bristol score (green 3-5, yellow 2/6, red 1/7)
-  - Linear regression trend line calculation
-  - Custom tooltip with date, values, and colors
-  - Reference lines for healthy Bristol range
-  - Color legend and empty state handling
-  - TypeScript types (ScatterDataPoint, ScatterPlotProps) exported
-- **Files changed**:
-  - frontend/src/components/charts/ScatterPlot.tsx (new)
-  - frontend/src/components/charts/index.ts (updated exports)
-- **Verification**: npm build ✓
-- **Learnings for future iterations**:
-  - Recharts Scatter component doesn't have built-in trend line - calculate manually
-  - ReferenceLine can create visual trend line with slope/intercept
----
-
-## 2026-01-31 - US-036: Create correlation heatmap component
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: frontend - created CorrelationHeatmap component
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - CSS Grid-based heatmap (Recharts doesn't have native heatmap)
-  - Color scale interpolation: red → white → green based on correlation
-  - Opacity variation based on p-value significance
-  - Nutrient grouping by category (Macros, Vitamins, Minerals, Other)
-  - Tooltip with correlation details and significance indicator
-  - Click handler for drill-down to scatter plot
-  - Sticky headers, scrollable content
-- **Files changed**:
-  - frontend/src/components/charts/CorrelationHeatmap.tsx (new)
-  - frontend/src/components/charts/index.ts (updated exports)
-- **Verification**: npm build ✓
-- **Learnings for future iterations**:
-  - CSS Grid better than Recharts for heatmaps
-  - Color interpolation: use HSL or RGB mixing for smooth gradients
----
-
-## 2026-01-31 - US-037: Create backend endpoint for time series chart data
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: backend - created timeline endpoint and schemas
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - GET /insights/timeline endpoint
-  - BristolEvent, DailyTimelineData, TimelineResponse Pydantic schemas
-  - Nutrient aggregation from FoodLog model fields and raw_data
-  - Bristol events grouped by day with timestamps
-  - Complete date coverage (every day in range included)
-  - Configurable nutrient list
-- **Files changed**:
-  - backend/src/api/routes/cronometer.py (added endpoint)
-  - backend/src/api/schemas.py (added 3 schemas)
-- **Verification**: ruff ✓ | pytest 107 passed ✓
-- **Learnings for future iterations**:
-  - Avoid using `date` as field name when importing date type (use `day` instead)
-  - DailyTimelineData uses `day` field to avoid Pydantic type annotation clash
----
-
-## 2026-01-31 - US-038: Create time series chart component
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: frontend - created TimeSeriesChart component
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - ComposedChart with nutrient lines and Bristol scatter points
-  - Dual Y-axes: nutrients (left), Bristol scale 1-7 (right)
-  - Bristol events color-coded by score
-  - Custom tooltip with date, nutrients, and Bristol events
-  - Clickable legend for nutrient toggling
-  - Optional Brush component for range selection
-  - TypeScript types exported (BristolEvent, DailyTimelineData, TimelineResponse)
-- **Files changed**:
-  - frontend/src/components/charts/TimeSeriesChart.tsx (new)
-  - frontend/src/components/charts/index.ts (updated exports)
-- **Verification**: npm build ✓
-- **Learnings for future iterations**:
-  - Recharts Legend onClick requires any type for compatibility
-  - Use `typeof value !== "number"` guard when indexing data with dynamic keys
----
-
-## 2026-01-31 - US-039: Create box plot component for intake quartiles
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: frontend - created BoxPlot component
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - Custom SVG-based BoxPlot (Recharts lacks native boxplot)
-  - Shows Bristol distribution per nutrient intake quartile
-  - Box shows IQR (Q1-Q3), line shows median
-  - Whiskers at 1.5*IQR with outlier detection
-  - Color-coded by median Bristol score
-  - Labels with intake ranges and sample sizes
-  - Interactive tooltip with full statistics
-  - Healthy range background shading
-- **Files changed**:
-  - frontend/src/components/charts/BoxPlot.tsx (new)
-  - frontend/src/components/charts/index.ts (updated exports)
-- **Verification**: npm build ✓
-- **Learnings for future iterations**:
-  - Custom SVG in ResponsiveContainer for charts Recharts doesn't support
-  - viewBox for proper SVG scaling
----
-
-## 2026-01-31 - US-040: Create calendar heatmap component
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: frontend - created CalendarHeatmap component
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - GitHub-style contribution graph layout
-  - Weeks as columns, days as rows
-  - Color-coded by Bristol score (green/yellow/red/gray)
-  - Month labels and day-of-week labels
-  - Tooltip with date, scores, and details
-  - Click handler for day drill-down
-  - Multiple BMs per day handled with average
-  - Horizontal scroll for long date ranges
-- **Files changed**:
-  - frontend/src/components/charts/CalendarHeatmap.tsx (new)
-  - frontend/src/components/charts/index.ts (updated exports)
-- **Verification**: npm build ✓
-- **Learnings for future iterations**:
-  - Use date-fns getISOWeek for week numbering
-  - Store day data in Map with date string key for O(1) lookup
----
-
-## 2026-01-31 - US-041: Create lag optimization chart component
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: frontend - created LagCorrelationChart component
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - BarChart showing correlation at each time lag
-  - Color by direction (green positive, red negative)
-  - Opacity by significance (solid p<0.05, faded otherwise)
-  - Star badge for optimal lag
-  - Reference lines at r=0 and r=±0.3
-  - Custom tooltip with all correlation details
-- **Files changed**:
-  - frontend/src/components/charts/LagCorrelationChart.tsx (new)
-  - frontend/src/components/charts/index.ts (updated exports)
-- **Verification**: npm build ✓
-- **Learnings for future iterations**:
-  - Use Cell component with Recharts Bar for per-bar customization
-  - Find correlation result by filtering correlationsByLag arrays
----
-
-## 2026-01-31 - US-042: Add visualization section to Insights page
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: frontend - added Visualizations tab
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - Tab system (Analysis/Visualizations) with icons
-  - Nutrient selector dropdown with 40+ nutrients grouped by category
-  - Chart type selector (6 options)
-  - CorrelationHeatmap and LagCorrelationChart integrated
-  - Coming Soon placeholders for charts needing additional APIs
-  - NUTRIENT_OPTIONS constant for reusable nutrient list
-  - Loading and empty states
-- **Files changed**:
-  - frontend/src/app/(dashboard)/insights/page.tsx
-- **Verification**: npm build ✓
-- **Learnings for future iterations**:
-  - Use optgroup for grouped HTML select dropdowns
-  - Tab state with useState for simple tab switching
----
-
-## 2026-01-31 - US-043: Create Granger causality service
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: backend - created GrangerCausalityService
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - GrangerCausalityService with test_causality() method
-  - Uses statsmodels grangercausalitytests
-  - GrangerResult dataclass with f_statistic, p_value, optimal_lag, is_causal
-  - Daily Bristol and nutrient aggregation helpers
-  - InsufficientDataError for graceful error handling
-  - Added statsmodels>=0.14.0 to dependencies
-- **Files changed**:
-  - backend/pyproject.toml (added statsmodels)
-  - backend/src/services/granger_service.py (new)
-  - backend/src/services/__init__.py (exports)
-- **Verification**: ruff ✓ | pytest 107 passed ✓
-- **Learnings for future iterations**:
-  - grangercausalitytests expects column 0 as Y (effect), column 1 as X (cause)
-  - Need sufficient consecutive daily data for Granger test
----
-
-## 2026-01-31 - US-044: Create Granger causality API endpoint
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: backend - created Granger endpoint
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - GET /insights/granger endpoint
-  - Query params: start_date, end_date, nutrients, max_lag_days
-  - GrangerResultSchema and GrangerResponse Pydantic schemas
-  - Results sorted by p_value ascending (most significant first)
-  - Returns 400 if all nutrients fail
-  - Logs warnings for individual failures
-- **Files changed**:
-  - backend/src/api/schemas.py (added 2 schemas)
-  - backend/src/api/routes/cronometer.py (added endpoint)
-- **Verification**: ruff ✓ | pytest 107 passed ✓
----
-
-## 2026-01-31 - US-045: Create Granger causality UI component
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: frontend - created GrangerResults component
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - GrangerResults component with table display
-  - F-statistic, P-value, Optimal Lag, Causal badge columns
-  - Filter toggle: show only causal by default
-  - Faded styling for non-causal rows
-  - Explanation text and warning/disclaimer
-  - Loading skeleton, error, and empty states
-  - Created insights component directory with barrel export
-- **Files changed**:
-  - frontend/src/components/insights/GrangerResults.tsx (new)
-  - frontend/src/components/insights/index.ts (new)
-- **Verification**: npm build ✓
----
-
-## 2026-01-31 - US-046: Create controlled comparison service
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: backend - created ControlledComparisonService
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - ControlledComparisonService with compare() method
-  - Quartile-based matching for high/low intake days
-  - Control factor matching (same quartile for confounders)
-  - ComparisonResult with avg Bristol, difference, 95% CI
-  - InsufficientMatchesError for graceful error handling
-  - Uses scipy.stats.ttest_ind for significance
-- **Files changed**:
-  - backend/src/services/comparison_service.py (new)
-  - backend/src/services/__init__.py (exports)
-- **Verification**: ruff ✓ | pytest 107 passed ✓
----
-
-## 2026-01-31 - US-047: Create controlled comparison API endpoint
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: backend - created comparison endpoint
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - GET /insights/compare endpoint
-  - Query params: nutrient_key, control_factors, min_matched_pairs
-  - ComparisonResultSchema Pydantic schema
-  - Returns 400 if insufficient matched pairs
-  - Structured logging for results
-- **Files changed**:
-  - backend/src/api/schemas.py (added schema)
-  - backend/src/api/routes/cronometer.py (added endpoint)
-- **Verification**: ruff ✓ | pytest 107 passed ✓
----
-
-## 2026-01-31 - US-048: Create controlled comparison UI component
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: frontend - created ControlledComparison component
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - Side-by-side Bristol comparison cards
-  - Nutrient selector dropdown
-  - Color-coded Bristol scores
-  - Center difference indicator with arrow
-  - 95% CI display
-  - Significance badge with explanation
-  - Collapsible methodology section
-  - Loading, error, and empty states
-- **Files changed**:
-  - frontend/src/components/insights/ControlledComparison.tsx (new)
-  - frontend/src/components/insights/index.ts (updated exports)
-- **Verification**: npm build ✓
----
-
-## 2026-01-31 - US-049: Create Intervention model for dietary experiments
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: backend - created Intervention model
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - InterventionStatus enum (planned, active, completed, cancelled)
-  - Intervention SQLAlchemy model
-  - Fields: title, hypothesis, nutrient_key, target_value, dates, status
-  - User relationship with cascade delete
-  - Alembic migration 012_add_interventions
-- **Files changed**:
-  - backend/src/models/intervention.py (new)
-  - backend/src/models/user.py (added relationship)
-  - backend/src/models/__init__.py (exports)
-  - backend/alembic/versions/012_add_interventions.py (new)
-- **Verification**: ruff ✓ | pytest 107 passed ✓
----
-
-## 2026-01-31 - US-050: Create intervention tracking API endpoints
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: backend - created interventions router
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - POST /interventions - create new intervention
-  - GET /interventions - list user's interventions with filters
-  - GET /interventions/{id} - get intervention with Bristol analysis
-  - PATCH /interventions/{id} - update intervention
-  - DELETE /interventions/{id} - delete intervention
-  - Pydantic schemas (InterventionCreate, Update, Read, WithAnalysis)
-  - Bristol comparison for completed interventions (pre vs during)
-- **Files changed**:
-  - backend/src/api/routes/interventions.py (new)
-  - backend/src/api/routes/__init__.py (registered router)
-  - backend/src/api/schemas.py (added 4 schemas)
-- **Verification**: ruff ✓ | pytest 107 passed ✓
----
-
-## 2026-01-31 - US-051: Create intervention tracking UI
-- **Subagents used**:
-  - architect: Not needed
-  - specialist: frontend - created ExperimentsTab
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - New "Experiments" tab on Insights page
-  - Intervention list with status badges (planned, active, completed, cancelled)
-  - Status filter buttons
-  - Create intervention modal with title, hypothesis, description, nutrient target
-  - Intervention detail modal with Bristol comparison
-  - Start, complete, delete intervention actions
-  - React Query hooks for CRUD operations (useInterventionsQuery, useCreateInterventionMutation, etc.)
-  - Empty state and loading states
-- **Files changed**:
-  - frontend/src/lib/api/cronometer.ts (added intervention types and hooks)
-  - frontend/src/app/(dashboard)/insights/page.tsx (added ExperimentsTab)
-- **Verification**: npm build ✓
----
-
-## 2026-01-31 - US-052: Create food-level correlation service
-- **Subagents used**: None
-- **What was implemented**:
-  - FoodCorrelationService with analyze_foods() method
-  - Uses point-biserial correlation for binary food consumption vs Bristol
-  - FoodCorrelationResult and FoodAnalysisResponse dataclasses
-  - is_trigger detection for foods associated with poor outcomes
-- **Files changed**:
-  - backend/src/services/food_correlation_service.py (new)
-  - backend/src/services/__init__.py (exports)
-- **Verification**: ruff ✓ | pytest 107 passed ✓
----
-
-## 2026-01-31 - US-053: Create food-level correlation API endpoint
-- **Subagents used**: None
-- **What was implemented**:
-  - GET /insights/foods endpoint
-  - Query params: start_date, end_date, min_occurrences, time_lag_hours
-  - FoodCorrelationResultSchema, FoodAnalysisResponseSchema
-  - Returns foods sorted by correlation with trigger_foods list
-- **Files changed**:
-  - backend/src/api/routes/cronometer.py (added endpoint)
-  - backend/src/api/schemas.py (added schemas)
-- **Verification**: ruff ✓ | pytest 107 passed ✓
----
-
-## 2026-01-31 - US-054: Create food drill-down UI component
-- **Subagents used**: None
-- **What was implemented**:
-  - FoodAnalysis component with search/filter/sort
-  - Sortable table with color-coded rows
-  - Filter toggle for trigger foods only
-- **Files changed**:
-  - frontend/src/components/insights/FoodAnalysis.tsx (new)
-  - frontend/src/components/insights/index.ts (exports)
-- **Verification**: npm build ✓
----
-
-## 2026-01-31 - US-055: Create trigger food detection component
-- **Subagents used**: None
-- **What was implemented**:
-  - TriggerFoods component with severity indicators
-  - Card-style layout with Bristol scores
-  - Correlation vs causation disclaimer
-- **Files changed**:
-  - frontend/src/components/insights/TriggerFoods.tsx (new)
-  - frontend/src/components/insights/index.ts (exports)
-- **Verification**: npm build ✓
----
-
-## 2026-01-31 - US-056: Create personal optimal ranges service
-- **Subagents used**: None
-- **What was implemented**:
-  - OptimalRangesService with find_optimal_ranges() method
-  - Decile-based analysis to find optimal nutrient intake ranges
-  - OptimalRange and OptimalRangesResponse dataclasses
-  - NUTRIENT_UNITS mapping for display
-- **Files changed**:
-  - backend/src/services/optimal_ranges_service.py (new)
-  - backend/src/services/__init__.py (exports)
-- **Verification**: ruff ✓ | pytest 107 passed ✓
----
-
-## 2026-01-31 - US-057: Create personal optimal ranges API endpoint
-- **Subagents used**: None
-- **What was implemented**:
-  - GET /insights/optimal-ranges endpoint
-  - Query params: start_date, end_date, target_bristol, tolerance, min_samples, time_lag_hours
-  - OptimalRangeSchema, OptimalRangesResponseSchema
-  - Returns ranges sorted by confidence score
-- **Files changed**:
-  - backend/src/api/routes/cronometer.py (added endpoint)
-  - backend/src/api/schemas.py (added schemas)
-- **Verification**: ruff ✓ | pytest 107 passed ✓
----
-
-## 2026-01-31 - US-058: Create personal optimal ranges UI component
-- **Subagents used**: None
-- **What was implemented**:
-  - OptimalRanges component with personalized nutrient ranges
-  - Card for each nutrient showing optimal range (e.g., 'Fiber: 25-35g')
-  - Visual RangeGauge with optimal zone and current intake marker
-  - ConfidenceIndicator (3-bar visual + percentage)
-  - Grouped by nutrient category with expandable sections
-  - useOptimalRangesQuery hook for API integration
-  - Loading, error, and empty states
-- **Files changed**:
-  - frontend/src/components/insights/OptimalRanges.tsx (new)
-  - frontend/src/components/insights/index.ts (exports)
-- **Verification**: npm build ✓
----
-
-## FEATURE COMPLETE: All 58 User Stories Completed
-All user stories for the Cronometer integration feature are now complete:
-- US-001 to US-007: Models, migrations, encryption utilities
-- US-008 to US-012: CronometerSyncService with food/biometric/health notes
-- US-013 to US-016: Cronometer API endpoints (credentials, sync, food-logs, health-notes)
-- US-017 to US-024: InsightsService, correlations API, unit tests
-- US-025 to US-033: Frontend Insights page with all analysis components
-- US-034 to US-042: Recharts visualizations (scatter, heatmap, timeline, boxplot, calendar, lag)
-- US-043 to US-048: Granger causality, controlled comparison services and UI
-- US-049 to US-051: Intervention/experiment tracking
-- US-052 to US-055: Food-level correlation analysis
-- US-056 to US-058: Personal optimal ranges service and UI
-
-Total tests: 107
-All ruff checks passing.
-All npm builds passing.
----
-
-## 2026-01-31 - US-042a: Add useTimelineQuery hook for chart data
-- **Subagents used**: None (straightforward implementation)
-- **What was implemented**:
-  - TimelineResponse interface with start_date, end_date, nutrient_keys, daily_data
-  - DailyTimelineData interface with day, nutrients Record, bristol_events array
-  - BristolEvent interface with timestamp, bristol_score, quantity_score
-  - TimelineParams interface with startDate, endDate, nutrients array
-  - timelineKeys query key factory
-  - getTimeline async function calling /cronometer/insights/timeline
-  - useTimelineQuery hook with params and enabled flag
-- **Files changed**:
-  - frontend/src/lib/api/cronometer.ts (added 72 lines)
-- **Verification**: npm build ✓
----
-
-## 2026-01-31 - US-042b: Wire up ScatterPlot chart to timeline data
-- **Subagents used**: None
-- **What was implemented**:
-  - Import ScatterPlot and ScatterDataPoint from charts
-  - Add useTimelineQuery call in InsightsPage component
-  - Pass timelineData and isTimelineLoading to VisualizationsTab via props
-  - Add scatterData transformation using useMemo:
-    - For each Bristol event, find nutrient intake from preceding time window
-    - Uses date-fns format for date key lookups
-    - Returns ScatterDataPoint array with date, nutrientValue, bristolScore, unit
-  - Add selectedTimeLag state with TIME_LAG_OPTIONS dropdown
-  - Add getNutrientUnit helper function for 40+ nutrients
-  - Replace 'Coming Soon' placeholder with actual ScatterPlot component
-  - Show loading state while timeline data fetches
-  - Show empty state if no paired data available
-- **Files changed**:
-  - frontend/src/app/(dashboard)/insights/page.tsx (214 insertions, 35 deletions)
-- **Verification**: npm build ✓
-- **Learnings for future iterations**:
-  - Timeline data transformation requires looking back lagDays from each Bristol event
-  - Using Map for O(1) date lookups is efficient for large datasets
----
-
-## 2026-01-31 - US-042c: Wire up TimeSeriesChart to timeline data
-- **Subagents used**: None
-- **What was implemented**:
-  - Import TimeSeriesChart from charts
-  - Pass timelineData directly to TimeSeriesChart (TimelineResponse format)
-  - Show selected nutrient with Bristol events overlaid
-  - Replace 'Coming Soon' placeholder with actual TimeSeriesChart
-  - Add loading state while timeline data fetches
-  - Add empty state if no timeline data available
-  - Remove duplicate TIME_LAG_OPTIONS constant
-- **Files changed**:
-  - frontend/src/app/(dashboard)/insights/page.tsx (57 insertions, 36 deletions)
-- **Verification**: npm build ✓
----
-
-## 2026-01-31 - US-042d: Wire up CalendarHeatmap to health notes data
-- **Subagents used**: None
-- **What was implemented**:
-  - Import CalendarHeatmap component from charts
-  - Import useHealthNotesQuery hook and HealthNote type
-  - Add useHealthNotesQuery call in InsightsPage component
-  - Pass healthNotes and isHealthNotesLoading to VisualizationsTab
-  - Filter health notes to bowel movement entries with bristol_scale
-  - Transform HealthNote to CalendarHeatmap format
-  - Replace 'Coming Soon' placeholder with actual CalendarHeatmap
-  - Add loading state while health notes data fetches
-  - Add empty state if no bowel movement data in range
-- **Files changed**:
-  - frontend/src/app/(dashboard)/insights/page.tsx (81 insertions, 24 deletions)
-- **Verification**: npm build ✓
----
-
-## 2026-01-31 - US-042e: Wire up BoxPlot chart to correlation data
-- **Subagents used**: None
-- **What was implemented**:
-  - Import BoxPlot and BoxPlotDataPoint from charts
-  - Add boxPlotData useMemo transforming scatter data to BoxPlotDataPoint format
-  - Replace 'Coming Soon' placeholder with actual BoxPlot component
-  - Pass time lag selector for configurable lag period
-  - Show nutrient unit in BoxPlot display
-  - Add loading state while timeline data fetches
-  - Add empty state if no paired data available
-- **Files changed**:
-  - frontend/src/app/(dashboard)/insights/page.tsx (81 insertions, 24 deletions)
-- **Verification**: npm build ✓
----
-
-## CHART WIRING COMPLETE: All 5 Chart Visualization Stories
-All chart visualization stories for the Cronometer integration are now complete:
-- US-042a: useTimelineQuery hook for chart data
-- US-042b: ScatterPlot wired to timeline data
-- US-042c: TimeSeriesChart wired to timeline data
-- US-042d: CalendarHeatmap wired to health notes data
-- US-042e: BoxPlot wired to correlation data
-
-All charts now display real data instead of "Coming Soon" placeholders.
----
-
-## 2026-02-01 - US-059: Fix nutrient dropdown mapping to Cronometer data
-- **Subagents used**:
-  - architect: Not needed - straightforward mapping implementation
-  - specialist: Not needed - direct implementation
-  - simplifier: Not needed
-  - reviewer: Not needed
-- **What was implemented**:
-  - Added comprehensive `friendly_to_cronometer` mapping in backend timeline endpoint
-    - Maps 50+ friendly keys (fiber, vitamin_a, etc.) to Cronometer raw_data keys
-    - Supports macros, vitamins, minerals, fatty acids, amino acids
-  - Updated frontend NUTRIENT_OPTIONS to remove unsupported nutrients
-    - Removed vitamin_b7 (Biotin) and chromium (not in Cronometer's TRACKED_NUTRIENTS)
-    - Added net_carbs, reorganized categories (new Fatty Acids category)
-  - Fixed getNutrientUnit function with correct units
-    - Vitamin D uses IU (not μg) per Cronometer format
-    - Water uses grams (not liters) per Cronometer format
-  - Timeline endpoint logic updated to use the mapping chain:
-    friendly key → friendly_to_cronometer → raw_data
-- **Files changed**:
-  - backend/src/api/routes/cronometer.py (added 70+ lines of mapping)
-  - frontend/src/app/(dashboard)/insights/page.tsx (updated NUTRIENT_OPTIONS and getNutrientUnit)
-- **Verification**: ruff ✓ | pytest 107 passed ✓ | npm build ✓
-- **Learnings for future iterations**:
-  - Cronometer uses specific key formats with units in parentheses: "Fiber (g)", "Vitamin C (mg)"
-  - Some nutrients like Biotin (B7) and Chromium are not in Cronometer's standard export
-  - Vitamin D is tracked in IU, not μg
-  - Water is tracked in grams, not liters
----
-
-## 2026-02-01 - US-060: Remove time window slider from Time Series Chart
-- **Subagents used**: None (straightforward implementation)
-- **What was implemented**:
-  - Removed Brush component import from Recharts
-  - Removed showBrush prop from TimeSeriesChartProps interface
-  - Removed showBrush parameter from function signature
-  - Removed Brush component rendering logic
-  - Updated component JSDoc to reflect removal of brush feature
-  - Removed showBrush prop usage in insights page
-- **Files changed**:
-  - frontend/src/components/charts/TimeSeriesChart.tsx
-  - frontend/src/app/(dashboard)/insights/page.tsx
-- **Verification**: npm build ✓
-- **Learnings for future iterations**:
-  - Brush component in Recharts provides zoom/pan but can confuse users about date alignment
-  - Simpler charts often provide better UX than feature-rich ones
----
-
-## 2026-02-01 - US-061: Add food log modal to Calendar Heatmap day clicks
-- **Subagents used**: None (straightforward implementation)
-- **What was implemented**:
-  - Created FoodLogModal component at frontend/src/components/insights/FoodLogModal.tsx
-    - Modal shows when clicking a day cell in CalendarHeatmap
-    - Header displays selected date and Bristol score badges with color coding
-    - Two sections: "Day Before" and "Selected Day" food logs
-    - Each food item shows: name, serving size, time logged, calories, fiber, protein
-    - Foods sorted by time logged ascending
-    - useFoodLogsQuery hook fetches food logs for both days
-    - Loading spinner while fetching
-    - Error state if fetch fails
-    - Empty state if no food logs
-    - Accessible modal (role="dialog", aria-modal, aria-labelledby)
-    - Closes on backdrop click or close button
-  - Exported FoodLogModal from frontend/src/components/insights/index.ts
-  - Added foodLogModalData state to VisualizationsTab
-  - Wired CalendarHeatmap onDayClick to open modal with day data
-  - Rendered FoodLogModal when foodLogModalData is set
-- **Files changed**:
-  - frontend/src/components/insights/FoodLogModal.tsx (new, 251 lines)
-  - frontend/src/components/insights/index.ts (added export)
-  - frontend/src/app/(dashboard)/insights/page.tsx (added state and modal)
-- **Verification**: npm build ✓
-- **Learnings for future iterations**:
-  - FoodLog has nullable fields - always check before formatting
-  - Use subDays from date-fns to get the day before
-  - Modal should explain the 12-72 hour digestion time context
----
-
-## ALL USER STORIES COMPLETE
-All 61 user stories for the Cronometer integration feature are now complete:
-- US-001 to US-007: Models, migrations, encryption utilities
-- US-008 to US-012: CronometerSyncService
-- US-013 to US-016: Cronometer API endpoints
-- US-017 to US-024: InsightsService and unit tests
-- US-025 to US-033: Frontend Insights page basics
-- US-034 to US-042e: Chart visualizations
-- US-043 to US-048: Granger causality and controlled comparison
-- US-049 to US-051: Intervention tracking
-- US-052 to US-055: Food-level correlation
-- US-056 to US-058: Personal optimal ranges
-- US-059: Fix nutrient dropdown mapping
-- US-060: Remove time window slider
-- US-061: Add food log modal to calendar
-
-Total tests: 107
-All ruff checks passing.
-All npm builds passing.

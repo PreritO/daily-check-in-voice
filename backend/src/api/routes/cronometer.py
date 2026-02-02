@@ -15,6 +15,7 @@ from src.api.schemas import (
     ComparisonResultSchema,
     CredentialStatusResponse,
     DailyTimelineData,
+    ExerciseLogResponse,
     FoodAnalysisResponseSchema,
     FoodCorrelationResultSchema,
     FoodLogResponse,
@@ -31,7 +32,7 @@ from src.api.schemas import (
 )
 from src.database import get_db
 from src.integrations.cronometer import CronometerSyncService
-from src.models import CronometerCredential, FoodLog, HealthNote, User
+from src.models import CronometerCredential, ExerciseLog, FoodLog, HealthNote, User
 from src.services import (
     ControlledComparisonService,
     FoodCorrelationService,
@@ -213,12 +214,14 @@ async def sync_cronometer_data(
         food_logs=sync_result.food_logs_synced,
         biometric_logs=sync_result.biometric_logs_synced,
         health_notes=sync_result.health_notes_synced,
+        exercises=sync_result.exercises_synced,
     )
 
     return SyncResponse(
         food_logs_synced=sync_result.food_logs_synced,
         biometric_logs_synced=sync_result.biometric_logs_synced,
         health_notes_synced=sync_result.health_notes_synced,
+        exercises_synced=sync_result.exercises_synced,
         synced_at=datetime.now(UTC),
     )
 
@@ -283,6 +286,38 @@ async def get_health_notes(
         .where(HealthNote.logged_at >= start_dt)
         .where(HealthNote.logged_at <= end_dt)
         .order_by(HealthNote.logged_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+@router.get("/exercises", response_model=list[ExerciseLogResponse])
+async def get_exercises(
+    start_date: date = Query(..., description="Start date (inclusive)"),
+    end_date: date = Query(..., description="End date (inclusive)"),
+    current_user: User = Depends(get_or_create_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[ExerciseLog]:
+    """Get exercise logs for the current user within a date range.
+
+    Args:
+        start_date: Start date (inclusive).
+        end_date: End date (inclusive).
+        current_user: The authenticated user.
+        db: Database session.
+
+    Returns:
+        List of exercise logs, ordered by logged_at descending.
+    """
+    # Convert dates to datetimes for comparison
+    start_dt = datetime.combine(start_date, datetime.min.time())
+    end_dt = datetime.combine(end_date, datetime.max.time())
+
+    result = await db.execute(
+        select(ExerciseLog)
+        .where(ExerciseLog.user_id == current_user.id)
+        .where(ExerciseLog.logged_at >= start_dt)
+        .where(ExerciseLog.logged_at <= end_dt)
+        .order_by(ExerciseLog.logged_at.desc())
     )
     return list(result.scalars().all())
 

@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from .alerts import router as alerts_router
 from .calls import router as calls_router
+from .chat import router as chat_router
 from .cronometer import router as cronometer_router
 from .health import router as health_router
 from .interventions import router as interventions_router
@@ -25,3 +26,4 @@ api_router.include_router(webhooks_router, prefix="/webhooks", tags=["webhooks"]
 api_router.include_router(alerts_router, prefix="/alerts", tags=["alerts"])
 api_router.include_router(cronometer_router, prefix="/cronometer", tags=["cronometer"])
 api_router.include_router(interventions_router, prefix="/interventions", tags=["Interventions"])
+api_router.include_router(chat_router, prefix="/chat", tags=["chat"])

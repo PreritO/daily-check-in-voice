@@ -37,6 +37,14 @@ class Settings:
     # Anthropic
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
 
+    # OpenAI (for chat agent)
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+    # Chat Agent Limits
+    CHAT_RATE_LIMIT_PER_DAY: int = int(os.getenv("CHAT_RATE_LIMIT_PER_DAY", "100"))
+    CHAT_MAX_HISTORY_MESSAGES: int = int(os.getenv("CHAT_MAX_HISTORY_MESSAGES", "10"))
+
     # STT Providers
     ASSEMBLYAI_API_KEY: str = os.getenv("ASSEMBLYAI_API_KEY", "")
     DEEPGRAM_API_KEY: str = os.getenv("DEEPGRAM_API_KEY", "")

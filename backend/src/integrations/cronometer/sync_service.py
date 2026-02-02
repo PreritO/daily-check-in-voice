@@ -7,12 +7,12 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
-from pycronometer import BiometricEntry, CronometerClient, Note, Serving
+from pycronometer import BiometricEntry, CronometerClient, Exercise, Note, Serving
 from pycronometer.exceptions import CronometerAuthError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import BiometricLog, CronometerCredential, FoodLog, HealthNote
+from src.models import BiometricLog, CronometerCredential, ExerciseLog, FoodLog, HealthNote
 from src.utils.encryption import decrypt_string
 
 
@@ -23,6 +23,7 @@ class SyncResult:
     food_logs_synced: int
     biometric_logs_synced: int
     health_notes_synced: int
+    exercises_synced: int
 
 
 class CronometerSyncService:
@@ -68,11 +69,13 @@ class CronometerSyncService:
         servings = client.get_servings(start_date, end_date)
         biometrics = client.get_biometrics(start_date, end_date)
         notes = client.get_notes(start_date, end_date)
+        exercises = client.get_exercises(start_date, end_date)
 
         # Upsert data
         food_logs = await self._upsert_food_logs(user_id, servings)
         biometric_logs = await self._upsert_biometric_logs(user_id, biometrics)
         health_notes = await self._upsert_health_notes(user_id, notes)
+        exercise_logs = await self._upsert_exercise_logs(user_id, exercises)
 
         # Update last_sync_at timestamp
         await self._update_last_sync(user_id)
@@ -81,6 +84,7 @@ class CronometerSyncService:
             food_logs_synced=len(food_logs),
             biometric_logs_synced=len(biometric_logs),
             health_notes_synced=len(health_notes),
+            exercises_synced=len(exercise_logs),
         )
 
     async def _update_last_sync(self, user_id: UUID) -> None:
@@ -275,6 +279,53 @@ class CronometerSyncService:
 
         return new_logs
 
+    async def _upsert_exercise_logs(
+        self, user_id: UUID, exercises: list[Exercise]
+    ) -> list[ExerciseLog]:
+        """Upsert exercise log entries from Cronometer.
+
+        Args:
+            user_id: The user's ID.
+            exercises: List of Exercise objects from pycronometer.
+
+        Returns:
+            List of newly created ExerciseLog objects (excludes duplicates).
+        """
+        if not exercises:
+            return []
+
+        # Get existing hashes for deduplication
+        existing_hashes = await self._get_existing_hashes(user_id, "exercise_logs")
+
+        new_logs: list[ExerciseLog] = []
+        for exercise in exercises:
+            # Generate hash from raw_data
+            cronometer_hash = self._generate_hash(exercise.raw_data)
+
+            # Skip if already exists (in DB or current batch)
+            if cronometer_hash in existing_hashes:
+                continue
+
+            # Track this hash to avoid duplicates within the same batch
+            existing_hashes.add(cronometer_hash)
+
+            exercise_log = ExerciseLog(
+                user_id=user_id,
+                logged_at=exercise.logged_at,
+                name=exercise.name,
+                duration_minutes=exercise.duration_minutes,
+                calories_burned=exercise.calories_burned,
+                raw_data=exercise.raw_data,
+                cronometer_hash=cronometer_hash,
+            )
+            self._db.add(exercise_log)
+            new_logs.append(exercise_log)
+
+        if new_logs:
+            await self._db.flush()
+
+        return new_logs
+
     async def _get_existing_daily_biometrics(self, user_id: UUID) -> set[tuple[str, date]]:
         """Get existing (metric_type, date) pairs for daily-sampled biometrics.
 
@@ -379,7 +430,7 @@ class CronometerSyncService:
 
         Args:
             user_id: The user's ID.
-            table: Table name ('food_logs', 'biometric_logs', 'health_notes').
+            table: Table name ('food_logs', 'biometric_logs', 'health_notes', 'exercise_logs').
 
         Returns:
             Set of existing hash values.
@@ -395,6 +446,10 @@ class CronometerSyncService:
         elif table == "health_notes":
             result = await self._db.execute(
                 select(HealthNote.cronometer_hash).where(HealthNote.user_id == user_id)
+            )
+        elif table == "exercise_logs":
+            result = await self._db.execute(
+                select(ExerciseLog.cronometer_hash).where(ExerciseLog.user_id == user_id)
             )
         else:
             return set()
