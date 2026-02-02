@@ -1810,7 +1810,6 @@ function VisualizationsTab({
                 console.log("Toggled nutrient:", nutrientKey);
               }}
               height={400}
-              showBrush={timelineData.daily_data.length > 14}
             />
           </div>
         );

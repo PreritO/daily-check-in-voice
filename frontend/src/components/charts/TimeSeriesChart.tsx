@@ -11,7 +11,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  Brush,
   Cell,
   TooltipProps,
 } from "recharts";
@@ -67,8 +66,6 @@ export interface TimeSeriesChartProps {
   onNutrientToggle?: (nutrientKey: string) => void;
   /** Optional chart height in pixels (default: 400) */
   height?: number;
-  /** Optional: show brush for range selection */
-  showBrush?: boolean;
 }
 
 // =============================================================================
@@ -322,8 +319,8 @@ function CustomTooltip({
  * - Line charts for selected nutrients (left Y-axis)
  * - Scatter plot for Bristol events (right Y-axis, 1-7)
  * - Interactive tooltips with detailed information
- * - Optional brush for range selection
  * - Responsive sizing
+ * - Full date range display without zoom/pan controls
  *
  * @example
  * ```tsx
@@ -341,7 +338,6 @@ export function TimeSeriesChart({
   showBristolEvents,
   onNutrientToggle,
   height = 400,
-  showBrush = false,
 }: TimeSeriesChartProps) {
   // Process data for the chart
   const { chartData, nutrientColorMap } = useMemo(() => {
@@ -517,16 +513,6 @@ export function TimeSeriesChart({
                 />
               ))}
             </Scatter>
-          )}
-
-          {/* Optional brush for range selection */}
-          {showBrush && chartData.length > 7 && (
-            <Brush
-              dataKey="displayDate"
-              height={30}
-              stroke="#8884d8"
-              startIndex={Math.max(0, chartData.length - 14)}
-            />
           )}
         </ComposedChart>
       </ResponsiveContainer>
