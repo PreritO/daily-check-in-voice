@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useChatStore } from "@/stores/chat-store";
 import { ChatButton } from "./ChatButton";
+import { ChatWindow } from "./ChatWindow";
 
 // =============================================================================
 // Types
@@ -39,9 +40,10 @@ export function ChatWidget({ className }: ChatWidgetProps) {
   return (
     <div className={`fixed bottom-6 right-6 z-50 ${className ?? ""}`}>
       {/* Chat Window - animated open/close */}
+      {/* On mobile: full screen fixed. On desktop: positioned above button */}
       <div
         className={`
-          absolute bottom-16 right-0 mb-4
+          fixed inset-0 sm:absolute sm:inset-auto sm:bottom-16 sm:right-0 sm:mb-4
           transition-all duration-300 ease-out origin-bottom-right
           ${
             isOpen
@@ -50,12 +52,7 @@ export function ChatWidget({ className }: ChatWidgetProps) {
           }
         `}
       >
-        {/* ChatWindow component will be added in US-020 */}
-        <div className="w-[380px] h-[600px] rounded-2xl border border-[#DEDDDB] bg-white shadow-xl dark:border-[#3D3935] dark:bg-[#363230] sm:w-[400px]">
-          <div className="flex h-full items-center justify-center text-[#A89B86] dark:text-[#8B7E6F]">
-            Chat Window Placeholder
-          </div>
-        </div>
+        <ChatWindow />
       </div>
 
       {/* Chat Button - always visible */}
