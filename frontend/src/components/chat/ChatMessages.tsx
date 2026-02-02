@@ -41,8 +41,9 @@ export function ChatMessages({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingContent]);
 
-  // Show loading spinner
-  if (isLoading) {
+  // Show loading spinner only when loading AND no messages to display
+  // (e.g., initial conversation fetch, not during message send)
+  if (isLoading && messages.length === 0 && !isStreaming) {
     return (
       <div
         className={`flex items-center justify-center h-full ${className ?? ""}`}

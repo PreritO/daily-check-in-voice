@@ -57,7 +57,15 @@ async def create_conversation(
     conversation = Conversation(user_id=current_user.id)
     db.add(conversation)
     await db.flush()
-    await db.refresh(conversation)
+
+    # Re-fetch with selectinload to eager-load messages for message_count
+    # (required for async SQLAlchemy - lazy loading doesn't work)
+    result = await db.execute(
+        select(Conversation)
+        .options(selectinload(Conversation.messages))
+        .where(Conversation.id == conversation.id)
+    )
+    conversation = result.scalar_one()
 
     logger.info(
         "Conversation created",

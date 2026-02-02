@@ -30,6 +30,7 @@ export function useChatStreaming(options?: StreamingOptions) {
   const {
     currentConversationId,
     selectConversation,
+    addMessage,
     appendStreamingContent,
     finalizeStreaming,
     clearStreaming,
@@ -61,6 +62,14 @@ export function useChatStreaming(options?: StreamingOptions) {
           conversationId = newConversation.id;
           selectConversation(conversationId);
         }
+
+        // Add user message optimistically (so it appears immediately)
+        addMessage({
+          id: `user-${Date.now()}`,
+          role: "user",
+          content,
+          created_at: new Date().toISOString(),
+        });
 
         // Send message with streaming callbacks
         await sendMessageMutation.mutateAsync({
