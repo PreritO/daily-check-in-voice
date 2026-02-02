@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useChatStore } from "@/stores/chat-store";
 import { ChatMessage } from "./ChatMessage";
+import { ChatSuggestions } from "./ChatSuggestions";
 
 // =============================================================================
 // Types
@@ -80,18 +81,7 @@ export function ChatMessages({ className, isLoading }: ChatMessagesProps) {
             patterns.
           </p>
         </div>
-        {/* ChatSuggestions will be added in US-025 */}
-        <div className="flex-shrink-0">
-          <div className="text-xs text-[#A89B86] dark:text-[#8B7E6F] text-center mb-2">
-            Try asking:
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <SuggestionChip text="What did I eat yesterday?" />
-            <SuggestionChip text="What are my trigger foods?" />
-            <SuggestionChip text="How's my fiber intake?" />
-            <SuggestionChip text="Compare good vs bad days" />
-          </div>
-        </div>
+        <ChatSuggestions className="flex-shrink-0" />
       </div>
     );
   }
@@ -119,36 +109,5 @@ export function ChatMessages({ className, isLoading }: ChatMessagesProps) {
       {/* Scroll anchor */}
       <div ref={messagesEndRef} />
     </div>
-  );
-}
-
-// =============================================================================
-// Helper Component (will be extracted to ChatSuggestions.tsx in US-025)
-// =============================================================================
-
-interface SuggestionChipProps {
-  text: string;
-}
-
-function SuggestionChip({ text }: SuggestionChipProps) {
-  const { addMessage } = useChatStore();
-
-  const handleClick = () => {
-    // For now, just add the message (actual sending will be handled by ChatInput integration)
-    addMessage({
-      id: `temp-${Date.now()}`,
-      role: "user",
-      content: text,
-      created_at: new Date().toISOString(),
-    });
-  };
-
-  return (
-    <button
-      onClick={handleClick}
-      className="px-3 py-2 text-left rounded-lg border border-[#DEDDDB] bg-white text-[#4A4543] hover:bg-[#F5F3F0] hover:border-[#E8A0BF] transition-colors dark:border-[#3D3935] dark:bg-[#2A2725] dark:text-[#F5F3F0] dark:hover:bg-[#3D3935]"
-    >
-      {text}
-    </button>
   );
 }

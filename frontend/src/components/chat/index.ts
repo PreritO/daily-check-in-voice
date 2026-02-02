@@ -8,6 +8,8 @@ export { ChatMessage } from "./ChatMessage";
 export type { ChatMessageProps } from "./ChatMessage";
 export { ChatMessages } from "./ChatMessages";
 export type { ChatMessagesProps } from "./ChatMessages";
+export { ChatSuggestions } from "./ChatSuggestions";
+export type { ChatSuggestionsProps } from "./ChatSuggestions";
 export { ChatWidget } from "./ChatWidget";
 export type { ChatWidgetProps } from "./ChatWidget";
 export { ChatWindow } from "./ChatWindow";
