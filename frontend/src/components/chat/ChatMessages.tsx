@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useChatStore } from "@/stores/chat-store";
+import { ChatMessage } from "./ChatMessage";
 
 // =============================================================================
 // Types
@@ -102,7 +103,7 @@ export function ChatMessages({ className, isLoading }: ChatMessagesProps) {
     >
       {/* Message list */}
       {messages.map((message) => (
-        <MessageBubble
+        <ChatMessage
           key={message.id}
           role={message.role}
           content={message.content}
@@ -112,7 +113,7 @@ export function ChatMessages({ className, isLoading }: ChatMessagesProps) {
 
       {/* Streaming message indicator */}
       {isStreaming && streamingContent && (
-        <MessageBubble role="assistant" content={streamingContent} isStreaming />
+        <ChatMessage role="assistant" content={streamingContent} isStreaming />
       )}
 
       {/* Scroll anchor */}
@@ -122,52 +123,8 @@ export function ChatMessages({ className, isLoading }: ChatMessagesProps) {
 }
 
 // =============================================================================
-// Helper Components (will be extracted to ChatMessage.tsx in US-023)
+// Helper Component (will be extracted to ChatSuggestions.tsx in US-025)
 // =============================================================================
-
-interface MessageBubbleProps {
-  role: string;
-  content: string;
-  timestamp?: string;
-  isStreaming?: boolean;
-}
-
-function MessageBubble({
-  role,
-  content,
-  timestamp,
-  isStreaming,
-}: MessageBubbleProps) {
-  const isUser = role === "user";
-
-  return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`
-          max-w-[80%] px-4 py-2 rounded-2xl
-          ${
-            isUser
-              ? "bg-[#E8A0BF] text-white rounded-br-md"
-              : "bg-[#F5F3F0] text-[#4A4543] dark:bg-[#3D3935] dark:text-[#F5F3F0] rounded-bl-md"
-          }
-        `}
-      >
-        <p className="text-sm whitespace-pre-wrap break-words">{content}</p>
-        {isStreaming && (
-          <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse rounded-sm" />
-        )}
-        {timestamp && !isStreaming && (
-          <p className="text-xs opacity-60 mt-1">
-            {new Date(timestamp).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
 
 interface SuggestionChipProps {
   text: string;
