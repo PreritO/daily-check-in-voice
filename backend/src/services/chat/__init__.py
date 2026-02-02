@@ -6,6 +6,7 @@ from .prompts import (
     SYSTEM_PROMPT,
     build_system_prompt,
 )
+from .tool_executor import ToolExecutionError, ToolExecutor
 from .tools import AGENT_TOOLS, TOOL_NAMES
 
 __all__ = [
@@ -14,5 +15,7 @@ __all__ = [
     "RESPONSE_GUIDELINES",
     "SYSTEM_PROMPT",
     "TOOL_NAMES",
+    "ToolExecutionError",
+    "ToolExecutor",
     "build_system_prompt",
 ]
