@@ -1,1055 +1,483 @@
 {
-  "branchName": "feature/cronometer-integration",
+  "branchName": "feature/nutrition-chat-agent",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Add pycronometer and analysis dependencies",
-      "description": "Add pycronometer library from GitHub, cryptography for Fernet encryption, numpy and scipy for statistical analysis to backend/pyproject.toml dependencies.",
+      "title": "Create ExerciseLog model",
+      "description": "Create SQLAlchemy model for storing exercise/workout data from Cronometer. Fields: id (UUID), user_id (FK to users), logged_at (datetime indexed), name (String 200), duration_minutes (Float), calories_burned (Float), raw_data (JSONB), cronometer_hash (unique indexed), created_at. Add relationship to User model.",
       "acceptanceCriteria": [
-        "pycronometer @ git+https://github.com/PreritO/pycronometer.git added to dependencies",
-        "cryptography>=44.0.0 added to dependencies",
-        "numpy>=1.26.0 added to dependencies",
-        "scipy>=1.11.0 added to dependencies",
-        "uv sync runs without errors"
+        "Model exists in backend/src/models/exercise_log.py",
+        "Uses SQLAlchemy 2.0+ Mapped type hints",
+        "Foreign key to users table with CASCADE delete",
+        "logged_at is indexed for date range queries",
+        "cronometer_hash is unique and indexed for deduplication",
+        "Relationship added to User model (exercise_logs)",
+        "Exported from backend/src/models/__init__.py"
       ],
       "priority": 1,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-002",
-      "title": "Create CronometerCredential model",
-      "description": "Create SQLAlchemy model for storing encrypted Cronometer credentials. Fields: id (UUID), user_id (FK to users), encrypted_email (Text), encrypted_password (Text), last_sync_at (datetime nullable), created_at, updated_at. Add relationship to User model.",
+      "title": "Create Alembic migration for exercise_logs table",
+      "description": "Generate Alembic migration for the exercise_logs table with proper indexes and constraints.",
       "acceptanceCriteria": [
-        "Model exists in backend/src/models/cronometer_credential.py",
-        "Uses SQLAlchemy 2.0+ Mapped type hints",
-        "Foreign key to users table with CASCADE delete",
-        "user_id is unique (one credential per user)",
-        "Relationship added to User model (cronometer_credential)",
-        "Exported from backend/src/models/__init__.py"
+        "Alembic migration file created in backend/alembic/versions/",
+        "Migration creates exercise_logs table with all columns",
+        "Indexes on user_id, logged_at, and cronometer_hash",
+        "Foreign key constraint to users table with CASCADE delete",
+        "uv run ruff check passes"
       ],
       "priority": 2,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-003",
-      "title": "Create FoodLog model",
-      "description": "Create SQLAlchemy model for storing food servings from Cronometer. Fields: id, user_id, logged_at, food_name, serving_size, food_group (nullable), calories, protein_g, carbs_g, fat_g, fiber_g, sugar_g, sodium_mg, raw_data (JSONB), cronometer_hash (unique for dedup), created_at.",
+      "title": "Update sync service to import exercises",
+      "description": "Update CronometerSyncService to call client.get_exercises() and upsert exercise data. Add _upsert_exercise_logs method following the pattern of _upsert_food_logs. Update SyncResult dataclass to include exercises_synced count.",
       "acceptanceCriteria": [
-        "Model exists in backend/src/models/food_log.py",
-        "Uses SQLAlchemy 2.0+ Mapped type hints",
-        "raw_data field uses JSONB type from sqlalchemy.dialects.postgresql",
-        "cronometer_hash is unique and indexed for deduplication",
-        "logged_at is indexed for date range queries",
-        "Relationship added to User model (food_logs)",
-        "Exported from backend/src/models/__init__.py"
+        "_upsert_exercise_logs(user_id, exercises) method implemented in sync_service.py",
+        "Generates hash from exercise raw_data for deduplication",
+        "Skips exercises that already exist (by hash)",
+        "sync_user calls client.get_exercises() and _upsert_exercise_logs",
+        "SyncResult dataclass updated with exercises_synced field",
+        "uv run ruff check passes",
+        "uv run pytest passes"
       ],
       "priority": 3,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-004",
-      "title": "Create BiometricLog model",
-      "description": "Create SQLAlchemy model for storing biometric measurements. Fields: id, user_id, logged_at, metric_type (string), value (float), unit (string), raw_data (JSONB), cronometer_hash (unique), created_at.",
+      "title": "Create exercise Pydantic schemas and API endpoint",
+      "description": "Create ExerciseLogResponse Pydantic schema and GET /api/cronometer/exercises endpoint to retrieve exercises by date range. Update SyncResponse schema to include exercises_synced.",
       "acceptanceCriteria": [
-        "Model exists in backend/src/models/biometric_log.py",
-        "Uses SQLAlchemy 2.0+ Mapped type hints",
-        "metric_type stores the type like 'weight', 'body_fat', etc.",
-        "cronometer_hash is unique for deduplication",
-        "Relationship added to User model (biometric_logs)",
-        "Exported from backend/src/models/__init__.py"
+        "ExerciseLogResponse schema in backend/src/api/schemas.py",
+        "SyncResponse updated to include exercises_synced field",
+        "GET /exercises endpoint in cronometer router with start_date and end_date params",
+        "Endpoint filters by current user and orders by logged_at descending",
+        "uv run ruff check passes"
       ],
       "priority": 4,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-005",
-      "title": "Create HealthNote model",
-      "description": "Create SQLAlchemy model for storing notes including bowel movements. Fields: id, user_id, logged_at, content (Text), is_bowel_movement (bool), bristol_scale (int 1-7 nullable), quantity_score (int 1-10 nullable), raw_data (JSONB), cronometer_hash (unique), created_at.",
+      "title": "Add useExerciseLogsQuery React Query hook",
+      "description": "Add React Query hook for fetching exercises from the API. Add TypeScript types for ExerciseLog.",
       "acceptanceCriteria": [
-        "Model exists in backend/src/models/health_note.py",
-        "Uses SQLAlchemy 2.0+ Mapped type hints",
-        "is_bowel_movement defaults to False",
-        "bristol_scale and quantity_score are nullable for non-BM notes",
-        "Relationship added to User model (health_notes)",
-        "Exported from backend/src/models/__init__.py"
+        "ExerciseLog TypeScript interface in frontend/src/lib/api/cronometer.ts",
+        "exerciseKeys query key factory defined",
+        "getExerciseLogs async function implemented",
+        "useExerciseLogsQuery(startDate, endDate) hook exported",
+        "npm run build passes"
       ],
       "priority": 5,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-006",
-      "title": "Create Alembic migration for Cronometer tables",
-      "description": "Generate and verify Alembic migration for the 4 new tables: cronometer_credentials, food_logs, biometric_logs, health_notes. Ensure proper indexes and constraints.",
+      "title": "Create Conversation and Message models",
+      "description": "Create SQLAlchemy models for chat conversations and messages. Conversation has: id, user_id, title (nullable), created_at, updated_at. Message has: id, conversation_id, role (enum: user/assistant/system/tool), content (Text), tool_calls (JSONB nullable), tool_call_id (String nullable), tokens_used (Integer nullable), created_at. Add relationships to User model.",
       "acceptanceCriteria": [
-        "Alembic migration file created in backend/alembic/versions/",
-        "Migration creates cronometer_credentials table",
-        "Migration creates food_logs table with JSONB column",
-        "Migration creates biometric_logs table",
-        "Migration creates health_notes table",
-        "All foreign keys and indexes are properly defined",
-        "Migration can be applied with alembic upgrade head"
+        "MessageRole enum defined (user, assistant, system, tool)",
+        "Conversation model in backend/src/models/conversation.py",
+        "Message model in backend/src/models/message.py",
+        "Conversation has one-to-many relationship with Messages (cascade delete)",
+        "User has one-to-many relationship with Conversations",
+        "Both models exported from backend/src/models/__init__.py",
+        "uv run ruff check passes"
       ],
       "priority": 6,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-007",
-      "title": "Create encryption utility module",
-      "description": "Create utility module for encrypting/decrypting Cronometer credentials using Fernet symmetric encryption. Include functions: encrypt_string, decrypt_string. Read key from CRONOMETER_ENCRYPTION_KEY env var.",
+      "title": "Create Alembic migration for chat tables",
+      "description": "Generate Alembic migration for conversations and messages tables with the MessageRole enum type.",
       "acceptanceCriteria": [
-        "Module exists in backend/src/utils/encryption.py",
-        "encrypt_string(plaintext: str) -> str function",
-        "decrypt_string(ciphertext: str) -> str function",
-        "Uses Fernet from cryptography library",
-        "Reads encryption key from settings/environment",
-        "Add CRONOMETER_ENCRYPTION_KEY to backend/src/config.py settings"
+        "Alembic migration file created in backend/alembic/versions/",
+        "Migration creates conversations table",
+        "Migration creates messages table with JSONB tool_calls column",
+        "MessageRole enum type created in PostgreSQL",
+        "Proper foreign key constraints and indexes",
+        "uv run ruff check passes"
       ],
       "priority": 7,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-008",
-      "title": "Create Cronometer sync service - core structure",
-      "description": "Create the CronometerSyncService class with init, sync_user method skeleton, and helper methods for getting credentials and generating hashes. Do not implement the upsert methods yet.",
+      "title": "Add OpenAI configuration to settings",
+      "description": "Add OpenAI API key and model configuration to the backend settings. Support both GPT-4o-mini (development) and GPT-4o (production) models.",
       "acceptanceCriteria": [
-        "Service exists in backend/src/integrations/cronometer/sync_service.py",
-        "CronometerSyncService class with __init__(db: AsyncSession)",
-        "sync_user(user_id: UUID, days_back: int = 7) -> SyncResult method skeleton",
-        "_get_credentials(user_id) method that queries DB and decrypts",
-        "_generate_hash(data: dict) -> str method using SHA256",
-        "SyncResult dataclass defined with food_logs_synced, biometric_logs_synced, health_notes_synced counts",
-        "Create backend/src/integrations/cronometer/__init__.py"
+        "OPENAI_API_KEY setting added to backend/src/config.py",
+        "OPENAI_MODEL setting with default 'gpt-4o-mini'",
+        "CHAT_RATE_LIMIT_PER_DAY setting with default 100",
+        "CHAT_MAX_HISTORY_MESSAGES setting with default 10",
+        "Add openai>=1.0.0 to backend/pyproject.toml dependencies",
+        "uv sync runs without errors"
       ],
       "priority": 8,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-009",
-      "title": "Implement sync service - food logs upsert",
-      "description": "Implement _upsert_food_logs method in CronometerSyncService. Transform pycronometer Serving objects to FoodLog models, use cronometer_hash for deduplication (skip existing).",
+      "title": "Create agent tools definitions module",
+      "description": "Create the tool definitions module with all function schemas for OpenAI function calling. Define tools for: get_food_logs, get_daily_nutrition_summary, get_bowel_movements, get_exercises, get_biometrics, get_health_notes, get_trigger_foods, get_nutrient_correlations, compare_days.",
       "acceptanceCriteria": [
-        "_upsert_food_logs(user_id, servings: list[Serving]) -> list[FoodLog] implemented",
-        "Generates hash from serving raw_data for deduplication",
-        "Skips servings that already exist (by hash)",
-        "Maps all fields from Serving to FoodLog including raw_data",
-        "Returns list of newly created FoodLog objects"
+        "Module at backend/src/services/chat/tools.py",
+        "AGENT_TOOLS list with 9 function definitions",
+        "Each tool has name, description, and parameters schema",
+        "Parameters use JSON Schema format (type, properties, required)",
+        "Descriptions explain what each tool does and when to use it",
+        "uv run ruff check passes"
       ],
       "priority": 9,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-010",
-      "title": "Implement sync service - biometric logs upsert",
-      "description": "Implement _upsert_biometric_logs method in CronometerSyncService. Transform pycronometer BiometricEntry objects to BiometricLog models with deduplication.",
+      "title": "Create system prompt module",
+      "description": "Create the prompts module with the system prompt for the nutrition chat agent. Include personality instructions, Bristol scale reference, response guidelines, and date context placeholder.",
       "acceptanceCriteria": [
-        "_upsert_biometric_logs(user_id, entries: list[BiometricEntry]) -> list[BiometricLog] implemented",
-        "Generates hash from entry raw_data for deduplication",
-        "Skips entries that already exist (by hash)",
-        "Maps metric, value, unit fields correctly",
-        "Returns list of newly created BiometricLog objects"
+        "Module at backend/src/services/chat/prompts.py",
+        "SYSTEM_PROMPT string with friendly/conversational tone",
+        "Bristol scale reference (1-2 constipation, 3-5 healthy, 6-7 loose)",
+        "Response guidelines for analyzing nutrition data",
+        "Placeholder for current_date injection",
+        "Instructions to explain reasoning and reference specific data",
+        "uv run ruff check passes"
       ],
       "priority": 10,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-011",
-      "title": "Implement sync service - health notes with BM parsing",
-      "description": "Implement _upsert_health_notes method and _parse_bowel_movement helper. Parse note content for 'Bowel Movement' keyword, extract Bristol scale and quantity score using regex.",
+      "title": "Create ToolExecutor class",
+      "description": "Create the ToolExecutor class that executes agent tool calls against the database. Implement all 9 tool execution methods that query the appropriate tables and return structured results.",
       "acceptanceCriteria": [
-        "_upsert_health_notes(user_id, notes: list[Note]) -> list[HealthNote] implemented",
-        "_parse_bowel_movement(content: str) -> tuple[bool, int|None, int|None] implemented",
-        "Detects 'bowel movement' (case insensitive) in content",
-        "Extracts Bristol scale with regex like 'bristol\\s*(\\d)'",
-        "Extracts quantity with regex like 'quantity\\s*(\\d+)/10'",
-        "Sets is_bowel_movement, bristol_scale, quantity_score on HealthNote"
+        "Class at backend/src/services/chat/tool_executor.py",
+        "ToolExecutor.__init__(db: AsyncSession, user_id: UUID)",
+        "execute(tool_name: str, args: dict) -> dict method",
+        "_get_food_logs, _get_daily_nutrition_summary, _get_bowel_movements implemented",
+        "_get_exercises, _get_biometrics, _get_health_notes implemented",
+        "_get_trigger_foods, _get_nutrient_correlations, _compare_days implemented",
+        "All methods handle date parsing from string to date objects",
+        "Error handling returns {error: message} dict",
+        "uv run ruff check passes"
       ],
       "priority": 11,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-012",
-      "title": "Complete sync_user method with pycronometer integration",
-      "description": "Complete the sync_user method to use pycronometer client: login with decrypted credentials, fetch servings/biometrics/notes, call upsert methods, update last_sync_at timestamp.",
+      "title": "Create ChatService with agent loop",
+      "description": "Create the ChatService class implementing the ReAct-style agent loop with OpenAI function calling. Support streaming responses. Include conversation management, message history, and rate limiting check.",
       "acceptanceCriteria": [
-        "sync_user creates CronometerClient instance",
-        "Logs in with decrypted email/password",
-        "Calls get_servings, get_biometrics, get_notes with date range",
-        "Calls all three _upsert methods",
-        "Updates last_sync_at on credential record",
-        "Returns SyncResult with counts",
-        "Handles pycronometer exceptions (CronometerAuthError, etc.)"
+        "Class at backend/src/services/chat/chat_service.py",
+        "ChatService.__init__(db, user_id) creates OpenAI client",
+        "chat(conversation_id, user_message, stream=True) async generator method",
+        "_get_or_create_conversation method",
+        "_get_conversation_history(conversation_id, limit=10) method",
+        "_build_messages(history, user_message) builds OpenAI messages array",
+        "_agent_loop with max 5 iterations to prevent infinite loops",
+        "Handles tool_calls response and executes tools via ToolExecutor",
+        "Saves user and assistant messages to database",
+        "_check_rate_limit raises error if limit exceeded",
+        "uv run ruff check passes"
       ],
       "priority": 12,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-013",
-      "title": "Create Pydantic schemas for Cronometer API",
-      "description": "Create Pydantic schemas for API requests and responses: SaveCredentialsRequest, SyncRequest, SyncResponse, FoodLogResponse, HealthNoteResponse, CredentialStatusResponse.",
+      "title": "Create rate limiting utility",
+      "description": "Create a rate limiting utility that tracks daily message count per user and enforces the configured limit.",
       "acceptanceCriteria": [
-        "Schemas in backend/src/api/schemas/cronometer.py",
-        "SaveCredentialsRequest with email, password fields",
-        "SyncRequest with optional days_back field (default 7)",
-        "SyncResponse with food_logs_synced, biometric_logs_synced, health_notes_synced, synced_at",
-        "FoodLogResponse with all food log fields",
-        "HealthNoteResponse with all health note fields including parsed BM data",
-        "CredentialStatusResponse with has_credentials, last_sync_at"
+        "Module at backend/src/services/chat/rate_limit.py",
+        "check_rate_limit(db, user_id) -> bool async function",
+        "get_daily_message_count(db, user_id) -> int async function",
+        "Counts messages from conversations table for current UTC day",
+        "RateLimitExceededError exception class",
+        "Uses CHAT_RATE_LIMIT_PER_DAY from settings",
+        "uv run ruff check passes"
       ],
       "priority": 13,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-014",
-      "title": "Create Cronometer credentials API endpoints",
-      "description": "Create /api/cronometer/credentials endpoints: POST to save credentials (encrypted), GET to check status, DELETE to remove credentials.",
+      "title": "Create Pydantic schemas for chat API",
+      "description": "Create Pydantic schemas for chat API requests and responses: ConversationCreate, ConversationResponse, ConversationListResponse, MessageCreate, MessageResponse.",
       "acceptanceCriteria": [
-        "Router in backend/src/api/routes/cronometer.py",
-        "POST /credentials saves encrypted email/password for current user",
-        "GET /credentials/status returns whether credentials exist and last sync time",
-        "DELETE /credentials removes credentials for current user",
-        "All endpoints require authentication via get_current_user",
-        "Router registered in backend/src/api/routes/__init__.py"
+        "Schemas in backend/src/api/schemas.py (or new chat_schemas.py)",
+        "ConversationResponse with id, title, created_at, updated_at, message_count",
+        "ConversationListResponse as list of ConversationResponse",
+        "MessageCreate with content field",
+        "MessageResponse with id, role, content, created_at",
+        "ConversationWithMessagesResponse includes list of messages",
+        "uv run ruff check passes"
       ],
       "priority": 14,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-015",
-      "title": "Create Cronometer sync API endpoint",
-      "description": "Create POST /api/cronometer/sync endpoint that triggers a manual sync for the current user using CronometerSyncService.",
+      "title": "Create chat API router with streaming",
+      "description": "Create the chat API router with endpoints for managing conversations and sending messages. Support Server-Sent Events (SSE) for streaming responses.",
       "acceptanceCriteria": [
-        "POST /sync endpoint in cronometer router",
-        "Accepts optional days_back parameter (default 7, max 90)",
-        "Calls CronometerSyncService.sync_user",
-        "Returns SyncResponse with counts and timestamp",
-        "Returns 404 if user has no credentials saved",
-        "Returns appropriate error if Cronometer login fails"
+        "Router at backend/src/api/routes/chat.py",
+        "POST /conversations - create new conversation",
+        "GET /conversations - list user's conversations",
+        "GET /conversations/{id} - get conversation with messages",
+        "DELETE /conversations/{id} - delete conversation",
+        "POST /conversations/{id}/messages - send message with streaming response",
+        "Streaming endpoint uses StreamingResponse with text/event-stream",
+        "Router registered in backend/src/api/routes/__init__.py",
+        "uv run ruff check passes"
       ],
       "priority": 15,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-016",
-      "title": "Create food logs and health notes read endpoints",
-      "description": "Create GET endpoints for retrieving food logs and health notes by date range: GET /api/cronometer/food-logs, GET /api/cronometer/health-notes.",
+      "title": "Add React Query hooks for chat API",
+      "description": "Create React Query hooks for all chat API endpoints. Include TypeScript types for Conversation and Message.",
       "acceptanceCriteria": [
-        "GET /food-logs with start_date and end_date query params",
-        "GET /health-notes with start_date and end_date query params",
-        "Both filter by current user's ID",
-        "Both return list of appropriate response schemas",
-        "Results ordered by logged_at descending"
-      ],
-      "priority": 16,
-      "passes": true
-    },
-    {
-      "id": "US-017",
-      "title": "Create InsightsService - core structure and types",
-      "description": "Create InsightsService with TimeLagWindow enum, CorrelationResult dataclass, TRACKED_NUTRIENTS dict, NUTRIENT_GROUPS dict, and analyze_correlations method skeleton.",
-      "acceptanceCriteria": [
-        "Service in backend/src/services/insights_service.py",
-        "TimeLagWindow enum with HOURS_12, HOURS_24, HOURS_36, HOURS_48, HOURS_72",
-        "CorrelationResult dataclass with all fields from plan",
-        "TRACKED_NUTRIENTS dict mapping Cronometer columns to friendly names (50+ nutrients)",
-        "NUTRIENT_GROUPS dict grouping nutrients by category",
-        "analyze_correlations method skeleton that returns MultiLagCorrelationResponse"
-      ],
-      "priority": 17,
-      "passes": true
-    },
-    {
-      "id": "US-018",
-      "title": "Implement InsightsService - nutrient correlation analysis",
-      "description": "Implement _analyze_nutrient_correlations method using numpy/scipy. For each nutrient, calculate Pearson correlation with Bristol scores, high/low comparison, and statistical significance.",
-      "acceptanceCriteria": [
-        "_analyze_nutrient_correlations method fully implemented",
-        "Uses scipy.stats.pearsonr for correlation",
-        "Calculates avg Bristol when nutrient intake high vs low (median split)",
-        "Sets is_significant based on p < 0.05",
-        "_get_nutrient_value helper extracts values from raw_data",
-        "Sorts results by absolute correlation strength"
-      ],
-      "priority": 18,
-      "passes": true
-    },
-    {
-      "id": "US-019",
-      "title": "Implement InsightsService - consistent correlations and insights",
-      "description": "Implement _find_consistent_correlations to identify nutrients significant across 2+ time windows, and _generate_insights to create human-readable insight strings.",
-      "acceptanceCriteria": [
-        "_find_consistent_correlations method implemented",
-        "Counts how many time windows each nutrient is significant in",
-        "Returns items significant in 2+ windows with avg correlation",
-        "_generate_insights method implemented",
-        "Generates baseline Bristol context (too hard/too loose)",
-        "Generates top 5 correlation insights with direction"
-      ],
-      "priority": 19,
-      "passes": true
-    },
-    {
-      "id": "US-020",
-      "title": "Complete analyze_correlations method",
-      "description": "Complete the analyze_correlations method: fetch BM notes and food logs from DB, run correlation analysis for each time lag, find consistent correlations, generate insights, return full response.",
-      "acceptanceCriteria": [
-        "analyze_correlations fetches HealthNotes where is_bowel_movement=True",
-        "Fetches FoodLogs for extended date range (to cover lag windows)",
-        "Loops through time_lags calling _analyze_nutrient_correlations",
-        "Calls _find_consistent_correlations and _generate_insights",
-        "Returns MultiLagCorrelationResponse with all data",
-        "Raises InsufficientDataError if not enough BMs"
-      ],
-      "priority": 20,
-      "passes": true
-    },
-    {
-      "id": "US-021",
-      "title": "Create correlations API endpoint",
-      "description": "Create GET /api/cronometer/insights/correlations endpoint that calls InsightsService.analyze_correlations with query parameters.",
-      "acceptanceCriteria": [
-        "GET /insights/correlations endpoint in cronometer router",
-        "Query params: start_date, end_date, time_lags (list), min_sample_size, analysis_level",
-        "Validates time_lags are valid enum values",
-        "Returns MultiLagCorrelationResponse schema",
-        "Returns 400 if insufficient data for analysis"
-      ],
-      "priority": 21,
-      "passes": true
-    },
-    {
-      "id": "US-022",
-      "title": "Create Pydantic schemas for insights API",
-      "description": "Create Pydantic schemas for insights: CorrelationResultSchema, ConsistentCorrelationSchema, MultiLagCorrelationResponse with all nested structures.",
-      "acceptanceCriteria": [
-        "Schemas in backend/src/api/schemas/insights.py or added to cronometer.py",
-        "CorrelationResultSchema with all CorrelationResult fields",
-        "ConsistentCorrelationSchema for consistent correlations",
-        "MultiLagCorrelationResponse with baseline_bristol_score, total counts, results_by_lag, consistent_correlations, insights list"
-      ],
-      "priority": 22,
-      "passes": true
-    },
-    {
-      "id": "US-023",
-      "title": "Add unit tests for bowel movement parsing",
-      "description": "Write unit tests for _parse_bowel_movement function covering various note formats: standard format, missing Bristol, missing quantity, no BM keyword, case variations.",
-      "acceptanceCriteria": [
-        "Tests in backend/tests/test_sync_service.py",
-        "Test standard format: 'Bowel Movement - quantity 5/10, Bristol 4'",
-        "Test with only Bristol: 'BM Bristol 3'",
-        "Test with only quantity: 'Bowel Movement quantity 7/10'",
-        "Test non-BM note returns (False, None, None)",
-        "Test case insensitivity"
-      ],
-      "priority": 23,
-      "passes": true
-    },
-    {
-      "id": "US-024",
-      "title": "Add unit tests for correlation analysis",
-      "description": "Write unit tests for InsightsService correlation methods using synthetic data. Test correlation calculation, high/low comparison, and significance detection.",
-      "acceptanceCriteria": [
-        "Tests in backend/tests/test_insights_service.py",
-        "Test with synthetic food logs and BM notes",
-        "Test positive correlation detection",
-        "Test negative correlation detection",
-        "Test insignificant correlation (high p-value)",
-        "Test _find_consistent_correlations with multi-window data"
-      ],
-      "priority": 24,
-      "passes": true
-    },
-    {
-      "id": "US-025",
-      "title": "Create Cronometer API hooks",
-      "description": "Create React Query hooks for all Cronometer API endpoints in frontend/src/lib/api/cronometer.ts. Include hooks for credentials, sync, food logs, health notes, and insights correlations.",
-      "acceptanceCriteria": [
-        "File frontend/src/lib/api/cronometer.ts exists",
-        "useCronometerStatusQuery() - GET /cronometer/credentials/status",
-        "useSaveCronometerCredentialsMutation() - POST /cronometer/credentials",
-        "useDeleteCronometerCredentialsMutation() - DELETE /cronometer/credentials",
-        "useSyncCronometerMutation() - POST /cronometer/sync with days_back param",
-        "useFoodLogsQuery(startDate, endDate) - GET /cronometer/food-logs",
-        "useHealthNotesQuery(startDate, endDate) - GET /cronometer/health-notes",
-        "useCorrelationsQuery(params) - GET /cronometer/insights/correlations",
-        "TypeScript types for all response schemas",
+        "File frontend/src/lib/api/chat.ts",
+        "Conversation and Message TypeScript interfaces",
+        "chatKeys query key factory",
+        "useConversationsQuery() - list conversations",
+        "useConversationQuery(id) - get single conversation with messages",
+        "useCreateConversationMutation() - create new conversation",
+        "useDeleteConversationMutation() - delete conversation",
+        "useSendMessageMutation() with streaming response handling",
         "Exported from frontend/src/lib/api/index.ts",
         "npm run build passes"
       ],
+      "priority": 16,
+      "passes": false
+    },
+    {
+      "id": "US-017",
+      "title": "Create Zustand store for chat state",
+      "description": "Create Zustand store for managing chat UI state including open/close, conversations, messages, and streaming state.",
+      "acceptanceCriteria": [
+        "Store at frontend/src/stores/chat-store.ts",
+        "State: isOpen, currentConversationId, conversations, messages, isStreaming, streamingContent",
+        "Actions: toggleChat, openChat, closeChat, selectConversation, startNewConversation",
+        "Actions: addMessage, appendStreamingContent, finalizeStreaming",
+        "Uses zustand create function",
+        "npm run build passes"
+      ],
+      "priority": 17,
+      "passes": false
+    },
+    {
+      "id": "US-018",
+      "title": "Create ChatWidget container component",
+      "description": "Create the floating chat widget container that appears in the bottom-right corner of all dashboard pages. Handles open/close state and animation.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/chat/ChatWidget.tsx",
+        "Fixed position bottom-right corner",
+        "Shows ChatButton when closed",
+        "Shows ChatWindow when open",
+        "Smooth animation for open/close transition",
+        "Uses chat store for state",
+        "npm run build passes"
+      ],
+      "priority": 18,
+      "passes": false
+    },
+    {
+      "id": "US-019",
+      "title": "Create ChatButton toggle component",
+      "description": "Create the floating action button that toggles the chat widget open/closed. Shows a chat icon.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/chat/ChatButton.tsx",
+        "Circular button with chat bubble icon",
+        "onClick calls toggleChat from store",
+        "Hover state with scale effect",
+        "Matches app design system colors",
+        "npm run build passes"
+      ],
+      "priority": 19,
+      "passes": false
+    },
+    {
+      "id": "US-020",
+      "title": "Create ChatWindow main component",
+      "description": "Create the main chat window container that holds the header, messages, and input components.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/chat/ChatWindow.tsx",
+        "Fixed size window (400px wide, 600px tall on desktop)",
+        "Contains ChatHeader, ChatMessages, ChatInput",
+        "White background with shadow and rounded corners",
+        "Responsive: full screen on mobile viewports",
+        "npm run build passes"
+      ],
+      "priority": 20,
+      "passes": false
+    },
+    {
+      "id": "US-021",
+      "title": "Create ChatHeader component",
+      "description": "Create the chat header with title, close button, and new conversation button.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/chat/ChatHeader.tsx",
+        "Shows 'Nutrition Assistant' title or conversation title",
+        "Close button (X icon) calls closeChat",
+        "New conversation button with plus icon",
+        "Back button when viewing conversation list",
+        "npm run build passes"
+      ],
+      "priority": 21,
+      "passes": false
+    },
+    {
+      "id": "US-022",
+      "title": "Create ChatMessages component",
+      "description": "Create the scrollable message list component with auto-scroll on new messages.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/chat/ChatMessages.tsx",
+        "Scrollable container with overflow-y-auto",
+        "Renders list of ChatMessage components",
+        "Auto-scrolls to bottom on new message",
+        "Shows loading spinner while fetching history",
+        "Shows ChatSuggestions for empty conversations",
+        "npm run build passes"
+      ],
+      "priority": 22,
+      "passes": false
+    },
+    {
+      "id": "US-023",
+      "title": "Create ChatMessage component",
+      "description": "Create the individual message bubble component with different styling for user vs assistant messages.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/chat/ChatMessage.tsx",
+        "User messages: right-aligned, primary color background",
+        "Assistant messages: left-aligned, gray background",
+        "Renders markdown content for assistant messages",
+        "Shows timestamp on hover",
+        "Typing indicator for streaming messages",
+        "npm run build passes"
+      ],
+      "priority": 23,
+      "passes": false
+    },
+    {
+      "id": "US-024",
+      "title": "Create ChatInput component",
+      "description": "Create the message input field with send button. Disabled while streaming.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/chat/ChatInput.tsx",
+        "Text input field with placeholder 'Ask about your nutrition...'",
+        "Send button with arrow icon",
+        "Enter key sends message",
+        "Shift+Enter for newline",
+        "Disabled state while isStreaming is true",
+        "Calls sendMessage mutation on submit",
+        "npm run build passes"
+      ],
+      "priority": 24,
+      "passes": false
+    },
+    {
+      "id": "US-025",
+      "title": "Create ChatSuggestions component",
+      "description": "Create the suggested queries component shown for new conversations to help users get started.",
+      "acceptanceCriteria": [
+        "Component at frontend/src/components/chat/ChatSuggestions.tsx",
+        "Grid of suggestion buttons",
+        "6 default suggestions: 'Why did I feel bad yesterday?', 'What did I eat in the last 3 days?', 'What are my trigger foods?', 'How's my fiber intake this week?', 'Compare my good days vs bad days', 'What should I eat more of?'",
+        "Clicking suggestion sends it as a message",
+        "Styled as clickable chips/buttons",
+        "npm run build passes"
+      ],
       "priority": 25,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-026",
-      "title": "Add Cronometer credentials section to settings page",
-      "description": "Add a new 'Integrations' section to the settings page for managing Cronometer credentials. Show connection status, allow saving new credentials, and provide disconnect option.",
+      "title": "Create streaming message handler",
+      "description": "Create the SSE/streaming response handler that processes chunks from the backend and updates the store in real-time.",
       "acceptanceCriteria": [
-        "New 'Integrations' section in frontend/src/app/(dashboard)/settings/page.tsx",
-        "Shows Cronometer connection status (connected/not connected)",
-        "Shows last sync timestamp if connected",
-        "Form to enter Cronometer email and password",
-        "Save button calls useSaveCronometerCredentialsMutation",
-        "Disconnect button calls useDeleteCronometerCredentialsMutation with confirmation",
-        "Loading and error states handled",
-        "Password field uses type='password'",
+        "Handler in frontend/src/lib/api/chat.ts or separate streaming.ts",
+        "connectToStream(conversationId, message) async function",
+        "Uses EventSource or fetch with ReadableStream",
+        "Parses SSE data format",
+        "Calls appendStreamingContent for each chunk",
+        "Calls finalizeStreaming when stream ends",
+        "Handles errors gracefully",
         "npm run build passes"
       ],
       "priority": 26,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-027",
-      "title": "Create Insights page layout and navigation",
-      "description": "Create the Insights dashboard page at frontend/src/app/(dashboard)/insights/page.tsx with basic layout, add to sidebar navigation. Include header, date range selector, and placeholder sections.",
+      "title": "Add ChatWidget to dashboard layout",
+      "description": "Add the ChatWidget component to the dashboard layout so it appears on all dashboard pages.",
       "acceptanceCriteria": [
-        "File frontend/src/app/(dashboard)/insights/page.tsx exists",
-        "Page title 'Nutrition Insights'",
-        "Date range picker (start_date, end_date) defaulting to last 30 days",
-        "Placeholder sections for: Sync Status, Key Insights, Correlation Analysis",
-        "Added to sidebar navigation in frontend/src/app/(dashboard)/layout.tsx",
-        "Uses consistent styling with other dashboard pages",
+        "ChatWidget imported in frontend/src/app/(dashboard)/layout.tsx",
+        "ChatWidget rendered at the root level of the layout",
+        "Widget appears on all dashboard pages (insights, settings, etc.)",
+        "Widget does not interfere with page content",
         "npm run build passes"
       ],
       "priority": 27,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-028",
-      "title": "Add sync status and trigger to Insights page",
-      "description": "Add a sync status card to the Insights page showing last sync time and a 'Sync Now' button. Include days_back selector (7, 14, 30, 60, 90 days). Show sync progress and results.",
+      "title": "Style chat components with design system",
+      "description": "Apply consistent styling to all chat components using the app's design system colors and patterns. Ensure mobile responsiveness.",
       "acceptanceCriteria": [
-        "Sync status card shows 'Connected' or 'Not Connected' based on credentials status",
-        "Shows last_sync_at timestamp formatted nicely (e.g., '2 hours ago')",
-        "Days selector dropdown with options: 7, 14, 30, 60, 90",
-        "Sync Now button triggers useSyncCronometerMutation",
-        "Loading spinner during sync",
-        "Success toast showing sync counts (food logs, biometrics, notes)",
-        "Error handling if not connected (prompt to go to Settings)",
+        "All chat components use app's color variables (primary, background, text colors)",
+        "Consistent border radius, shadows, and spacing",
+        "Mobile responsive: chat goes full-screen on small viewports",
+        "Smooth animations for open/close and message appearance",
+        "Loading states have appropriate skeletons",
+        "Dark mode support if app has dark mode",
         "npm run build passes"
       ],
       "priority": 28,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-029",
-      "title": "Create correlation analysis controls",
-      "description": "Add analysis controls to the Insights page: time lag checkboxes, analysis level dropdown, min sample size input, and 'Run Analysis' button that calls the correlations API.",
+      "title": "Add unit tests for ToolExecutor",
+      "description": "Write unit tests for the ToolExecutor class covering all tool execution methods.",
       "acceptanceCriteria": [
-        "Time lag multi-select checkboxes: 12h, 24h, 36h, 48h, 72h (default: 24h, 48h)",
-        "Analysis level dropdown: basic, standard, comprehensive (default: standard)",
-        "Min sample size input with default 5",
-        "Run Analysis button calls useCorrelationsQuery with all params",
-        "Disable button if no credentials or date range invalid",
-        "Loading state while fetching",
-        "npm run build passes"
+        "Tests in backend/tests/test_tool_executor.py",
+        "Test each tool method with valid inputs",
+        "Test date parsing for various formats",
+        "Test error handling for invalid tool names",
+        "Test error handling for missing required args",
+        "Mock database queries appropriately",
+        "uv run pytest passes with new tests"
       ],
       "priority": 29,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-030",
-      "title": "Display correlation insights summary",
-      "description": "Create a Key Insights card that displays the human-readable insights from the correlation analysis. Show baseline Bristol score, sample counts, and the generated insight strings.",
+      "title": "Add integration tests for chat flow",
+      "description": "Write integration tests for the full chat flow: send message, tool calls, response generation.",
       "acceptanceCriteria": [
-        "Key Insights card at top of results section",
-        "Shows baseline Bristol score with color indicator (green 3-5, yellow 2/6, red 1/7)",
-        "Shows total BM samples and food log counts",
-        "Lists insight strings as bullet points",
-        "Empty state if no analysis run yet",
-        "Error state if insufficient data",
-        "npm run build passes"
+        "Tests in backend/tests/test_chat_service.py",
+        "Test conversation creation",
+        "Test message persistence",
+        "Test tool call execution in agent loop",
+        "Test rate limiting enforcement",
+        "Test streaming response format",
+        "Mock OpenAI API calls",
+        "uv run pytest passes with new tests"
       ],
       "priority": 30,
-      "passes": true
-    },
-    {
-      "id": "US-031",
-      "title": "Display correlation results table",
-      "description": "Create a sortable table showing detailed correlation results for each nutrient. Include columns for nutrient name, correlation coefficient, p-value, significance indicator, and Bristol comparison.",
-      "acceptanceCriteria": [
-        "Table with columns: Nutrient, Correlation, P-Value, Significant, High Intake Bristol, Low Intake Bristol",
-        "Sortable by clicking column headers (default: sort by |correlation|)",
-        "Color-coded correlation: green for positive, red for negative, gray for none",
-        "Significance shown as checkmark or badge",
-        "Bristol values show the average with trend arrow (up/down)",
-        "Tab selector to switch between time lags (24h, 48h, etc.)",
-        "npm run build passes"
-      ],
-      "priority": 31,
-      "passes": true
-    },
-    {
-      "id": "US-032",
-      "title": "Display consistent correlations highlight",
-      "description": "Create a 'Consistent Findings' section showing nutrients that are significant across multiple time windows. Highlight these as the most reliable insights.",
-      "acceptanceCriteria": [
-        "Consistent Findings section above detailed table",
-        "Shows nutrients significant in 2+ time windows",
-        "Displays: nutrient name, avg correlation, windows count, direction",
-        "Styled as highlighted cards or badges",
-        "Tooltip explaining what 'consistent' means",
-        "Empty state if no consistent correlations found",
-        "npm run build passes"
-      ],
-      "priority": 32,
-      "passes": true
-    },
-    {
-      "id": "US-033",
-      "title": "Add Bristol scale reference and help",
-      "description": "Add educational content explaining the Bristol Stool Scale and how to interpret correlation results. Include a collapsible help section or info tooltips.",
-      "acceptanceCriteria": [
-        "Bristol Scale reference card with types 1-7 descriptions",
-        "Visual icons or colors for each Bristol type",
-        "Explanation of what positive/negative correlation means",
-        "Help tooltip on 'Correlation' column explaining Pearson coefficient",
-        "Help tooltip on 'P-Value' explaining statistical significance",
-        "Collapsible or expandable to not clutter the UI",
-        "npm run build passes"
-      ],
-      "priority": 33,
-      "passes": true
-    },
-    {
-      "id": "US-034",
-      "title": "Add Recharts charting library",
-      "description": "Add Recharts library to the frontend for building interactive data visualizations. Recharts is a React-based charting library built on D3.",
-      "acceptanceCriteria": [
-        "recharts package added to frontend/package.json",
-        "npm install runs without errors",
-        "Create a simple test chart component to verify setup",
-        "npm run build passes"
-      ],
-      "priority": 34,
-      "passes": true
-    },
-    {
-      "id": "US-035",
-      "title": "Create scatter plot component for nutrient vs Bristol",
-      "description": "Create a reusable ScatterPlot component that shows nutrient intake (x-axis) vs Bristol score (y-axis) for a selected nutrient. Each point represents a BM event with the nutrient intake from the preceding time window.",
-      "acceptanceCriteria": [
-        "Component at frontend/src/components/charts/ScatterPlot.tsx",
-        "Props: data array, nutrientName, timeLagHours, onPointClick",
-        "X-axis: nutrient intake amount with unit label",
-        "Y-axis: Bristol score (1-7)",
-        "Points colored by Bristol score (green 3-5, yellow 2/6, red 1/7)",
-        "Tooltip showing date, exact values on hover",
-        "Trend line overlay showing correlation direction",
-        "Responsive sizing",
-        "npm run build passes"
-      ],
-      "priority": 35,
-      "passes": true
-    },
-    {
-      "id": "US-036",
-      "title": "Create correlation heatmap component",
-      "description": "Create a Heatmap component showing correlation strength across nutrients (rows) and time lags (columns). Color intensity represents correlation strength, color hue represents direction.",
-      "acceptanceCriteria": [
-        "Component at frontend/src/components/charts/CorrelationHeatmap.tsx",
-        "Props: correlationData (results_by_lag from API), onCellClick",
-        "Rows: nutrients (grouped by category)",
-        "Columns: time lags (12h, 24h, 36h, 48h, 72h)",
-        "Color scale: red (negative) to white (none) to green (positive)",
-        "Opacity/intensity based on significance (p-value)",
-        "Cell tooltip showing exact values",
-        "Click cell to drill down to scatter plot for that nutrient/lag",
-        "npm run build passes"
-      ],
-      "priority": 36,
-      "passes": true
-    },
-    {
-      "id": "US-037",
-      "title": "Create backend endpoint for time series chart data",
-      "description": "Create GET /api/cronometer/insights/timeline endpoint that returns nutrient intake and Bristol events over time for visualization. Returns daily aggregated data suitable for time series charting.",
-      "acceptanceCriteria": [
-        "GET /insights/timeline endpoint in cronometer router",
-        "Query params: start_date, end_date, nutrients (list of keys)",
-        "Returns daily data points with date, nutrient totals, Bristol scores (if any)",
-        "Bristol events marked with timestamp and score",
-        "Aggregates multiple BMs per day (shows each separately)",
-        "Returns data sorted by date ascending",
-        "Pydantic schema for response defined",
-        "uv run ruff check passes"
-      ],
-      "priority": 37,
-      "passes": true
-    },
-    {
-      "id": "US-038",
-      "title": "Create time series chart component",
-      "description": "Create a TimeSeriesChart component showing nutrient intake over time with Bristol events overlaid. Useful for seeing patterns like 'high fiber yesterday → good BM today'.",
-      "acceptanceCriteria": [
-        "Component at frontend/src/components/charts/TimeSeriesChart.tsx",
-        "Props: timelineData, selectedNutrients, showBristolEvents",
-        "Line chart for nutrient intake over time",
-        "Bristol events shown as markers/dots on secondary y-axis",
-        "Configurable time range (7d, 14d, 30d)",
-        "Nutrient selector to toggle which nutrients to display",
-        "Zoom and pan functionality",
-        "npm run build passes"
-      ],
-      "priority": 38,
-      "passes": true
-    },
-    {
-      "id": "US-039",
-      "title": "Create box plot component for intake quartiles",
-      "description": "Create a BoxPlot component showing Bristol score distribution when nutrient intake is in different quartiles (Q1-Q4). Helps visualize if high intake days have different outcomes.",
-      "acceptanceCriteria": [
-        "Component at frontend/src/components/charts/BoxPlot.tsx",
-        "Props: data, nutrientName, timeLagHours",
-        "Four boxes representing intake quartiles Q1, Q2, Q3, Q4",
-        "Each box shows Bristol score distribution (median, IQR, whiskers)",
-        "Labels showing intake range for each quartile",
-        "Sample size (n) displayed for each quartile",
-        "Color coding for median Bristol (green/yellow/red)",
-        "npm run build passes"
-      ],
-      "priority": 39,
-      "passes": true
-    },
-    {
-      "id": "US-040",
-      "title": "Create calendar heatmap component",
-      "description": "Create a CalendarHeatmap component showing daily Bristol scores on a calendar grid. Color each day by average Bristol score, allow clicking to see details.",
-      "acceptanceCriteria": [
-        "Component at frontend/src/components/charts/CalendarHeatmap.tsx",
-        "Props: healthNotes data, year, month (or range)",
-        "GitHub-style contribution graph layout (weeks as columns)",
-        "Each day colored by Bristol score (green 3-5, yellow 2/6, red 1/7)",
-        "Gray for days with no BM logged",
-        "Tooltip showing date, Bristol score(s), quantity score(s)",
-        "Click day to show detail modal with food logs from preceding 24-48h",
-        "npm run build passes"
-      ],
-      "priority": 40,
-      "passes": true
-    },
-    {
-      "id": "US-041",
-      "title": "Create lag optimization chart component",
-      "description": "Create a LagCorrelationChart component showing correlation strength at each time lag for a selected nutrient. Helps identify the optimal time window for that nutrient.",
-      "acceptanceCriteria": [
-        "Component at frontend/src/components/charts/LagCorrelationChart.tsx",
-        "Props: nutrientKey, correlationsByLag",
-        "Line or bar chart with time lags on x-axis (12h, 24h, 36h, 48h, 72h)",
-        "Correlation coefficient on y-axis (-1 to +1)",
-        "Bars/points colored by significance (solid if p<0.05, faded if not)",
-        "Highlight the optimal lag (strongest significant correlation)",
-        "Reference lines at r=0 and significance thresholds",
-        "npm run build passes"
-      ],
-      "priority": 41,
-      "passes": true
-    },
-    {
-      "id": "US-042",
-      "title": "Add visualization section to Insights page",
-      "description": "Add a 'Visualizations' tab or section to the Insights page that houses all the chart components. Include nutrient selector and chart type picker. NOTE: The tab structure exists but charts show 'Coming Soon' placeholders - this story covers the basic layout only.",
-      "acceptanceCriteria": [
-        "New 'Visualizations' tab on Insights page",
-        "Nutrient dropdown selector (searchable, grouped by category)",
-        "Chart type selector: Scatter, Heatmap, Time Series, Box Plot, Calendar, Lag Chart",
-        "Loading states for each chart",
-        "npm run build passes"
-      ],
-      "priority": 42,
-      "passes": true
-    },
-    {
-      "id": "US-042a",
-      "title": "Add useTimelineQuery hook for chart data",
-      "description": "Add the useTimelineQuery React Query hook to frontend/src/lib/api/cronometer.ts to fetch timeline data from GET /api/cronometer/insights/timeline endpoint. This data is needed for ScatterPlot, TimeSeriesChart, and BoxPlot components.",
-      "acceptanceCriteria": [
-        "TimelineResponse interface defined with start_date, end_date, nutrient_keys, daily_data",
-        "DailyTimelineData interface with day, nutrients Record, bristol_events array",
-        "BristolEvent interface with timestamp, bristol_score, quantity_score",
-        "TimelineParams interface with startDate, endDate, nutrients array",
-        "timelineKeys query key factory defined",
-        "getTimeline async function calls /cronometer/insights/timeline with query params",
-        "useTimelineQuery hook exported with params and enabled flag",
-        "npm run build passes"
-      ],
-      "priority": 42,
-      "passes": true
-    },
-    {
-      "id": "US-042b",
-      "title": "Wire up ScatterPlot chart to timeline data",
-      "description": "Update the Insights page VisualizationsTab to wire up the ScatterPlot component with actual data from useTimelineQuery. Transform timeline data into ScatterDataPoint format pairing nutrient intake with Bristol scores based on time lag.",
-      "acceptanceCriteria": [
-        "Import ScatterPlot component (currently commented out) in insights/page.tsx",
-        "Add useTimelineQuery call in VisualizationsTab or parent component",
-        "Pass timelineData to VisualizationsTab via props",
-        "Transform timeline data: for each Bristol event, find nutrient intake from preceding time window",
-        "Add time lag selector dropdown (12h, 24h, 36h, 48h, 72h) for scatter plot",
-        "Replace 'Coming Soon' placeholder with actual ScatterPlot component",
-        "Show loading state while timeline data is fetching",
-        "Show empty state if no paired data available",
-        "npm run build passes"
-      ],
-      "priority": 43,
-      "passes": true
-    },
-    {
-      "id": "US-042c",
-      "title": "Wire up TimeSeriesChart to timeline data",
-      "description": "Update the Insights page VisualizationsTab to wire up the TimeSeriesChart component with timeline data. Show nutrient intake over time with Bristol events overlaid.",
-      "acceptanceCriteria": [
-        "Import TimeSeriesChart component (currently commented out)",
-        "Pass timelineData directly to TimeSeriesChart (it expects TimelineResponse format)",
-        "Default to showing the selected nutrient plus Bristol events",
-        "Replace 'Coming Soon' placeholder with actual TimeSeriesChart",
-        "Show loading state while data is fetching",
-        "Show empty state if no timeline data",
-        "npm run build passes"
-      ],
-      "priority": 44,
-      "passes": true
-    },
-    {
-      "id": "US-042d",
-      "title": "Wire up CalendarHeatmap to health notes data",
-      "description": "Update the Insights page VisualizationsTab to wire up the CalendarHeatmap component with health notes data from useHealthNotesQuery. Show daily Bristol scores on a calendar grid.",
-      "acceptanceCriteria": [
-        "Import CalendarHeatmap component (currently commented out)",
-        "Add useHealthNotesQuery call and pass data to VisualizationsTab",
-        "Filter health notes to only bowel movement entries with bristol_scale",
-        "Pass filtered health notes to CalendarHeatmap component",
-        "Replace 'Coming Soon' placeholder with actual CalendarHeatmap",
-        "Show empty state if no bowel movement data in date range",
-        "npm run build passes"
-      ],
-      "priority": 45,
-      "passes": true
-    },
-    {
-      "id": "US-042e",
-      "title": "Wire up BoxPlot chart to correlation data",
-      "description": "Update the Insights page VisualizationsTab to wire up the BoxPlot component. Transform timeline data to show Bristol score distributions across nutrient intake quartiles.",
-      "acceptanceCriteria": [
-        "Import BoxPlot component (currently commented out)",
-        "Transform timeline data into quartile-based format for BoxPlot",
-        "Calculate intake quartiles (Q1-Q4) for selected nutrient",
-        "Group Bristol scores by which quartile the preceding intake fell into",
-        "Pass transformed data to BoxPlot component",
-        "Replace 'Coming Soon' placeholder with actual BoxPlot",
-        "Show loading/empty states appropriately",
-        "npm run build passes"
-      ],
-      "priority": 46,
-      "passes": true
-    },
-    {
-      "id": "US-043",
-      "title": "Create Granger causality service",
-      "description": "Create a GrangerCausalityService in the backend that tests whether past nutrient values help predict future Bristol scores beyond what past Bristol scores alone predict.",
-      "acceptanceCriteria": [
-        "Service at backend/src/services/granger_service.py",
-        "GrangerCausalityService class with __init__(db: AsyncSession)",
-        "test_causality(user_id, nutrient_key, max_lag_days) method",
-        "Uses statsmodels grangercausalitytests function",
-        "Returns GrangerResult with f_statistic, p_value, optimal_lag, is_causal",
-        "Handles insufficient data gracefully",
-        "Add statsmodels to backend dependencies",
-        "uv run ruff check passes"
-      ],
-      "priority": 43,
-      "passes": true
-    },
-    {
-      "id": "US-044",
-      "title": "Create Granger causality API endpoint",
-      "description": "Create GET /api/cronometer/insights/granger endpoint to run Granger causality tests for specified nutrients.",
-      "acceptanceCriteria": [
-        "GET /insights/granger endpoint in cronometer router",
-        "Query params: start_date, end_date, nutrients (list), max_lag_days (default 3)",
-        "Returns list of GrangerResultSchema for each nutrient",
-        "Results sorted by significance (most causal first)",
-        "Returns 400 if insufficient data (need consecutive daily data)",
-        "Pydantic schemas defined for request/response",
-        "uv run ruff check passes"
-      ],
-      "priority": 44,
-      "passes": true
-    },
-    {
-      "id": "US-045",
-      "title": "Create Granger causality UI component",
-      "description": "Create a GrangerResults component that displays which nutrients have predictive power for Bristol scores, distinguishing correlation from potential causation.",
-      "acceptanceCriteria": [
-        "Component at frontend/src/components/insights/GrangerResults.tsx",
-        "Table showing: Nutrient, F-statistic, P-value, Optimal Lag, Causal (yes/no)",
-        "Only shows nutrients where is_causal=true by default",
-        "Toggle to show all tested nutrients",
-        "Explanation text: 'These nutrients may CAUSE changes in stool consistency'",
-        "Warning that causation requires further validation",
-        "npm run build passes"
-      ],
-      "priority": 45,
-      "passes": true
-    },
-    {
-      "id": "US-046",
-      "title": "Create controlled comparison service",
-      "description": "Create a ControlledComparisonService that compares Bristol outcomes on days with high intake of a nutrient vs similar days without, controlling for other factors.",
-      "acceptanceCriteria": [
-        "Service at backend/src/services/comparison_service.py",
-        "ControlledComparisonService class with compare(user_id, nutrient_key, ...) method",
-        "Finds 'similar' days based on total calories, other macro ratios",
-        "Compares Bristol outcomes: high-nutrient days vs low-nutrient similar days",
-        "Returns ComparisonResult with avg_bristol_with, avg_bristol_without, difference, confidence_interval",
-        "Uses propensity score matching or simple quartile matching",
-        "uv run ruff check passes"
-      ],
-      "priority": 46,
-      "passes": true
-    },
-    {
-      "id": "US-047",
-      "title": "Create controlled comparison API endpoint",
-      "description": "Create GET /api/cronometer/insights/compare endpoint for running controlled comparisons between high and low intake days.",
-      "acceptanceCriteria": [
-        "GET /insights/compare endpoint in cronometer router",
-        "Query params: start_date, end_date, nutrient_key, control_factors (list)",
-        "Returns ComparisonResultSchema with statistics",
-        "Includes matched_pairs_count showing how many day-pairs were compared",
-        "Returns 400 if not enough matched pairs found",
-        "Pydantic schemas defined",
-        "uv run ruff check passes"
-      ],
-      "priority": 47,
-      "passes": true
-    },
-    {
-      "id": "US-048",
-      "title": "Create controlled comparison UI component",
-      "description": "Create a ControlledComparison component showing side-by-side comparison of outcomes on high vs low intake days for a nutrient.",
-      "acceptanceCriteria": [
-        "Component at frontend/src/components/insights/ControlledComparison.tsx",
-        "Nutrient selector dropdown",
-        "Side-by-side display: 'Days WITH high [nutrient]' vs 'Similar days WITHOUT'",
-        "Shows avg Bristol, sample size, confidence interval for each group",
-        "Visual difference indicator (arrow up/down, color coded)",
-        "Explanation of methodology in collapsible section",
-        "npm run build passes"
-      ],
-      "priority": 48,
-      "passes": true
-    },
-    {
-      "id": "US-049",
-      "title": "Create Intervention model for dietary experiments",
-      "description": "Create SQLAlchemy model for tracking user dietary experiments/interventions. Allows users to log 'I'm going to try eating more fiber for 2 weeks' and track outcomes.",
-      "acceptanceCriteria": [
-        "Model at backend/src/models/intervention.py",
-        "Fields: id, user_id, title, description, hypothesis, nutrient_key (nullable), target_value (nullable), start_date, end_date (nullable), status (enum: planned, active, completed, cancelled), outcome_notes, created_at, updated_at",
-        "InterventionStatus enum defined",
-        "Relationship added to User model",
-        "Exported from models/__init__.py",
-        "Alembic migration created",
-        "uv run ruff check passes"
-      ],
-      "priority": 49,
-      "passes": true
-    },
-    {
-      "id": "US-050",
-      "title": "Create intervention tracking API endpoints",
-      "description": "Create CRUD endpoints for managing dietary interventions: create, list, update status, get with outcomes analysis.",
-      "acceptanceCriteria": [
-        "POST /interventions - create new intervention",
-        "GET /interventions - list user's interventions",
-        "GET /interventions/{id} - get single intervention with outcome analysis",
-        "PATCH /interventions/{id} - update status, notes, end_date",
-        "DELETE /interventions/{id} - remove intervention",
-        "GET endpoint includes pre/during Bristol comparison if completed",
-        "Pydantic schemas for all request/response types",
-        "uv run ruff check passes"
-      ],
-      "priority": 50,
-      "passes": true
-    },
-    {
-      "id": "US-051",
-      "title": "Create intervention tracking UI",
-      "description": "Create UI for managing dietary experiments: list active/past interventions, create new ones, view outcomes.",
-      "acceptanceCriteria": [
-        "New 'Experiments' tab on Insights page",
-        "List of interventions with status badges (active, completed, etc.)",
-        "Create intervention modal/form with hypothesis field",
-        "Intervention detail view showing pre/during comparison",
-        "Chart comparing Bristol scores before vs during intervention",
-        "Complete/cancel intervention actions",
-        "npm run build passes"
-      ],
-      "priority": 51,
-      "passes": true
-    },
-    {
-      "id": "US-052",
-      "title": "Create food-level correlation service",
-      "description": "Create a FoodCorrelationService that analyzes correlations at the specific food level (not just nutrients). Identifies which specific foods correlate with Bristol outcomes.",
-      "acceptanceCriteria": [
-        "Service at backend/src/services/food_correlation_service.py",
-        "FoodCorrelationService class with analyze_foods(user_id, start_date, end_date, min_occurrences) method",
-        "Groups food logs by food_name",
-        "For each food eaten >= min_occurrences times, calculates correlation with next-day Bristol",
-        "Returns FoodCorrelationResult with food_name, times_eaten, avg_bristol_after, correlation, is_trigger",
-        "is_trigger = True if food appears significantly more on bad Bristol days",
-        "uv run ruff check passes"
-      ],
-      "priority": 52,
-      "passes": true
-    },
-    {
-      "id": "US-053",
-      "title": "Create food-level correlation API endpoint",
-      "description": "Create GET /api/cronometer/insights/foods endpoint for food-level correlation analysis.",
-      "acceptanceCriteria": [
-        "GET /insights/foods endpoint in cronometer router",
-        "Query params: start_date, end_date, min_occurrences (default 3), time_lag_hours (default 24)",
-        "Returns list of FoodCorrelationResultSchema sorted by correlation strength",
-        "Includes trigger_foods list filtered to is_trigger=True items",
-        "Pydantic schemas defined",
-        "uv run ruff check passes"
-      ],
-      "priority": 53,
-      "passes": true
-    },
-    {
-      "id": "US-054",
-      "title": "Create food drill-down UI component",
-      "description": "Create a FoodAnalysis component that shows correlation analysis for specific foods, not just nutrients. Allows searching/filtering by food name.",
-      "acceptanceCriteria": [
-        "Component at frontend/src/components/insights/FoodAnalysis.tsx",
-        "Search box to filter foods by name",
-        "Sortable table: Food Name, Times Eaten, Avg Bristol After, Correlation",
-        "Color-coded rows (red for negative correlation/trigger foods)",
-        "Click food to see scatter plot of that food's intake vs Bristol",
-        "Filter toggle: 'Show potential triggers only'",
-        "npm run build passes"
-      ],
-      "priority": 54,
-      "passes": true
-    },
-    {
-      "id": "US-055",
-      "title": "Create trigger food detection component",
-      "description": "Create a TriggerFoods component that highlights foods statistically associated with poor Bristol outcomes. Presents as a warning/alert section.",
-      "acceptanceCriteria": [
-        "Component at frontend/src/components/insights/TriggerFoods.tsx",
-        "Shows foods where is_trigger=True from food correlation API",
-        "Card-style layout with food name, times eaten, impact score",
-        "Visual indicator of severity (how strongly associated)",
-        "Explanation text: 'These foods appear more frequently before poor outcomes'",
-        "Disclaimer about correlation vs causation",
-        "Link to each food's detailed scatter plot",
-        "npm run build passes"
-      ],
-      "priority": 55,
-      "passes": true
-    },
-    {
-      "id": "US-056",
-      "title": "Create personal optimal ranges service",
-      "description": "Create a service that identifies the optimal intake ranges for each nutrient based on the user's historical data. Find the ranges where Bristol scores are consistently in the healthy zone.",
-      "acceptanceCriteria": [
-        "Service at backend/src/services/optimal_ranges_service.py",
-        "OptimalRangesService class with find_optimal_ranges(user_id, ...) method",
-        "For each nutrient, bins intake into deciles",
-        "Finds the intake range(s) where avg Bristol is closest to 4 (optimal)",
-        "Returns OptimalRange with nutrient_name, optimal_min, optimal_max, avg_bristol_in_range, sample_size",
-        "Only includes nutrients with sufficient data",
-        "uv run ruff check passes"
-      ],
-      "priority": 56,
-      "passes": true
-    },
-    {
-      "id": "US-057",
-      "title": "Create personal optimal ranges API endpoint",
-      "description": "Create GET /api/cronometer/insights/optimal-ranges endpoint that returns personalized optimal nutrient ranges.",
-      "acceptanceCriteria": [
-        "GET /insights/optimal-ranges endpoint in cronometer router",
-        "Query params: start_date, end_date, target_bristol (default 4), tolerance (default 1)",
-        "Returns list of OptimalRangeSchema for each nutrient with sufficient data",
-        "Sorted by confidence (sample size and consistency)",
-        "Pydantic schemas defined",
-        "uv run ruff check passes"
-      ],
-      "priority": 57,
-      "passes": true
-    },
-    {
-      "id": "US-058",
-      "title": "Create personal optimal ranges UI component",
-      "description": "Create an OptimalRanges component showing the user's personalized optimal intake ranges for each nutrient, presented as target goals.",
-      "acceptanceCriteria": [
-        "Component at frontend/src/components/insights/OptimalRanges.tsx",
-        "Card for each nutrient showing optimal range (e.g., 'Fiber: 25-35g')",
-        "Visual gauge or range indicator",
-        "Comparison to today's intake if available",
-        "Confidence indicator based on sample size",
-        "Grouped by nutrient category",
-        "npm run build passes"
-      ],
-      "priority": 58,
-      "passes": true
-    },
-    {
-      "id": "US-059",
-      "title": "Fix nutrient dropdown mapping to Cronometer data",
-      "description": "Audit and fix the nutrient dropdown in the Insights page VisualizationsTab to ensure all nutrients map correctly to Cronometer data. Currently the frontend uses simplified keys (fiber, protein) but the timeline endpoint only maps a few to model fields, and Cronometer raw_data uses keys like 'Fiber (g)', 'Protein (g)'. Need to update the backend timeline endpoint to accept friendly names and map them to the correct raw_data keys from TRACKED_NUTRIENTS.",
-      "acceptanceCriteria": [
-        "Backend timeline endpoint maps friendly nutrient keys to Cronometer raw_data keys (e.g., 'fiber' -> 'Fiber (g)', 'vitamin_c' -> 'Vitamin C (mg)')",
-        "Add comprehensive mapping covering all nutrients in the frontend NUTRIENT_OPTIONS dropdown",
-        "Update frontend NUTRIENT_OPTIONS values to match the mapping keys exactly",
-        "Remove any nutrients from dropdown that Cronometer doesn't provide",
-        "Test that selecting each nutrient in dropdown returns actual data (not all zeros)",
-        "Update getNutrientUnit function to return correct units for each nutrient",
-        "npm run build passes and uv run ruff check passes"
-      ],
-      "priority": 59,
-      "passes": true
-    },
-    {
-      "id": "US-060",
-      "title": "Remove time window slider from Time Series Chart",
-      "description": "Remove the Brush (time window slider) component from the TimeSeriesChart and default to showing the full date range from the Insights page date selector. The slider causes confusion with date alignment. The chart should simply show data for the selected date range without any zoom/pan controls.",
-      "acceptanceCriteria": [
-        "Remove Brush component and showBrush prop from TimeSeriesChart",
-        "Chart displays full date range from start to end date",
-        "Remove startIndex calculation that was used for Brush",
-        "X-axis shows appropriate tick intervals based on date range length",
-        "All dates in range are visible without needing to scroll/zoom",
-        "Update the chart height if needed for better visibility",
-        "npm run build passes"
-      ],
-      "priority": 60,
-      "passes": true
-    },
-    {
-      "id": "US-061",
-      "title": "Add food log modal to Calendar Heatmap day clicks",
-      "description": "Make calendar heatmap days clickable to show a modal with food logs for that day and the preceding day. This allows users to click on red-shaded days (concerning Bristol scores) and see what they ate that could have caused the issue. The modal should show foods from the clicked day AND the day before (since food takes time to affect digestion).",
-      "acceptanceCriteria": [
-        "Create FoodLogModal component at frontend/src/components/insights/FoodLogModal.tsx",
-        "Modal shows when clicking a day cell in CalendarHeatmap",
-        "Modal header shows the selected date and Bristol score(s) for that day",
-        "Modal body has two sections: 'Day Before' and 'Selected Day' food logs",
-        "Each section lists food items with: food name, serving size, time logged, and key nutrients (calories, fiber, protein)",
-        "Foods are sorted by time logged",
-        "Empty state if no food logs for that period",
-        "Add useFoodLogsQuery hook call to fetch food logs when modal opens",
-        "Modal has close button and closes on backdrop click",
-        "Styling consistent with other modals in the app",
-        "npm run build passes"
-      ],
-      "priority": 61,
-      "passes": true
+      "passes": false
     }
   ]
 }
