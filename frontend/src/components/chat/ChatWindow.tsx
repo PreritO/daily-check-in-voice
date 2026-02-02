@@ -1,6 +1,7 @@
 "use client";
 
 import { ChatHeader } from "./ChatHeader";
+import { ChatInput } from "./ChatInput";
 import { ChatMessages } from "./ChatMessages";
 
 // =============================================================================
@@ -39,36 +40,8 @@ export function ChatWindow({ className }: ChatWindowProps) {
       {/* ChatMessages */}
       <ChatMessages className="flex-1" />
 
-      {/* ChatInput - to be implemented in US-024 */}
-      <div className="flex-shrink-0 px-4 py-3 border-t border-[#DEDDDB] dark:border-[#3D3935]">
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="Ask about your nutrition..."
-            disabled
-            className="flex-1 px-4 py-2 rounded-full border border-[#DEDDDB] bg-[#FDFBF7] text-[#4A4543] placeholder-[#A89B86] dark:border-[#3D3935] dark:bg-[#2A2725] dark:text-[#F5F3F0] dark:placeholder-[#8B7E6F] focus:outline-none focus:ring-2 focus:ring-[#E8A0BF]"
-          />
-          <button
-            disabled
-            className="flex items-center justify-center h-10 w-10 rounded-full bg-[#E8A0BF] text-white disabled:opacity-50"
-          >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-              />
-            </svg>
-          </button>
-        </div>
-      </div>
+      {/* ChatInput */}
+      <ChatInput className="flex-shrink-0" />
     </div>
   );
 }
