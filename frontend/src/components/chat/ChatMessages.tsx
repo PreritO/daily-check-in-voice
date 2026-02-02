@@ -14,6 +14,8 @@ export interface ChatMessagesProps {
   className?: string;
   /** Whether messages are loading */
   isLoading?: boolean;
+  /** Callback when a suggestion is clicked */
+  onSuggestionClick?: (suggestion: string) => void;
 }
 
 // =============================================================================
@@ -25,7 +27,11 @@ export interface ChatMessagesProps {
  * Auto-scrolls to bottom when new messages arrive.
  * Shows suggestions for empty conversations.
  */
-export function ChatMessages({ className, isLoading }: ChatMessagesProps) {
+export function ChatMessages({
+  className,
+  isLoading,
+  onSuggestionClick,
+}: ChatMessagesProps) {
   const { messages, isStreaming, streamingContent } = useChatStore();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -81,7 +87,10 @@ export function ChatMessages({ className, isLoading }: ChatMessagesProps) {
             patterns.
           </p>
         </div>
-        <ChatSuggestions className="flex-shrink-0" />
+        <ChatSuggestions
+          className="flex-shrink-0"
+          onSuggestionClick={onSuggestionClick}
+        />
       </div>
     );
   }

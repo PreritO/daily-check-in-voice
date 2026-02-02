@@ -1,5 +1,6 @@
 "use client";
 
+import { useChatStreaming } from "@/lib/api/streaming";
 import { ChatHeader } from "./ChatHeader";
 import { ChatInput } from "./ChatInput";
 import { ChatMessages } from "./ChatMessages";
@@ -23,6 +24,13 @@ export interface ChatWindowProps {
  * Responsive: fixed size on desktop, full screen on mobile.
  */
 export function ChatWindow({ className }: ChatWindowProps) {
+  const { sendMessage, isLoading } = useChatStreaming({
+    onError: (error) => {
+      // TODO: Show error toast or inline message
+      console.error("Chat error:", error);
+    },
+  });
+
   return (
     <div
       className={`
@@ -38,10 +46,14 @@ export function ChatWindow({ className }: ChatWindowProps) {
       <ChatHeader className="flex-shrink-0" />
 
       {/* ChatMessages */}
-      <ChatMessages className="flex-1" />
+      <ChatMessages
+        className="flex-1"
+        isLoading={isLoading}
+        onSuggestionClick={sendMessage}
+      />
 
       {/* ChatInput */}
-      <ChatInput className="flex-shrink-0" />
+      <ChatInput className="flex-shrink-0" onSendMessage={sendMessage} />
     </div>
   );
 }
