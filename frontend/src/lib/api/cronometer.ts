@@ -23,6 +23,7 @@ export interface SyncResponse {
   food_logs_synced: number;
   biometric_logs_synced: number;
   health_notes_synced: number;
+  exercises_synced: number;
   synced_at: string;
 }
 
@@ -51,6 +52,16 @@ export interface HealthNote {
   is_bowel_movement: boolean;
   bristol_scale: number | null;
   quantity_score: number | null;
+  created_at: string;
+}
+
+export interface ExerciseLog {
+  id: string;
+  user_id: string;
+  logged_at: string;
+  name: string;
+  duration_minutes: number | null;
+  calories_burned: number | null;
   created_at: string;
 }
 
@@ -150,6 +161,20 @@ async function getHealthNotes(params: GetHealthNotesParams): Promise<HealthNote[
   return response.data;
 }
 
+interface GetExerciseLogsParams {
+  startDate: string;
+  endDate: string;
+}
+
+async function getExerciseLogs(params: GetExerciseLogsParams): Promise<ExerciseLog[]> {
+  const queryParams = new URLSearchParams();
+  queryParams.set("start_date", params.startDate);
+  queryParams.set("end_date", params.endDate);
+
+  const response = await apiClient.get<ExerciseLog[]>(`/cronometer/exercises?${queryParams}`);
+  return response.data;
+}
+
 async function getCorrelations(params: CorrelationsParams): Promise<MultiLagCorrelationResponse> {
   const queryParams = new URLSearchParams();
   queryParams.set("start_date", params.startDate);
@@ -188,6 +213,9 @@ export const cronometerKeys = {
   healthNotes: () => [...cronometerKeys.all, "health-notes"] as const,
   healthNotesByDate: (startDate: string, endDate: string) =>
     [...cronometerKeys.healthNotes(), { startDate, endDate }] as const,
+  exerciseLogs: () => [...cronometerKeys.all, "exercise-logs"] as const,
+  exerciseLogsByDate: (startDate: string, endDate: string) =>
+    [...cronometerKeys.exerciseLogs(), { startDate, endDate }] as const,
   insights: () => [...cronometerKeys.all, "insights"] as const,
   correlations: (params: CorrelationsParams) =>
     [...cronometerKeys.insights(), "correlations", params] as const,
@@ -231,9 +259,10 @@ export function useSyncCronometerMutation() {
     onSuccess: () => {
       // Invalidate status to refresh last_sync_at
       queryClient.invalidateQueries({ queryKey: cronometerKeys.status() });
-      // Invalidate food logs and health notes since new data may have been synced
+      // Invalidate food logs, health notes, and exercise logs since new data may have been synced
       queryClient.invalidateQueries({ queryKey: cronometerKeys.foodLogs() });
       queryClient.invalidateQueries({ queryKey: cronometerKeys.healthNotes() });
+      queryClient.invalidateQueries({ queryKey: cronometerKeys.exerciseLogs() });
       // Invalidate insights since underlying data changed
       queryClient.invalidateQueries({ queryKey: cronometerKeys.insights() });
     },
@@ -252,6 +281,14 @@ export function useHealthNotesQuery(startDate: string, endDate: string) {
   return useQuery({
     queryKey: cronometerKeys.healthNotesByDate(startDate, endDate),
     queryFn: () => getHealthNotes({ startDate, endDate }),
+    enabled: !!startDate && !!endDate,
+  });
+}
+
+export function useExerciseLogsQuery(startDate: string, endDate: string) {
+  return useQuery({
+    queryKey: cronometerKeys.exerciseLogsByDate(startDate, endDate),
+    queryFn: () => getExerciseLogs({ startDate, endDate }),
     enabled: !!startDate && !!endDate,
   });
 }
