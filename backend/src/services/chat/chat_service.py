@@ -7,19 +7,19 @@ persistence.
 
 import json
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
 from uuid import UUID
 
 import openai
 import structlog
 from openai import AsyncOpenAI
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import get_settings
 from src.models import Conversation, Message, MessageRole
 
 from .prompts import build_system_prompt
+from .rate_limit import check_rate_limit
 from .tool_executor import ToolExecutor
 from .tools import AGENT_TOOLS
 
@@ -27,12 +27,6 @@ logger = structlog.get_logger()
 
 # Maximum iterations for the agent loop to prevent infinite loops
 MAX_AGENT_ITERATIONS = 5
-
-
-class RateLimitExceededError(Exception):
-    """Raised when user exceeds the daily chat rate limit."""
-
-    pass
 
 
 class ChatService:
@@ -369,40 +363,7 @@ class ChatService:
         Raises:
             RateLimitExceededError: If user has exceeded the limit.
         """
-        # Get today's date in UTC
-        today_utc = datetime.now(UTC).date()
-        today_start = datetime.combine(today_utc, datetime.min.time()).replace(tzinfo=UTC)
-        today_end = datetime.combine(today_utc, datetime.max.time()).replace(tzinfo=UTC)
-
-        # Count user messages from today using JOIN with Conversation
-        result = await self.db.execute(
-            select(func.count(Message.id))
-            .join(Conversation, Message.conversation_id == Conversation.id)
-            .where(
-                Conversation.user_id == self.user_id,
-                Message.role == MessageRole.USER,
-                Message.created_at >= today_start,
-                Message.created_at <= today_end,
-            )
-        )
-        message_count = result.scalar() or 0
-
-        if message_count >= self.settings.CHAT_RATE_LIMIT_PER_DAY:
-            self.logger.warning(
-                "rate_limit_exceeded",
-                message_count=message_count,
-                limit=self.settings.CHAT_RATE_LIMIT_PER_DAY,
-            )
-            raise RateLimitExceededError(
-                f"Daily message limit of {self.settings.CHAT_RATE_LIMIT_PER_DAY} exceeded. "
-                "Please try again tomorrow."
-            )
-
-        self.logger.debug(
-            "rate_limit_check_passed",
-            message_count=message_count,
-            limit=self.settings.CHAT_RATE_LIMIT_PER_DAY,
-        )
+        await check_rate_limit(self.db, self.user_id)
 
     async def _save_message(
         self,
