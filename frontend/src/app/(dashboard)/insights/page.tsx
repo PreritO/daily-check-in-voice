@@ -37,6 +37,7 @@ import {
   CalendarHeatmap,
   LagCorrelationChart,
 } from "@/components/charts";
+import { FoodLogModal } from "@/components/insights";
 
 // =============================================================================
 // Tab Types
@@ -1491,6 +1492,12 @@ function VisualizationsTab({
   const [selectedChartType, setSelectedChartType] = useState<ChartType>("scatter");
   const [selectedTimeLag, setSelectedTimeLag] = useState<TimeLag>(24);
 
+  // State for FoodLogModal
+  const [foodLogModalData, setFoodLogModalData] = useState<{
+    selectedDate: Date;
+    bristolEvents: { bristol_scale: number | null; quantity_score: number | null; logged_at: string }[];
+  } | null>(null);
+
   // Get the nutrient name for display
   const nutrientLabel = useMemo(() => {
     const option = NUTRIENT_OPTIONS.find((o) => o.value === selectedNutrient);
@@ -1961,7 +1968,15 @@ function VisualizationsTab({
               startDate={startDate}
               endDate={endDate}
               onDayClick={(date, events) => {
-                console.log("Clicked day:", date, events);
+                // Open the FoodLogModal with the clicked day's data
+                setFoodLogModalData({
+                  selectedDate: date,
+                  bristolEvents: events.map((e) => ({
+                    bristol_scale: e.bristol_scale,
+                    quantity_score: e.quantity_score,
+                    logged_at: e.logged_at,
+                  })),
+                });
               }}
             />
           </div>
@@ -2078,6 +2093,15 @@ function VisualizationsTab({
           {renderChart()}
         </div>
       </div>
+
+      {/* FoodLogModal for CalendarHeatmap day clicks */}
+      {foodLogModalData && (
+        <FoodLogModal
+          selectedDate={foodLogModalData.selectedDate}
+          bristolEvents={foodLogModalData.bristolEvents}
+          onClose={() => setFoodLogModalData(null)}
+        />
+      )}
     </div>
   );
 }
